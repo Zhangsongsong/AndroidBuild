@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace 'com.zasko.androidbuild'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.zasko.androidbuild"
         minSdk 21
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -30,10 +30,15 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    viewBinding {
+        enabled = true
+    }
 }
 
 dependencies {
 
+    //noinspection GradleDependency
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
