@@ -58,20 +58,6 @@ class SimplePlayerView @JvmOverloads constructor(
         contentFrame.resizeMode = resizeMode
     }
 
-    /**
-     *   player = ExoPlayer.Builder(binding.playerView.context).build()
-     *
-     *         player?.let {
-     *             it.repeatMode = Player.REPEAT_MODE_ONE
-     *             binding.playerView.setPlayer(it)
-     *         }
-     *
-     *   SimpleExoPlayer.Builder(binding.playerView.context).setLoadControl(
-     *             DefaultLoadControl.Builder().setBufferDurationsMs(1000, 3000, 1000, 1000).build()
-     *         ).build()
-     *
-     */
-
     fun setPlayer(player: Player) {
         if (mPlayer == player) {
             return
