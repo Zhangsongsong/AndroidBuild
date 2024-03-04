@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="CustomSeekBar">
+        <attr name="bgColor" format="color" />
+        <attr name="progressColor" format="color" />
+        <attr name="minHeight" format="dimension" />
+        <attr name="maxHeight" format="dimension" />
+        <attr name="roundHeight" format="dimension" />
+        <attr name="is_min_bottom" format="boolean" />
+    </declare-styleable>
+
+</resources>
