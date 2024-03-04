@@ -1,11 +1,17 @@
 package com.zasko.video
 
+import android.annotation.SuppressLint
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.ExoPlayer
 import com.zasko.video.databinding.FragmentVideoBinding
 import java.io.Serializable
 import kotlin.random.Random
@@ -16,13 +22,15 @@ class VideoFragment : Fragment() {
 
         const val KEY_INFO = "key_info"
 
-        val COLORS = arrayOf(R.color.purple_200, R.color.purple_500, R.color.purple_700)
+        val SOURCE_IDS = arrayOf(R.raw.video11, R.raw.video12, R.raw.video13, R.raw.video14)
     }
 
     private lateinit var viewBinding: FragmentVideoBinding
 
 
     private lateinit var tranData: VideoFragmentData
+
+    private var player: Player? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -36,8 +44,52 @@ class VideoFragment : Fragment() {
     }
 
     private fun initView() {
-        viewBinding.indexTv.text = "${tranData.index}"
-        viewBinding.videoCons.setBackgroundColor(ContextCompat.getColor(viewBinding.videoCons.context, COLORS[Random.nextInt(COLORS.size)]))
+        initPlayer()
+    }
+
+
+    @SuppressLint("UnsafeOptInUsageError")
+    private fun initPlayer() {
+        releasePlayer()
+
+        player = ExoPlayer.Builder(viewBinding.playerView.context)
+            .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(2000, 4000, 1000, 2000).build()).build()
+
+        player?.let {
+            viewBinding.playerView.setPlayer(it)
+            it.repeatMode = Player.REPEAT_MODE_ONE
+            it.setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://" + context?.packageName + "/" + SOURCE_IDS[Random.nextInt(SOURCE_IDS.size)])))
+            it.prepare()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        player?.pause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        player?.play()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        releasePlayer()
+    }
+
+    private fun releasePlayer() {
+        player?.let {
+            it.release()
+            Log.e(TAG, "releasePlayer: index:${tranData.index}")
+            player = null
+        }
+    }
+
+    fun resetPlayer() {
+        player?.let {
+            it.seekTo(0)
+        }
     }
 
 }
