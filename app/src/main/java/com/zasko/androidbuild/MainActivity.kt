@@ -1,12 +1,46 @@
 package com.zasko.androidbuild
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.zasko.androidbuild.activity.CustomViewActivity
+import com.zasko.androidbuild.adapter.NormalAdapter
 import com.zasko.androidbuild.databinding.ActivityMainBinding
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity() {
+
+    companion object {
+        const val ID_CUSTOM_VIEW = 1
+
+    }
+
+    private lateinit var binding: ActivityMainBinding
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+
+        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        val adapter = NormalAdapter { pos, info ->
+            when (pos) {
+                ID_CUSTOM_VIEW -> {
+                    CustomViewActivity.start(this)
+                }
+            }
+        }.apply {
+            this.setData(
+                arrayListOf(
+                    NormalAdapter.ItemInfo(id = 0, title = getString(R.string.custom_view)),
+                    NormalAdapter.ItemInfo(id = 1, title = getString(R.string.custom_seekbar))
+                )
+            )
+        }
+
+        binding.recyclerView.adapter = adapter
+
     }
+
+
 }

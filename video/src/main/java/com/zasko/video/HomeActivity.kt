@@ -39,7 +39,7 @@ class HomeActivity : AppCompatActivity() {
         loadData()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            MMediaCodec.codecName(this)
+//            MMediaCodec.codecName(this)
         }
 
     }

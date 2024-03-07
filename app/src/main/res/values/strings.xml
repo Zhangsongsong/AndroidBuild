@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">AndroidBuild</string>
+
+    <string name="custom_view">自定义View</string>
+    <string name="custom_seekbar">自定义SeekBar</string>
 </resources>
