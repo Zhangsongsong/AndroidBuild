@@ -24,7 +24,7 @@ class MainActivity : BaseActivity() {
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         val adapter = NormalAdapter { pos, info ->
-            when (pos) {
+            when (info.id) {
                 ID_CUSTOM_VIEW -> {
                     CustomViewActivity.start(this)
                 }
@@ -32,8 +32,7 @@ class MainActivity : BaseActivity() {
         }.apply {
             this.setData(
                 arrayListOf(
-                    NormalAdapter.ItemInfo(id = 0, title = getString(R.string.custom_view)),
-                    NormalAdapter.ItemInfo(id = 1, title = getString(R.string.custom_seekbar))
+                    NormalAdapter.ItemInfo(id = ID_CUSTOM_VIEW, title = getString(R.string.custom_view)),
                 )
             )
         }

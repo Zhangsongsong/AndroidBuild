@@ -24,6 +24,8 @@
         </activity>
 
         <activity android:name=".activity.CustomViewActivity" />
+
+        <activity android:name=".activity.SeekBarActivity" />
     </application>
 
 </manifest>
