@@ -5,4 +5,6 @@
     <string name="change_theme">更换主题</string>
 
     <string name="custom_seekbar">自定义SeekBar</string>
+
+    <string name="material">Material</string>
 </resources>

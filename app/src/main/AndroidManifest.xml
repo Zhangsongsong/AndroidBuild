@@ -25,7 +25,11 @@
 
         <activity android:name=".activity.CustomViewActivity" />
         <activity android:name=".activity.ChangeThemeActivity" />
+        <activity android:name=".activity.MaterialActivity" />
+
+        <activity android:name=".activity.SpringAnimationActivity" />
         <activity android:name=".activity.SeekBarActivity" />
+
     </application>
 
 </manifest>

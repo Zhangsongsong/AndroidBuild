@@ -185,3 +185,8 @@ val Int.dp: Int
     get() = android.util.TypedValue.applyDimension(
         android.util.TypedValue.COMPLEX_UNIT_DIP, this.toFloat(), Resources.getSystem().displayMetrics
     ).toInt()
+
+val Float.dp: Float
+    get() = android.util.TypedValue.applyDimension(
+        android.util.TypedValue.COMPLEX_UNIT_DIP, this, Resources.getSystem().displayMetrics
+    )
