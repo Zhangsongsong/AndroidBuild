@@ -21,18 +21,31 @@ class SpringAnimationActivity : BaseActivity() {
     }
 
     private lateinit var binding: ActivitySpringAnimationBinding
+
+    private var currentY = 100f.dp
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivitySpringAnimationBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val springAnimation = SpringAnimation(binding.springView, DynamicAnimation.TRANSLATION_Y, 100f.dp).apply {
-            spring.dampingRatio = SpringForce.DAMPING_RATIO_HIGH_BOUNCY
-        }
+
 
         binding.startAniBtn.onClick {
-            springAnimation.start()
+
+            if (currentY > 0) {
+                SpringAnimation(binding.springView, DynamicAnimation.TRANSLATION_Y, (-100f).dp).apply {
+                    spring.dampingRatio = SpringForce.DAMPING_RATIO_HIGH_BOUNCY
+                }
+
+            } else {
+                SpringAnimation(binding.springView, DynamicAnimation.TRANSLATION_Y, 100f.dp).apply {
+                    spring.dampingRatio = SpringForce.DAMPING_RATIO_HIGH_BOUNCY
+                }
+
+            }.start()
+            currentY = -currentY
         }
 
 
