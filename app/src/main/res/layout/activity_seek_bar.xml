@@ -10,11 +10,10 @@
         android:id="@+id/titleInclude"
         layout="@layout/include_title" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/timeTv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
         android:textSize="20sp"
         app:layout_constraintBottom_toTopOf="@id/seekbar"
         app:layout_constraintEnd_toEndOf="parent"
@@ -22,11 +21,10 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:text="aaaa" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/timeIntTv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
         android:textSize="20sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

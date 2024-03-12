@@ -1,13 +1,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.AndroidBuild" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.AndroidBuild" parent="Theme.MaterialComponents.Light.NoActionBar">
+
+        <!--colorPrimary 和 colorSecondary 您的应用的主要品牌颜色，主要用于主题-->
+        <!--colorPrimaryVariant 和 colorSecondaryVariant 您的主要品牌颜色的较浅/较暗变体，在主题中很少使用-->
+        <!--colorSurface 用于表单或表面 (如卡片颜色和应用的底部弹出菜单颜色)-->
+        <!--android:colorBackground 是应用的窗口背景颜色-->
+        <!--各种各样的 "On" 颜色 (colorOnPrimary、colorOnSecondary、colorOnSurface 等) 用于为显示在其他颜色上方的前景内容 (如文本和图标) 进行着色。这些颜色需要满足无障碍功能要求并与所在表面的颜色有足够的对比度。-->
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimary">@color/color_ea944e</item>
+        <item name="colorPrimaryVariant">@color/color_ea944e</item>
+        <item name="colorOnPrimary">@color/white</item> <!--用于显示在原色上方的元素的颜色（例如，文本和图标，根据可访问性，通常为白色或半透明的黑色）-->
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorSecondary">@color/teal_200</item><!--您应用程式的次要品牌色彩，主要用于强调某些需要突出的小部件-->
+        <item name="colorSecondaryVariant">@color/teal_700</item><!--您的次要品牌颜色的较浅/较深变体，在主题中很少使用-->
         <item name="colorOnSecondary">@color/black</item>
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
