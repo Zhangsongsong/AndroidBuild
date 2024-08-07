@@ -13,7 +13,7 @@ class MainActivity : BaseActivity() {
 
     companion object {
 
-        const val TAG = ""
+        const val TAG = "MainActivity"
         const val ID_CUSTOM_VIEW = 1
 
         const val ID_CHANGE_THEME = 2

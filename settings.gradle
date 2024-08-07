@@ -1,16 +1,33 @@
 pluginManagement {
+    /**
+     * 该pluginManagement{}块用于配置插件解析的存储库并定义在构建脚本中应用的插件的版本约束。
+     * 对于之前的buildscript 的 repositories 配置
+     */
+
     repositories {
+
+//        maven {
+//            url 'https://repository.inkept.cn/repository/inke-gz-inf'
+//        }
+
         google()
         mavenCentral()
         gradlePluginPortal()
+
     }
 }
 dependencyResolutionManagement {
+    /**
+     * 对应 allprojects 的 repositories 配置
+     */
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
+
+
     }
+
 }
 rootProject.name = "AndroidBuild"
 include ':app'
