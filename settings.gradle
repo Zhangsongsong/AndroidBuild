@@ -32,3 +32,4 @@ dependencyResolutionManagement {
 rootProject.name = "AndroidBuild"
 include ':app'
 include ':video'
+include ':accessibility'
