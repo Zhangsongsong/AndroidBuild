@@ -3,11 +3,15 @@ package com.zasko.androidbuild.activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.widget.ProgressBar
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.zasko.androidbuild.BaseActivity
 import com.zasko.androidbuild.R
 import com.zasko.androidbuild.adapter.NormalAdapter
 import com.zasko.androidbuild.databinding.ActivityCustomViewBinding
+import java.lang.reflect.Modifier
 
 class CustomViewActivity : BaseActivity() {
 
