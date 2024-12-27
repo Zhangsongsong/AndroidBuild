@@ -1,21 +1,14 @@
 package com.zasko.video
 
-import android.media.MediaExtractor
-import android.media.MediaFormat
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.zasko.video.databinding.ActivityHomeBinding
-import com.zasko.video.player.MMediaCodec
-import java.io.File
 import kotlin.random.Random
 
 class HomeActivity : AppCompatActivity() {
