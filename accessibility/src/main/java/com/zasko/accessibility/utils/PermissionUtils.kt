@@ -2,6 +2,8 @@ package com.zasko.accessibility.utils
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import android.text.TextUtils
 import android.text.TextUtils.SimpleStringSplitter
@@ -42,5 +44,24 @@ object PermissionUtils {
 
         }
         return false
+    }
+
+    fun openSettingAccess(context: Context) {
+        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    /**
+     * 浮窗权限
+     */
+    fun isEnableFloatWindowAndOpen(context: Context): Boolean {
+        return Settings.canDrawOverlays(context.applicationContext)
+
+    }
+
+    fun openSettingFloatWindow(context: Context) {
+        if (!isEnableFloatWindowAndOpen(context)) {
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+            context.startActivity(intent)
+        }
     }
 }

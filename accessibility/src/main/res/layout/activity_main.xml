@@ -1,7 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/white">
+
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+
+            <com.zasko.accessibility.views.AutoSwitchView
+                android:id="@+id/accessSwitchView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:desText="必须"
+                app:titleText="无障碍权限开关" />
+
+            <com.zasko.accessibility.views.AutoSwitchView
+                android:id="@+id/openFloatSwitchView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:desText="会检查一次浮窗权限,只有允许了才能看到浮窗界面"
+                app:titleText="开启浮窗" />
+
+        </LinearLayout>
+
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
