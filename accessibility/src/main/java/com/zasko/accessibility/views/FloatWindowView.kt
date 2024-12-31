@@ -1,5 +1,6 @@
 package com.zasko.accessibility.views
 
+import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
@@ -12,6 +13,8 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import com.zasko.accessibility.R
 import com.zasko.accessibility.databinding.FloatWindowLayoutBinding
+import com.zasko.accessibility.service.DemoAccessibilityService
+import com.zasko.accessibility.utils.onClick
 import kotlin.math.abs
 
 class FloatWindowView @JvmOverloads constructor(
@@ -61,9 +64,11 @@ class FloatWindowView @JvmOverloads constructor(
         val view = View.inflate(context, R.layout.float_window_layout, this)
         binding = FloatWindowLayoutBinding.bind(view)
 
+        binding.startBtn.onClick {
+
+        }
+
         setOnTouchListener(this)
-
-
     }
 
 
@@ -95,6 +100,24 @@ class FloatWindowView @JvmOverloads constructor(
             }
         }
         return true
+    }
+
+
+    private var accessService: DemoAccessibilityService? = null
+
+    fun setAccessService(service: DemoAccessibilityService?) {
+        accessService = service
+    }
+
+    private fun isCanRun(): Boolean {
+        return accessService != null
+    }
+
+    private fun startChecking() {
+        if (!isCanRun()) {
+            return
+        }
+
     }
 
 

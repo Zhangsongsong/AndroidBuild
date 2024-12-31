@@ -4,17 +4,10 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
-import android.app.Activity
 import android.graphics.Path
 import android.os.Build
-import android.util.DisplayMetrics
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.zasko.accessibility.MainActivity
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.schedulers.Schedulers
-import java.util.concurrent.TimeUnit
 
 
 object TouchManager {
@@ -61,15 +54,6 @@ object TouchManager {
             }
         }, null)
         Log.d(TAG, "scroll: isDispatched:${isDispatched}")
-    }
-
-    fun timer(callback: () -> Unit) {
-        val dispose = Observable.interval(0, 5, TimeUnit.SECONDS).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).doOnNext {
-            Log.d(TAG, "timer: $it")
-            callback.invoke()
-
-        }.subscribe({}, {})
-
     }
 
 

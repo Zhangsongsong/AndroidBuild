@@ -7,7 +7,6 @@ import android.view.View
 import android.widget.FrameLayout
 import com.zasko.accessibility.R
 import com.zasko.accessibility.databinding.ViewSwitchAutoBinding
-import com.zasko.accessibility.utils.onClick
 
 class AutoSwitchView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
@@ -29,11 +28,9 @@ class AutoSwitchView @JvmOverloads constructor(
         attrs.recycle()
 
 
-        binding.contentView.onClick {
-            binding.switchView.isChecked = !binding.switchView.isChecked
+        binding.switchView.setOnCheckedChangeListener { buttonView, isChecked ->
+            Log.d(TAG, "setOnCheckedChangeListener: isCheck:${isChecked}")
         }
-
-
     }
 
 

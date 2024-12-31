@@ -40,7 +40,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|center_vertical"
-        android:layout_marginEnd="16dp" />
+        android:layout_marginEnd="16dp"
+        android:clickable="false" />
 
     <View
         android:id="@+id/lineView"

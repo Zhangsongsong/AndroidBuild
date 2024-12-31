@@ -42,8 +42,14 @@ class MainActivity : AppCompatActivity() {
         binding.openFloatSwitchView.setSwitch(false)
         binding.openFloatSwitchView.onClick {
             if (PermissionUtils.isEnableFloatWindowAndOpen(this)) {
-                binding.openFloatSwitchView.setSwitch(true)
-                FloatWindowManager.showFloatWindow(this)
+                if (FloatWindowManager.isShowFloatWindow) {
+                    binding.openFloatSwitchView.setSwitch(false)
+                    FloatWindowManager.hideFloatWindow(this)
+                } else {
+                    binding.openFloatSwitchView.setSwitch(true)
+                    FloatWindowManager.showFloatWindow(this)
+                }
+
             } else {
                 PermissionUtils.openSettingFloatWindow(this)
             }
