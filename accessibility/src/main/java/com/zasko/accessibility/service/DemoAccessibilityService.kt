@@ -70,77 +70,17 @@ class DemoAccessibilityService : AccessibilityService() {
      */
     override fun onInterrupt() {
         Log.d(TAG, "onInterrupt: ")
-        mDispose?.let {
-            it.dispose()
-        }
     }
 
 
-    private val mHandler = Handler(Looper.getMainLooper())
     private var currentAccessibilityEvent: AccessibilityEvent? = null
     private fun handleContentChange(event: AccessibilityEvent) {
         currentAccessibilityEvent = event
     }
 
-    private var mDispose: Disposable? = null
-    private fun startLooper() {
-        mDispose?.dispose()
-        mDispose = null
-        mDispose =
-            Observable.interval(0, 3 * 1000L, TimeUnit.MILLISECONDS).observeOn(Schedulers.io()).subscribeOn(AndroidSchedulers.mainThread()).doOnNext {
-                Log.d(TAG, "startLooper: doOnNext:${it}")
-                mHandler.removeCallbacks(contentChangeRunnable)
-                mHandler.post(contentChangeRunnable)
-            }.subscribe({}, {})
+    fun getAccessibilityEvent(): AccessibilityEvent? {
+        return currentAccessibilityEvent
     }
 
-
-    private val contentChangeRunnable = Runnable {
-        val tmpEvent = currentAccessibilityEvent
-        if (tmpEvent == null) {
-            touchLoadMore()
-        }
-        tmpEvent?.let { event ->
-            event.source?.let {
-                val nodeInfos = it.findAccessibilityNodeInfosByViewId("com.ss.android.ugc.aweme:id/tv_desc")
-                Log.d(TAG, "contentChangeRunnable: size:${nodeInfos?.size}")
-                nodeInfos?.forEach { nodeInfo ->
-                    Log.d(TAG, "contentChangeRunnable: nodeInfo:${nodeInfo}")
-                }
-                touchLoadMore()
-            }
-        }
-    }
-
-
-    private var isStartLoad = false
-    private fun touchLoadMore() {
-        isStartLoad = true
-        val path = Path()
-
-        val display = this.resources.displayMetrics
-        // 起点位于屏幕中间的50%
-        val startX = display.widthPixels / 2
-        val startY = display.heightPixels / 2
-        // 终点位置
-        val endX = display.widthPixels / 2
-        val endY = startY - 400
-
-        Log.d(TAG, "touchLoadMore startX:$startX startY:$startY endX:$endX endY:$endY")
-
-        path.moveTo(startX.toFloat(), startY.toFloat())
-        path.lineTo(endX.toFloat(), endY.toFloat())
-        val gestureBuilder = GestureDescription.Builder()
-        gestureBuilder.addStroke(StrokeDescription(path, 0, 800))
-        val gestureDescription = gestureBuilder.build()
-
-        val isDispatched = dispatchGesture(gestureDescription, object : GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription?) {
-                super.onCompleted(gestureDescription)
-                isStartLoad = false
-            }
-        }, null)
-        Log.d(TAG, "touchLoadMore: isDispatched:${isDispatched}")
-    }
 
 }

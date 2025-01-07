@@ -8,3 +8,17 @@
     android:notificationTimeout="100"
     android:packageNames="com.ss.android.ugc.aweme"
     android:settingsActivity="com.zasko.accessibility.MainActivity" />
+
+
+    <!--
+    android:notificationTimeout="100"
+    同一类型的两个辅助功能事件发送到服务的最短间隔（毫秒，两个辅助功能事件之间的最小周期）
+
+    android:packageNames="com.ss.android.ugc.aweme"
+    监听的应用包名，多个用逗号(,)隔开，两种方式设置监听所有应用的事件：
+    不设置此属性；
+    赋值null → android:packageNames="@null"
+
+    android:settingsActivity
+    允许修改辅助功能的activity类名，就是你自己的无障碍服务的设置页。
+    -->

@@ -1,25 +1,40 @@
 package com.zasko.accessibility.views
 
-import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.GestureResultCallback
+import android.accessibilityservice.GestureDescription
+import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.content.Context
+import android.graphics.Path
 import android.graphics.PixelFormat
 import android.os.Build
 import android.util.AttributeSet
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import com.zasko.accessibility.R
 import com.zasko.accessibility.databinding.FloatWindowLayoutBinding
 import com.zasko.accessibility.service.DemoAccessibilityService
+import com.zasko.accessibility.service.DemoAccessibilityService.Companion
 import com.zasko.accessibility.utils.onClick
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.schedulers.Schedulers
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 class FloatWindowView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : FrameLayout(context, attrs), View.OnTouchListener {
+
+    companion object {
+        private const val TAG = "FloatWindowView"
+    }
 
     private val windowManager by lazy {
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -65,7 +80,10 @@ class FloatWindowView @JvmOverloads constructor(
         binding = FloatWindowLayoutBinding.bind(view)
 
         binding.startBtn.onClick {
-
+            startChecking()
+        }
+        binding.endBtn.onClick {
+            stopChecking()
         }
 
         setOnTouchListener(this)
@@ -117,7 +135,99 @@ class FloatWindowView @JvmOverloads constructor(
         if (!isCanRun()) {
             return
         }
+        startLooper()
+    }
 
+    private fun stopChecking() {
+        looperDispose?.dispose()
+        removeCallbacks(changeRunnable)
+    }
+
+    private var looperDispose: Disposable? = null
+
+    private fun startLooper() {
+        looperDispose?.dispose()
+        looperDispose = null
+        looperDispose =
+            Observable.interval(0, 3 * 1000L, TimeUnit.MILLISECONDS).observeOn(Schedulers.io()).subscribeOn(AndroidSchedulers.mainThread()).doOnNext {
+                Log.d(TAG, "startLooper: doOnNext:${it}")
+                removeCallbacks(changeRunnable)
+                post(changeRunnable)
+            }.subscribe({}, {})
+    }
+
+
+    private val changeRunnable = Runnable {
+        val event = accessService?.getAccessibilityEvent()
+        if (event == null) {
+            touchLoadMore()
+        }
+        event?.let { event ->
+            event.source?.let {
+                findTextById(source = it)
+//                findText(source = it)
+                touchLoadMore()
+            }
+        }
+    }
+
+
+    private fun findTextById(source: AccessibilityNodeInfo) {
+//        val nodeInfos = source.findAccessibilityNodeInfosByViewId("com.ss.android.ugc.aweme:id/tv_desc")
+        val nodeInfos = source.findAccessibilityNodeInfosByViewId("com.ss.android.ugc.aweme:id/z3w")
+        Log.d(TAG, "findTextById: size:${nodeInfos?.size}")
+        nodeInfos?.forEach { info ->
+            Log.d(TAG, "findTextById:  isVisibleToUser:${info.isVisibleToUser}")
+            if (info.isVisibleToUser) {
+                Log.d(TAG, "findTextById: info:${info}")
+            }
+        }
+    }
+
+    private fun findText(source: AccessibilityNodeInfo) {
+        val nodeInfos = source.findAccessibilityNodeInfosByText("这是")
+        Log.d(TAG, "findText size:${nodeInfos?.size}")
+        nodeInfos?.forEach { info ->
+            Log.d(TAG, "findText: info:${info} ")
+            val parent = info.parent
+            val descInfos = parent.findAccessibilityNodeInfosByViewId("com.ss.android.ugc.aweme:id/tv_desc")
+            descInfos?.forEach { descInfo ->
+
+                Log.d(TAG, "findText: isVis:${descInfo.isVisibleToUser} descInfo:${descInfo}")
+            }
+
+
+        }
+    }
+
+    private var isStartLoad = false
+    private fun touchLoadMore() {
+        isStartLoad = true
+        val path = Path()
+
+        val display = this.resources.displayMetrics
+        // 起点位于屏幕中间的50%
+        val startX = display.widthPixels / 2
+        val startY = display.heightPixels / 2
+        // 终点位置
+        val endX = display.widthPixels / 2
+        val endY = startY - 400
+
+        Log.d(TAG, "touchLoadMore startX:$startX startY:$startY endX:$endX endY:$endY")
+
+        path.moveTo(startX.toFloat(), startY.toFloat())
+        path.lineTo(endX.toFloat(), endY.toFloat())
+        val gestureBuilder = GestureDescription.Builder()
+        gestureBuilder.addStroke(StrokeDescription(path, 0, 800))
+        val gestureDescription = gestureBuilder.build()
+
+        val isDispatched = accessService?.dispatchGesture(gestureDescription, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                super.onCompleted(gestureDescription)
+                isStartLoad = false
+            }
+        }, null)
+        Log.d(TAG, "touchLoadMore: isDispatched:${isDispatched}")
     }
 
 
