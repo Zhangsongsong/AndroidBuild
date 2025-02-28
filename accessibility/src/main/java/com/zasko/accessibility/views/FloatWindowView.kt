@@ -159,14 +159,14 @@ class FloatWindowView @JvmOverloads constructor(
 
     private val changeRunnable = Runnable {
         val event = accessService?.getAccessibilityEvent()
+        Log.d(TAG, "changeRunnable: source:${event?.action}")
         if (event == null) {
-            touchLoadMore()
+//            touchLoadMore()
         }
         event?.let { event ->
             event.source?.let {
-                findTextById(source = it)
-//                findText(source = it)
-                touchLoadMore()
+                findText(source = it)
+//                touchLoadMore()
             }
         }
     }
@@ -185,19 +185,9 @@ class FloatWindowView @JvmOverloads constructor(
     }
 
     private fun findText(source: AccessibilityNodeInfo) {
-        val nodeInfos = source.findAccessibilityNodeInfosByText("这是")
+        val nodeInfos = source.findAccessibilityNodeInfosByText("进入游戏")
         Log.d(TAG, "findText size:${nodeInfos?.size}")
-        nodeInfos?.forEach { info ->
-            Log.d(TAG, "findText: info:${info} ")
-            val parent = info.parent
-            val descInfos = parent.findAccessibilityNodeInfosByViewId("com.ss.android.ugc.aweme:id/tv_desc")
-            descInfos?.forEach { descInfo ->
 
-                Log.d(TAG, "findText: isVis:${descInfo.isVisibleToUser} descInfo:${descInfo}")
-            }
-
-
-        }
     }
 
     private var isStartLoad = false

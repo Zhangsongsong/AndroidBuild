@@ -1,21 +1,11 @@
 package com.zasko.accessibility.service
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.GestureDescription
-import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Path
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.zasko.accessibility.manager.FloatWindowManager
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.disposables.Disposable
-import io.reactivex.rxjava3.schedulers.Schedulers
-import java.util.concurrent.TimeUnit
 
 class DemoAccessibilityService : AccessibilityService() {
 
@@ -48,8 +38,7 @@ class DemoAccessibilityService : AccessibilityService() {
      *
      */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-//        Log.d(TAG, "onAccessibilityEvent: $event")
-//        Log.d(TAG, "onAccessibilityEvent: ${AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED}")
+        Log.d(TAG, "onAccessibilityEvent: ${event?.eventType}")
         event?.let { e ->
             when (e.eventType) {
                 AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {

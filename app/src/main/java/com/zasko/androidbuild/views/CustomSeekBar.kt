@@ -91,7 +91,7 @@ class CustomSeekBar @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas?.let {
+        canvas.let {
             val height = measuredHeight * 1.0f
             val width = measuredWidth * 1.0f
 
