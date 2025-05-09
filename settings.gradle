@@ -24,12 +24,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-
-
     }
 
 }
 rootProject.name = "AndroidBuild"
 include ':app'
-include ':video'
-include ':accessibility'
+//include ':video'
+//include ':accessibility'
