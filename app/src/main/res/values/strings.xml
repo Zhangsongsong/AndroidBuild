@@ -7,4 +7,6 @@
     <string name="custom_seekbar">自定义SeekBar</string>
 
     <string name="material">Material</string>
+
+    <string name="media_projection">屏幕截图</string>
 </resources>

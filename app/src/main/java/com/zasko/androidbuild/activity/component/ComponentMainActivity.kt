@@ -28,24 +28,25 @@ class ComponentMainActivity : ComponentActivity() {
             MessageCard("android")
         }
     }
-}
 
-@Composable
-fun MessageCard(name: String) {
-    Box(
-        modifier = Modifier
-            .wrapContentWidth()
-            .height(100.dp)
-    ) {
-        Text(name, Modifier.padding(10.dp))
-        Icon(Icons.Filled.Check, contentDescription = "")
+    @Composable
+    fun MessageCard(name: String) {
+        Box(
+            modifier = Modifier
+                .wrapContentWidth()
+                .height(100.dp)
+        ) {
+            Text(name, Modifier.padding(10.dp))
+            Icon(Icons.Filled.Check, contentDescription = "")
+        }
+
     }
 
-}
 
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewMessageCard() {
-    MessageCard("Android")
+    @Preview(showBackground = true)
+    @Composable
+    fun PreviewMessageCard() {
+        val  context = this
+        MessageCard("Android")
+    }
 }

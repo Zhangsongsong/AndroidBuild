@@ -30,6 +30,8 @@
         <activity android:name=".activity.SpringAnimationActivity" />
         <activity android:name=".activity.SeekBarActivity" />
 
+        <activity android:name=".activity.MediaProActivity" />
+
     </application>
 
 </manifest>

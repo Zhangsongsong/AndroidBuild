@@ -20,6 +20,8 @@ class MainActivity : BaseActivity() {
 
         const val ID_MATERIAL = 3
 
+        const val ID_MEDIA_PROJECTION = 4
+
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -45,6 +47,10 @@ class MainActivity : BaseActivity() {
 
                 ID_MATERIAL -> {
                     MaterialActivity.start(this)
+                }
+
+                ID_MEDIA_PROJECTION -> {
+
                 }
             }
         }.apply {

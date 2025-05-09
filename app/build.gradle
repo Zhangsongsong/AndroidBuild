@@ -58,10 +58,11 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
 
-
     //弹簧动画
     def dynamicanimation_version = '1.0.0'
     implementation "androidx.dynamicanimation:dynamicanimation:$dynamicanimation_version"
+
+    implementation libs.bumptech.glide
 
     debugImplementation libs.androidx.ui.tooling
 
