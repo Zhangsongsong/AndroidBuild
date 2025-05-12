@@ -10,4 +10,10 @@ object LogComponent {
         Log.d(tag.ifEmpty { TAG }, message)
     }
 
+    fun printE(tag: String = "", message: String = "") {
+        Log.e(tag.ifEmpty { TAG }, message)
+    }
+
+
+
 }
