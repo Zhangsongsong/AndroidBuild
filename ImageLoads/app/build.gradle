@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotloin.serialazation)
 }
 
 android {
@@ -20,6 +21,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            minifyEnabled false
+        }
+
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -50,8 +55,21 @@ dependencies {
     implementation libs.androidx.ui.tooling.preview
     implementation libs.androidx.ui.tooling
 
-    implementation("io.coil-kt.coil3:coil-compose:3.1.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.1.0")
+//    implementation("io.coil-kt.coil3:coil-compose:3.1.0")
+//    implementation("io.coil-kt.coil3:coil-network-okhttp:3.1.0")
+
+    // Retrofit
+    implementation libs.squareup.retrofit
+    implementation libs.squareup.okhttp
+    implementation libs.kotlin.json
+
+    implementation libs.okhttp.logging.interceptor
+    implementation libs.retrofit.adapter.rxjava3
+
+    implementation libs.rxjava3.rxjava
+    implementation libs.rxjava3.rxkotlin
+    implementation libs.rxjava3.rxandroid
+
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
