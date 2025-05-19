@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 
 
 @Serializable
-data class MainLoadsInfo(var data: String = "")
+data class MainLoadsInfo(var url: String = "", var width: Int = -1, var height: Int = -1)
 
 
 @Serializable
-data class TestInfo(var code: Int = 0)
+data class HeiSiInfo(var data: String = "")
