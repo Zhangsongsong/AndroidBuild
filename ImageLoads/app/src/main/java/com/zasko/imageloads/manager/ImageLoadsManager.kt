@@ -1,13 +1,17 @@
 package com.zasko.imageloads.manager
 
+import android.content.Context
 import com.zasko.imageloads.components.HttpComponent
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.HeiSiInfo
+import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.manager.html.HtmlParseManager
 import com.zasko.imageloads.services.ImageLoadsServices
 import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
+import org.jsoup.Jsoup
 import java.util.concurrent.TimeUnit
 
 object ImageLoadsManager {
@@ -37,4 +41,36 @@ object ImageLoadsManager {
         looperDisposable?.dispose()
         looperDisposable = null
     }
+
+
+    fun getXiuTaKuData(): Single<String> {
+        return imageServer.getXiuTaKu().switchThread().doOnSuccess {
+//            LogComponent.printD(tag = TAG, message = "getXiuTaKuData data:${it}")
+        }
+    }
+
+
+    private var xiurenStartIndex = 0
+    fun getXiuRenData(context: Context, start: Int = 0): Single<List<MainLoadsInfo>> {
+        xiurenStartIndex = 0
+        return imageServer.getXiuTaKu(start = start).map { data ->
+//            return HtmlParseManager.parseXiuRenByLocal(context = context).map { data ->
+            val doc = Jsoup.parse(data.toString())
+            val itemLinks = doc.getElementsByClass("item-link")
+            itemLinks.map {
+                it.getElementsByTag("img")
+            }.filter {
+                it.isNotEmpty()
+            }.map {
+                MainLoadsInfo(url = it.attr("src"), width = it.attr("width").toInt(), height = it.attr("height").toInt())
+            }
+        }.doOnSuccess {
+            xiurenStartIndex = start + 20
+        }
+    }
+
+    fun getXiuRenMoreData(context: Context): Single<List<MainLoadsInfo>> {
+        return getXiuRenData(context = context, start = xiurenStartIndex)
+    }
+
 }

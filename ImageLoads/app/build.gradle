@@ -71,6 +71,7 @@ dependencies {
     implementation libs.rxjava3.rxandroid
 
     implementation libs.bumptech.glide
+    implementation libs.jsoup
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

@@ -9,7 +9,7 @@ import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
 import com.zasko.imageloads.utils.loadImageWithInside
 
-class MainLoadsAdapter : RecyclerView.Adapter<ViewHolder>() {
+class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Adapter<ViewHolder>() {
 
     private val data = ArrayList<MainLoadsInfo>()
 
@@ -20,16 +20,18 @@ class MainLoadsAdapter : RecyclerView.Adapter<ViewHolder>() {
         notifyItemRangeChanged(0, size)
     }
 
-    fun addData(info: MainLoadsInfo) {
+    fun addData(list: List<MainLoadsInfo>) {
         val size = data.size
-        data.add(info)
-        notifyItemInserted(size)
+        data.addAll(list)
+        notifyItemRangeInserted(size, list.size)
     }
 
-    fun getDataSize(): Int {
-        return data.size
-    }
 
+    fun removeData() {
+        val size = data.size
+        data.clear()
+        notifyItemRangeRemoved(0, size)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         return MHolder(binding = ItemMainLoadsBinding.inflate(LayoutInflater.from(parent.context), parent, false))
@@ -42,6 +44,10 @@ class MainLoadsAdapter : RecyclerView.Adapter<ViewHolder>() {
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         if (position >= 0 && position < data.size) {
             (holder as MHolder).bind(data[position])
+
+            if (position == data.size - 2) {
+                loadMore.invoke()
+            }
         }
     }
 
