@@ -72,6 +72,7 @@ dependencies {
 
     implementation libs.bumptech.glide
     implementation libs.jsoup
+    implementation libs.androidx.swiperefreshlayout
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

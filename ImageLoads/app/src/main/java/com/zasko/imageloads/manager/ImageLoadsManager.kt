@@ -50,9 +50,7 @@ object ImageLoadsManager {
     }
 
 
-    private var xiurenStartIndex = 0
-    fun getXiuRenData(context: Context, start: Int = 0): Single<List<MainLoadsInfo>> {
-        xiurenStartIndex = 0
+    fun getXiuRenData(start: Int = 0): Single<List<MainLoadsInfo>> {
         return imageServer.getXiuTaKu(start = start).map { data ->
 //            return HtmlParseManager.parseXiuRenByLocal(context = context).map { data ->
             val doc = Jsoup.parse(data.toString())
@@ -64,13 +62,7 @@ object ImageLoadsManager {
             }.map {
                 MainLoadsInfo(url = it.attr("src"), width = it.attr("width").toInt(), height = it.attr("height").toInt())
             }
-        }.doOnSuccess {
-            xiurenStartIndex = start + 20
         }
-    }
-
-    fun getXiuRenMoreData(context: Context): Single<List<MainLoadsInfo>> {
-        return getXiuRenData(context = context, start = xiurenStartIndex)
     }
 
 }

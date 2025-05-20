@@ -4,12 +4,14 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
-import com.zasko.imageloads.MainActivity
+import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
+import com.zasko.imageloads.fragment.MainLoadFragment
 import com.zasko.imageloads.utils.loadImageWithInside
 
 class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Adapter<ViewHolder>() {
+
 
     private val data = ArrayList<MainLoadsInfo>()
 
@@ -46,6 +48,7 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Ada
             (holder as MHolder).bind(data[position])
 
             if (position == data.size - 2) {
+                LogComponent.printD(tag = "MainLoadsAdapter", message = "onBindViewHolder pos:${position} size:${data.size}")
                 loadMore.invoke()
             }
         }
@@ -55,7 +58,8 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Ada
     class MHolder(private val binding: ItemMainLoadsBinding) : ViewHolder(binding.root) {
         fun bind(info: MainLoadsInfo) {
             val param = binding.coverIv.layoutParams
-            param.height = (MainActivity.screenWidth / 2) * info.height / info.width
+            param.height = (MainLoadFragment.screenWidth / 2) * info.height / info.width
+//            LogComponent.printD(tag = "MainLoadsAdapter", message = "bind height:${param.height}")
             binding.coverIv.layoutParams = param
             binding.coverIv.loadImageWithInside(info.url)
         }

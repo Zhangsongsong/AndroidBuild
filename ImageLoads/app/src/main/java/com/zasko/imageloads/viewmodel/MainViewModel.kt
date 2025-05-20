@@ -20,18 +20,22 @@ class MainViewModel : BaseViewModel() {
 
     private val isLoadMore = AtomicBoolean(false)
 
-    fun drawerItemClick(context: Context, id: Int = -1, adapter: MainLoadsAdapter? = null) {
+    fun drawerItemClick(context: Context, id: Int = -1, adapter: MainLoadsAdapter? = null, isRefresh: Boolean = false, callback: () -> Unit = {}) {
         LogComponent.printD(tag = TAG, message = "drawerItemClick id:${id} currentId:${currentId} adapter:${adapter}")
         if (id == currentId) {
             return
         }
-        currentId = id
+        if (!isRefresh) {
+            currentId = id
+        }
         adapter?.removeData()
-        when (id) {
+        when (currentId) {
             R.string.xiuren -> {
-                ImageLoadsManager.getXiuRenData(context = context).switchThread().doOnSuccess {
-                    adapter?.setData(it)
-                }.bindLife()
+//                ImageLoadsManager.getXiuRenData(context = context).switchThread().doOnSuccess {
+//                    adapter?.setData(it)
+//                }.doFinally {
+//                    callback.invoke()
+//                }.bindLife()
             }
 
             R.string.heisi -> {
@@ -46,11 +50,11 @@ class MainViewModel : BaseViewModel() {
         }
         isLoadMore.set(true)
         when (currentId) {
-            R.string.xiuren -> {
-                ImageLoadsManager.getXiuRenMoreData(context = context).switchThread().doOnSuccess {
-                    adapter?.addData(it)
-                }.doFinally { isLoadMore.set(false) }.bindLife()
-            }
+//            R.string.xiuren -> {
+//                ImageLoadsManager.getXiuRenMoreData(context = context).switchThread().doOnSuccess {
+//                    adapter?.addData(it)
+//                }.doFinally { isLoadMore.set(false) }.bindLife()
+//            }
         }
     }
 }

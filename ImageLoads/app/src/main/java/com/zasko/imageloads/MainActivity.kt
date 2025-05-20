@@ -1,138 +1,106 @@
 package com.zasko.imageloads
 
-import android.graphics.Bitmap
-import android.graphics.drawable.Drawable
+import android.graphics.Color
 import android.os.Bundle
-import android.text.Html
-import android.view.LayoutInflater
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import android.view.ViewGroup
+import androidx.core.view.ViewCompat
+import androidx.core.view.ViewGroupCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.insets.GradientProtection
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.bumptech.glide.Glide
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
-import com.zasko.imageloads.adapter.MainLoadsAdapter
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.zasko.imageloads.adapter.MainTitleAdapter
+import com.zasko.imageloads.adapter.MainViewPagerAdapter
 import com.zasko.imageloads.base.BaseActivity
-import com.zasko.imageloads.base.BaseViewModel
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.ActivityMainBinding
-import com.zasko.imageloads.manager.ImageLoadsManager
-import com.zasko.imageloads.manager.html.HtmlParseManager
-import com.zasko.imageloads.utils.dpToPx
+import com.zasko.imageloads.fragment.MainLoadFragment
+import com.zasko.imageloads.fragment.XiuRenFragment
 import com.zasko.imageloads.viewmodel.MainViewModel
 
 class MainActivity : BaseActivity() {
 
     companion object {
-
         private const val TAG = "MainActivity"
-
-        var screenWidth = 0
     }
 
 
     private lateinit var viewModel: MainViewModel
+    private lateinit var binding: ActivityMainBinding
+
+    private var viewPagerAdapter: MainViewPagerAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         viewModel.initBindLife(this)
-        setContent {
-            contentView()
-        }
-
-    }
-
-
-    private var mAdapter: MainLoadsAdapter? = null
-    private var recyclerView: RecyclerView? = null
-
-    @Composable
-    private fun contentView() {
-        screenWidth = LocalConfiguration.current.screenWidthDp.dp.dpToPx.toInt()
-
-        ModalNavigationDrawer(drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.width(300.dp)) {
-                drawerItems()
+        binding.protectionLayout.setProtections(listOf(GradientProtection(WindowInsetsCompat.Side.TOP, Color.WHITE)))
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // Apply the insets as a margin to the view. This solution sets
+            // only the bottom, left, and right dimensions, but you can apply whichever
+            // insets are appropriate to your layout. You can also update the view padding
+            // if that's more appropriate.
+            v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                leftMargin = insets.left
+                bottomMargin = insets.bottom
+                rightMargin = insets.right
             }
-        }) {
-            AndroidView(modifier = Modifier.fillMaxSize(), factory = {
-                LayoutInflater.from(it).inflate(R.layout.activity_main, null, false)
-            }) { rootView ->
-                val binding = ActivityMainBinding.bind(rootView)
-                mAdapter = MainLoadsAdapter {
-                    viewModel.loadMore(context = this, adapter = mAdapter)
-                }
-                binding.recyclerView.layoutManager = StaggeredGridLayoutManager(2, RecyclerView.VERTICAL).apply {
-                    this.isAutoMeasureEnabled = true
-                    this.gapStrategy = StaggeredGridLayoutManager.GAP_HANDLING_NONE
-                }
-                binding.recyclerView.adapter = mAdapter
-                binding.recyclerView.itemAnimator = null
-                recyclerView = binding.recyclerView
 
-                viewModel.drawerItemClick(context = this, id = MainViewModel.DRAWER_ITEMS.first(), adapter = mAdapter)
+            // Return CONSUMED if you don't want the window insets to keep passing
+            // down to descendant views.
+            WindowInsetsCompat.CONSUMED
+        }
+
+        setContentView(binding.root)
+
+
+        val fragments = ArrayList<MainLoadFragment>()
+        addFragments(fragments = fragments)
+        viewPagerAdapter = MainViewPagerAdapter(this)
+        binding.viewpager.let {
+            it.isSaveEnabled = false
+            it.adapter = viewPagerAdapter
+            viewPagerAdapter?.setData(fragments)
+            it.offscreenPageLimit = fragments.size
+
+        }
+
+        initTitleView()
+
+    }
+
+    private fun addFragments(fragments: ArrayList<MainLoadFragment>) {
+        MainViewModel.DRAWER_ITEMS.forEach {
+            when (it) {
+                R.string.xiuren -> {
+                    fragments.add(XiuRenFragment())
+                }
             }
         }
-
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        ImageLoadsManager.disLoadingImage()
-    }
-
-    @Composable
-    private fun drawerItems() {
-        MainViewModel.DRAWER_ITEMS.forEachIndexed { index, info ->
-            NavigationDrawerItem(label = { Text(text = getString(info)) }, selected = index == 0, onClick = {
-                viewModel.drawerItemClick(context = this@MainActivity, id = info, adapter = mAdapter)
-            })
-            HorizontalDivider()
-
-        }
-
-    }
-
-    @Preview
-    @Composable
-    private fun preView() {
-        contentView()
-    }
-
-    private fun startLoadImages() {
-        ImageLoadsManager.looperLoadImage {
-            ImageLoadsManager.getImageData().doOnSuccess { result ->
-                Glide.with(this).asBitmap().load(result.data).into(object : CustomTarget<Bitmap>() {
-                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                        mAdapter?.addData(mutableListOf(MainLoadsInfo(url = result.data, width = resource.width, height = resource.height)))
-                    }
-
-                    override fun onLoadCleared(placeholder: Drawable?) {
-                    }
-                })
-            }.bindLife()
+    private fun initTitleView() {
+        binding.recyclerView.let {
+            it.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+            it.adapter = MainTitleAdapter()
         }
     }
+
+//    private fun startLoadImages() {
+//        ImageLoadsManager.looperLoadImage {
+//            ImageLoadsManager.getImageData().doOnSuccess { result ->
+//                Glide.with(this).asBitmap().load(result.data).into(object : CustomTarget<Bitmap>() {
+//                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+//                        mAdapter?.addData(mutableListOf(MainLoadsInfo(url = result.data, width = resource.width, height = resource.height)))
+//                    }
+//
+//                    override fun onLoadCleared(placeholder: Drawable?) {
+//                    }
+//                })
+//            }.bindLife()
+//        }
+//    }
 }
