@@ -6,7 +6,7 @@ import com.zasko.imageloads.base.BindLife
 import java.util.concurrent.atomic.AtomicBoolean
 
 open class MainLoadFragment : Fragment(), BindLife by BindLife() {
-    
+
     companion object {
         var screenWidth = 0
     }

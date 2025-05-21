@@ -1,9 +1,16 @@
 package com.zasko.imageloads.adapter
 
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
@@ -61,7 +68,22 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Ada
             param.height = (MainLoadFragment.screenWidth / 2) * info.height / info.width
 //            LogComponent.printD(tag = "MainLoadsAdapter", message = "bind height:${param.height}")
             binding.coverIv.layoutParams = param
-            binding.coverIv.loadImageWithInside(info.url)
+            Glide.with(binding.coverIv.context).load(info.url).diskCacheStrategy(DiskCacheStrategy.DATA)
+                .addListener(object : RequestListener<Drawable> {
+                    override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
+                        return false
+                    }
+
+                    override fun onResourceReady(
+                        resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean
+                    ): Boolean {
+                        LogComponent.printD(tag = "MainLoadsAdapter", message = "")
+                        return false
+                    }
+
+                }).centerInside().into(binding.coverIv)
+//            binding.coverIv.loadImageWithInside(info.url)
+
         }
     }
 }
