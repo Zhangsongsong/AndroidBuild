@@ -1,6 +1,10 @@
 package com.zasko.imageloads.fragment
 
 import android.content.Context
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.zasko.imageloads.base.BindLife
 import java.util.concurrent.atomic.AtomicBoolean
@@ -19,8 +23,11 @@ open class MainLoadFragment : Fragment(), BindLife by BindLife() {
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
-        screenWidth = context.resources.displayMetrics.widthPixels
+        if (screenWidth <= 0) {
+            screenWidth = context.resources.displayMetrics.widthPixels
+        }
     }
+
 
     override fun onResume() {
         super.onResume()

@@ -4,19 +4,19 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
-import androidx.core.view.ViewGroupCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.insets.GradientProtection
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import com.zasko.imageloads.adapter.MainTitleAdapter
 import com.zasko.imageloads.adapter.MainViewPagerAdapter
 import com.zasko.imageloads.base.BaseActivity
-import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.databinding.ActivityMainBinding
 import com.zasko.imageloads.fragment.MainLoadFragment
-import com.zasko.imageloads.fragment.XiuRenFragment
+import com.zasko.imageloads.fragment.main.HeiSiFragment
+import com.zasko.imageloads.fragment.main.XiuRenFragment
 import com.zasko.imageloads.viewmodel.MainViewModel
 
 class MainActivity : BaseActivity() {
@@ -30,6 +30,7 @@ class MainActivity : BaseActivity() {
     private lateinit var binding: ActivityMainBinding
 
     private var viewPagerAdapter: MainViewPagerAdapter? = null
+    private var titleAdapter: MainTitleAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,10 +66,12 @@ class MainActivity : BaseActivity() {
             it.adapter = viewPagerAdapter
             viewPagerAdapter?.setData(fragments)
             it.offscreenPageLimit = fragments.size
+            it.isUserInputEnabled = false
 
         }
 
         initTitleView()
+
 
     }
 
@@ -78,29 +81,28 @@ class MainActivity : BaseActivity() {
                 R.string.xiuren -> {
                     fragments.add(XiuRenFragment())
                 }
+
+                R.string.heisi -> {
+                    fragments.add(HeiSiFragment())
+                }
+
             }
         }
     }
 
     private fun initTitleView() {
+        titleAdapter = MainTitleAdapter { info ->
+            val index = MainViewModel.DRAWER_ITEMS.indexOf(info.id)
+
+            if (index >= 0 && binding.viewpager.currentItem != index) {
+                binding.viewpager.currentItem = index
+            }
+        }
         binding.recyclerView.let {
             it.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-            it.adapter = MainTitleAdapter()
+            it.adapter = titleAdapter
         }
-    }
+        titleAdapter?.submitList(MainViewModel.DRAWER_ITEMS.mapIndexed { index, i -> MainTitleAdapter.ItemInfo(id = i, isSelect = index == 0) })
 
-//    private fun startLoadImages() {
-//        ImageLoadsManager.looperLoadImage {
-//            ImageLoadsManager.getImageData().doOnSuccess { result ->
-//                Glide.with(this).asBitmap().load(result.data).into(object : CustomTarget<Bitmap>() {
-//                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-//                        mAdapter?.addData(mutableListOf(MainLoadsInfo(url = result.data, width = resource.width, height = resource.height)))
-//                    }
-//
-//                    override fun onLoadCleared(placeholder: Drawable?) {
-//                    }
-//                })
-//            }.bindLife()
-//        }
-//    }
+    }
 }

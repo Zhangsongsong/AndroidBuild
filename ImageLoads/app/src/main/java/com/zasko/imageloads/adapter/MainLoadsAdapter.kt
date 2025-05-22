@@ -1,5 +1,6 @@
 package com.zasko.imageloads.adapter
 
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -15,7 +16,6 @@ import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
 import com.zasko.imageloads.fragment.MainLoadFragment
-import com.zasko.imageloads.utils.loadImageWithInside
 
 class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Adapter<ViewHolder>() {
 
@@ -66,7 +66,6 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Ada
         fun bind(info: MainLoadsInfo) {
             val param = binding.coverIv.layoutParams
             param.height = (MainLoadFragment.screenWidth / 2) * info.height / info.width
-//            LogComponent.printD(tag = "MainLoadsAdapter", message = "bind height:${param.height}")
             binding.coverIv.layoutParams = param
             Glide.with(binding.coverIv.context).load(info.url).diskCacheStrategy(DiskCacheStrategy.DATA)
                 .addListener(object : RequestListener<Drawable> {
@@ -77,7 +76,12 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Ada
                     override fun onResourceReady(
                         resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean
                     ): Boolean {
-                        LogComponent.printD(tag = "MainLoadsAdapter", message = "")
+
+
+                        val bitmap = (resource as? BitmapDrawable)?.bitmap
+                        LogComponent.printD(
+                            tag = "MainLoadsAdapter", message = "isFirstResource:${isFirstResource} width:${bitmap?.width} height:${bitmap?.height}"
+                        )
                         return false
                     }
 
