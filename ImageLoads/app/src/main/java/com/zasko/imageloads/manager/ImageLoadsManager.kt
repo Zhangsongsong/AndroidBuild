@@ -53,7 +53,7 @@ object ImageLoadsManager {
     }
 
 
-    fun getXiuRenData(start: Int = 0): Single<List<MainLoadsInfo>> {
+    fun getXiuRenData(start: Int = 0, domain: String = ""): Single<List<MainLoadsInfo>> {
         val single = if (BuildConfig.isUseLocal) {
             HtmlParseManager.parseXiuRenByLocal(context = MApplication.application)
         } else {
@@ -66,7 +66,10 @@ object ImageLoadsManager {
             val resultList = mutableListOf<MainLoadsInfo>()
             itemLinks.forEach { item ->
                 item.getElementsByTag("a").firstOrNull()?.let { aInfo ->
-                    val href = aInfo.attr("href")
+                    var href = aInfo.attr("href")
+                    if (!href.startsWith("http")) {
+                        href = domain + href
+                    }
                     item.getElementsByTag("img").firstOrNull()?.let { img ->
                         resultList.add(MainLoadsInfo(
                             url = img.attr("src"), width = img.attr("width").toInt(), height = img.attr("height").toInt(), href = href

@@ -22,6 +22,8 @@ class XiuRenFragment : MainLoadFragment() {
 
     companion object {
         private const val TAG = "XiuRenFragment"
+
+        private const val DOMAIN = "https://xiutaku.com/"
     }
 
 
@@ -32,7 +34,6 @@ class XiuRenFragment : MainLoadFragment() {
     private var loadStarIndex = 0
 
     private val LOAD_MAX_SIZE = 20
-
 
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -92,10 +93,10 @@ class XiuRenFragment : MainLoadFragment() {
 //            }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
 //
 //        } else {
-            ImageLoadsManager.getXiuRenData(loadStarIndex).switchThread().doOnSuccess { data ->
-                loadStarIndex += LOAD_MAX_SIZE
-                setAdapterData(list = data)
-            }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
+        ImageLoadsManager.getXiuRenData(loadStarIndex, domain = DOMAIN).switchThread().doOnSuccess { data ->
+            loadStarIndex += LOAD_MAX_SIZE
+            setAdapterData(list = data)
+        }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
 //        }
     }
 
@@ -111,7 +112,7 @@ class XiuRenFragment : MainLoadFragment() {
                 setAdapterData(list = data, isAdd = true)
             }.doFinally { isLoadMore.set(false) }.bindLife()
         } else {
-            ImageLoadsManager.getXiuRenData(start = loadStarIndex).switchThread().doOnSuccess { data ->
+            ImageLoadsManager.getXiuRenData(start = loadStarIndex, domain = DOMAIN).switchThread().doOnSuccess { data ->
                 setAdapterData(list = data, isAdd = true)
             }.doFinally {
                 isLoadMore.set(false)
