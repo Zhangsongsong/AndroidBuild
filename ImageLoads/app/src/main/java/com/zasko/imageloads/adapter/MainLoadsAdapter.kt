@@ -16,8 +16,10 @@ import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
 import com.zasko.imageloads.fragment.MainLoadFragment
+import com.zasko.imageloads.utils.onClick
 
-class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Adapter<ViewHolder>() {
+class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemListener: (MainLoadsInfo) -> Unit) :
+    RecyclerView.Adapter<ViewHolder>() {
 
 
     private val data = ArrayList<MainLoadsInfo>()
@@ -62,8 +64,17 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.Ada
     }
 
 
-    class MHolder(private val binding: ItemMainLoadsBinding) : ViewHolder(binding.root) {
+    inner class MHolder(private val binding: ItemMainLoadsBinding) : ViewHolder(binding.root) {
+        private var currentInfo: MainLoadsInfo? = null
+
+        init {
+            binding.coverIv.onClick {
+                currentInfo?.let(itemListener)
+            }
+        }
+
         fun bind(info: MainLoadsInfo) {
+            currentInfo = info
             val param = binding.coverIv.layoutParams
             param.height = (MainLoadFragment.screenWidth / 2) * info.height / info.width
             binding.coverIv.layoutParams = param

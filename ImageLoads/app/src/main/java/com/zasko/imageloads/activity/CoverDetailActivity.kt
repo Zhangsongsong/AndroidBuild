@@ -1,6 +1,8 @@
 package com.zasko.imageloads.activity
 
+import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
@@ -13,10 +15,11 @@ class CoverDetailActivity : BaseActivity() {
 
         private const val KEY_DATA = "key_data"
 
-        fun start(activity: BaseActivity, data: MainLoadsInfo) {
+        fun start(activity: Activity, data: MainLoadsInfo) {
             val intent = Intent(activity, CoverDetailActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-//            intent.putExtra(KEY_DATA, data)
+            intent.putExtra(KEY_DATA, data)
+            activity.startActivity(intent)
         }
     }
 
@@ -24,10 +27,13 @@ class CoverDetailActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_cover_detail)
-
         val fragment = ImageDetailFragment().apply {
             arguments = Bundle().apply {
-//                putSerializable()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    putSerializable(ImageDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA, MainLoadsInfo::class.java))
+                } else {
+                    putSerializable(ImageDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA))
+                }
             }
         }
         supportFragmentManager.beginTransaction().replace(R.id.fragmentLayout, fragment).commit()

@@ -1,6 +1,5 @@
 package com.zasko.imageloads.manager
 
-import android.content.Context
 import com.zasko.imageloads.MApplication
 import com.zasko.imageloads.components.HttpComponent
 import com.zasko.imageloads.components.LogComponent
@@ -15,7 +14,6 @@ import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
 import org.jsoup.Jsoup
 import java.util.concurrent.TimeUnit
-import kotlin.math.sin
 
 object ImageLoadsManager {
 
@@ -46,18 +44,11 @@ object ImageLoadsManager {
     }
 
 
-    fun getXiuTaKuData(): Single<String> {
-        return imageServer.getXiuTaKu().switchThread().doOnSuccess {
-//            LogComponent.printD(tag = TAG, message = "getXiuTaKuData data:${it}")
-        }
-    }
-
-
     fun getXiuRenData(start: Int = 0, domain: String = ""): Single<List<MainLoadsInfo>> {
         val single = if (BuildConfig.isUseLocal) {
             HtmlParseManager.parseXiuRenByLocal(context = MApplication.application)
         } else {
-            imageServer.getXiuTaKu(start = start)
+            imageServer.getXiuRen(start = start)
         }
         return single.map { data ->
             val doc = Jsoup.parse(data.toString())
@@ -80,6 +71,12 @@ object ImageLoadsManager {
                 }
             }
             resultList
+        }
+    }
+
+    fun getXiuRenDetail(url: String = ""): Single<Any> {
+        return HtmlParseManager.parseXiuRenDetail(context = MApplication.application).map {
+
         }
     }
 

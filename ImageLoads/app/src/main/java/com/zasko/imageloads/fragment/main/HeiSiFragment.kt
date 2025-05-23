@@ -29,7 +29,9 @@ class HeiSiFragment : MainLoadFragment() {
     }
 
     private fun initView() {
-        adapter = MainLoadsAdapter()
+        adapter = MainLoadsAdapter() {
+
+        }
         binding.recyclerView.let {
             it.layoutManager = StaggeredGridLayoutManager(2, RecyclerView.VERTICAL)
             it.itemAnimator = null

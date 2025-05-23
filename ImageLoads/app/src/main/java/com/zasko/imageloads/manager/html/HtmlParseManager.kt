@@ -27,4 +27,10 @@ object HtmlParseManager {
             FileUtil.getFileToHtml(context = context, fileName = "html/xiuren.html") ?: StringBuilder("")
         }
     }
+
+    fun parseXiuRenDetail(context: Context): Single<StringBuilder> {
+        return Single.just(true).map {
+            FileUtil.getFileToHtml(context = context, fileName = "html/xiuren_detail.html") ?: StringBuilder("")
+        }
+    }
 }

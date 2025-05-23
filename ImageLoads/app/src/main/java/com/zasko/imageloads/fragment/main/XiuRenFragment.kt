@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import com.zasko.imageloads.activity.CoverDetailActivity
 import com.zasko.imageloads.adapter.MainLoadsAdapter
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.MainLoadsInfo
@@ -47,9 +48,13 @@ class XiuRenFragment : MainLoadFragment() {
     }
 
     private fun init() {
-        adapter = MainLoadsAdapter {
+        adapter = MainLoadsAdapter(loadMore = {
             if (adapter.itemCount > 5) {
 //                getLoadMoreData()
+            }
+        }) { itemInfo ->
+            activity?.let { act ->
+                CoverDetailActivity.start(activity = act, data = itemInfo)
             }
         }
         binding.refreshLayout.setOnRefreshListener {
