@@ -4,7 +4,10 @@ import com.zasko.imageloads.MApplication
 import com.zasko.imageloads.components.HttpComponent
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.HeiSiInfo
+import com.zasko.imageloads.data.ImageDetailInfo
+import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.TagsInfo
 import com.zasko.imageloads.manager.html.HtmlParseManager
 import com.zasko.imageloads.services.ImageLoadsServices
 import com.zasko.imageloads.utils.BuildConfig
@@ -74,9 +77,30 @@ object ImageLoadsManager {
         }
     }
 
-    fun getXiuRenDetail(url: String = ""): Single<Any> {
-        return HtmlParseManager.parseXiuRenDetail(context = MApplication.application).map {
-
+    fun getXiuRenDetail(url: String = ""): Single<ImageDetailInfo> {
+        return HtmlParseManager.parseXiuRenDetail(context = MApplication.application).map { data ->
+            val doc = Jsoup.parse(data.toString())
+            val name = doc.getElementsByClass("article-header").firstOrNull()?.getElementsByTag("h1")?.firstOrNull()?.text() ?: ""
+            var time = ""
+            var desc = ""
+            var tags = doc.getElementsByClass("article-tags").firstOrNull()?.getElementsByClass("tag")?.map {
+                it.getElementsByTag("span").firstOrNull()?.text()
+            }?.map {
+                TagsInfo(id = it ?: "")
+            }
+            val infos = doc.getElementsByClass("article-info")
+            if (infos.size > 1) {
+                time = infos.first()?.getElementsByTag("small")?.first()?.text() ?: ""
+                desc = infos[1].text()
+            }
+            val pictures = doc.getElementsByClass("article-fulltext").firstOrNull()?.getElementsByTag("img")?.map {
+                val src = it.attr("src")
+                val width = it.attr("width").toInt()
+                val height = it.attr("height").toInt()
+                ImageInfo(url = src, width = width, height = height)
+            }
+            LogComponent.printD(tag = TAG, message = "getXiuRenDetail articleHeader:${pictures}")
+            ImageDetailInfo(name = name, time = time, desc = desc, tags = tags, pictures = pictures)
         }
     }
 

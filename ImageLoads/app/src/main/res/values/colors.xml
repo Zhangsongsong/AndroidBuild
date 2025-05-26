@@ -13,6 +13,8 @@
     <color name="color_h2">#666666</color>
     <color name="color_h3">#999999</color>
 
+    <color name="color_trans">#00000000</color>
+
 
     <color name="color_fd5b24">#FD5B24</color>
     <color name="color_e75858">#E75858</color>
