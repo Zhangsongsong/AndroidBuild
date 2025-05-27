@@ -25,12 +25,13 @@
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingTop="24dp">
+                    android:paddingTop="24dp"
+                    android:paddingBottom="10dp">
 
 
                     <ImageView
                         android:id="@+id/backIv"
-                        android:layout_width="24dp"
+                        android:layout_width="40dp"
                         android:layout_height="24dp"
                         android:layout_marginStart="16dp"
                         android:layout_marginTop="20dp"
@@ -45,7 +46,40 @@
                         android:layout_marginStart="16dp"
                         android:layout_marginTop="10dp"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/backIv" />
+                        app:layout_constraintTop_toBottomOf="@id/backIv"
+                        tools:background="@color/color_h1" />
+
+                    <ImageView
+                        android:id="@+id/downloadIv"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginTop="0dp"
+                        app:layout_constraintEnd_toEndOf="@id/coverIv"
+                        app:layout_constraintStart_toStartOf="@id/coverIv"
+                        app:layout_constraintTop_toBottomOf="@id/coverIv"
+                        app:srcCompat="@drawable/baseline_cloud_download_24" />
+
+                    <TextView
+                        android:id="@+id/hasLoadCountTv"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/color_h3"
+                        android:textSize="12sp"
+                        app:layout_constraintEnd_toEndOf="@id/downloadIv"
+                        app:layout_constraintStart_toStartOf="@id/downloadIv"
+                        app:layout_constraintTop_toBottomOf="@id/downloadIv"
+                        tools:text="已加载100" />
+
+                    <TextView
+                        android:id="@+id/hasCacheCountTv"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/color_h3"
+                        android:textSize="12sp"
+                        app:layout_constraintEnd_toEndOf="@id/downloadIv"
+                        app:layout_constraintStart_toStartOf="@id/downloadIv"
+                        app:layout_constraintTop_toBottomOf="@id/hasLoadCountTv"
+                        tools:text="已缓存100" />
 
                     <TextView
                         android:id="@+id/nameTv"
@@ -79,7 +113,7 @@
                         android:layout_marginTop="3dp"
                         android:textColor="@color/color_h3"
                         android:textSize="12sp"
-                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintEnd_toEndOf="@id/nameTv"
                         app:layout_constraintStart_toStartOf="@id/nameTv"
                         app:layout_constraintTop_toBottomOf="@id/timeTv"
                         tools:text=" [XiuRen秀人网] 2025.05.09 No.10261 鱼子酱Fish 白色丝袜 [80P] 模特@鱼子酱Fish 性感写真发布，性感灰色短裤搭配性感诱人白色丝袜，婀娜动人身段极致妩媚，迷人的丽质，曼妙苗条身姿明艳动人，全套写真共80P足量放送，希望大家喜欢和多多支持。模特鱼子酱第217套写真作品。。摄影：宅檬檬。。。国内写真套图[XiuRen秀人网]第10261期鱼子酱开档白丝秀美腿诱惑写真。" />
@@ -92,13 +126,21 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/pictureRecycler"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+            <ProgressBar
+                android:id="@+id/loadingBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="20dp" />
         </FrameLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

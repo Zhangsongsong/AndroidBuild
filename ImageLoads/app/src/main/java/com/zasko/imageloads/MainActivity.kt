@@ -95,7 +95,7 @@ class MainActivity : BaseActivity() {
             val index = MainViewModel.DRAWER_ITEMS.indexOf(info.id)
 
             if (index >= 0 && binding.viewpager.currentItem != index) {
-                binding.viewpager.currentItem = index
+                binding.viewpager.setCurrentItem(index, false)
             }
         }
         binding.recyclerView.let {

@@ -49,6 +49,5 @@ object DownloadManager {
         }.doOnError {
             LogComponent.printD(tag = TAG, message = "downloadImageByGlide error:$it")
         }
-
     }
 }

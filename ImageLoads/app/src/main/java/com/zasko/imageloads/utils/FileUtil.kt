@@ -14,6 +14,10 @@ object FileUtil {
     private const val TAG = "FileUtil"
 
 
+    private const val APP_CACHE_NAME = "ImageLoads"
+    private const val APP_DOWNLOAD = "download"
+
+
     private const val PICTURE_OTHERS = "others"
 
     private const val PICTURE_XIUREN = "xiuren"
@@ -76,6 +80,26 @@ object FileUtil {
         }
         return null
     }
+
+    fun createExternalDir() {
+        val rootFile = Environment.getExternalStorageDirectory()
+        val appFile = File(rootFile, APP_CACHE_NAME)
+        LogComponent.printD(
+            tag = TAG, message = "createExternalDir appFile:${appFile.exists()} permission:${appFile.absolutePath}"
+        )
+        if (!appFile.exists()) {
+            appFile.mkdirs()
+        }
+        val downloadFile = File(appFile, APP_DOWNLOAD)
+        if (!downloadFile.exists()) {
+            downloadFile.mkdirs()
+        }
+    }
+
+    fun getDownloadPath(): String {
+        return "${Environment.getExternalStorageDirectory()}/${APP_CACHE_NAME}/${APP_DOWNLOAD}"
+    }
+
 }
 
 fun String.getUrlToName(): Pair<String, String> {

@@ -11,6 +11,7 @@ import com.zasko.imageloads.data.TagsInfo
 import com.zasko.imageloads.manager.html.HtmlParseManager
 import com.zasko.imageloads.services.ImageLoadsServices
 import com.zasko.imageloads.utils.BuildConfig
+import com.zasko.imageloads.utils.MJson
 import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Single
@@ -54,7 +55,7 @@ object ImageLoadsManager {
             imageServer.getXiuRen(start = start)
         }
         return single.map { data ->
-            val doc = Jsoup.parse(data.toString())
+            val doc = MJson.parse(data.toString())
             val itemLinks = doc.getElementsByClass("item-link")
 //            LogComponent.printD(tag = TAG, message = "getXiuRenData item_link:${itemLinks.firstOrNull()?.getElementsByTag("a")}")
             val resultList = mutableListOf<MainLoadsInfo>()
@@ -79,7 +80,8 @@ object ImageLoadsManager {
 
     fun getXiuRenDetail(url: String = ""): Single<ImageDetailInfo> {
         return HtmlParseManager.parseXiuRenDetail(context = MApplication.application).map { data ->
-            val doc = Jsoup.parse(data.toString())
+//        return imageServer.getXiuRenDetail(url).map { data ->
+            val doc = MJson.parse(data.toString())
             val name = doc.getElementsByClass("article-header").firstOrNull()?.getElementsByTag("h1")?.firstOrNull()?.text() ?: ""
             var time = ""
             var desc = ""
@@ -99,8 +101,19 @@ object ImageLoadsManager {
                 val height = it.attr("height").toInt()
                 ImageInfo(url = src, width = width, height = height)
             }
-            LogComponent.printD(tag = TAG, message = "getXiuRenDetail articleHeader:${pictures}")
             ImageDetailInfo(name = name, time = time, desc = desc, tags = tags, pictures = pictures)
+        }
+    }
+
+    fun getXiuRenDetailMore(url: String = ""): Single<List<ImageInfo>> {
+        return imageServer.getXiuRenDetail(url = url).map { data ->
+            val doc = MJson.parse(data)
+            doc.getElementsByClass("article-fulltext").firstOrNull()?.getElementsByTag("img")?.map {
+                val src = it.attr("src")
+                val width = it.attr("width").toInt()
+                val height = it.attr("height").toInt()
+                ImageInfo(url = src, width = width, height = height)
+            } ?: emptyList()
         }
     }
 

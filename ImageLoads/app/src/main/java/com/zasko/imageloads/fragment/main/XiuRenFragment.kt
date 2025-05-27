@@ -24,7 +24,7 @@ class XiuRenFragment : MainLoadFragment() {
     companion object {
         private const val TAG = "XiuRenFragment"
 
-        private const val DOMAIN = "https://xiutaku.com/"
+        private const val DOMAIN = "https://xiutaku.com"
     }
 
 
