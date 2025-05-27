@@ -14,7 +14,6 @@ open class MainLoadFragment : Fragment(), BindLife by BindLife() {
 
     private var isInitResume = false
 
-    var isLoadMore = AtomicBoolean(false)
 
     var isLoadEnd = AtomicBoolean(false)
 

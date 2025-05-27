@@ -111,3 +111,10 @@ fun String.getUrlToName(): Pair<String, String> {
     val last = name.split(".")
     return last[0] to last[1]
 }
+
+fun String.getUrlToSuffix(): String {
+    if (this.isEmpty()) {
+        return this
+    }
+    return this.split(".").lastOrNull() ?: ""
+}

@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
+import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
 import com.zasko.imageloads.manager.ImageLoadsManager
@@ -20,7 +21,10 @@ import com.zasko.imageloads.utils.PermissionUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.utils.switchThread
+import io.reactivex.rxjava3.core.Single
 import java.io.File
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ImageDetailFragment : MainLoadFragment() {
 
@@ -33,10 +37,11 @@ class ImageDetailFragment : MainLoadFragment() {
     private lateinit var mainLoadsInfo: MainLoadsInfo
 
     private lateinit var binding: FragmentDetailImageBinding
-    private var mAdapter: DetailImagesAdapter? = null
+    private lateinit var mAdapter: DetailImagesAdapter
 
     private var loadMoreIndex = 1
 
+    private val isDownloading = AtomicBoolean(false)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
@@ -65,21 +70,21 @@ class ImageDetailFragment : MainLoadFragment() {
         binding.downloadIv.onClick {
             FileUtil.createExternalDir()
             PermissionUtil.getReadAndWriteExternal(context = requireActivity())
-            if (!File(FileUtil.getDownloadPath()).exists()) {
+            if (!File(FileUtil.getDownloadPath()).exists() || isDownloading.get()) {
                 return@onClick
             }
-            if ((mAdapter?.getData()?.size ?: 0) > 0) {
+            if ((mAdapter.getData().size) > 0) {
                 val file = File("${FileUtil.getDownloadPath()}/${binding.nameTv.text}")
                 LogComponent.printD(tag = TAG, message = "initView file:${file.exists()}")
                 if (!file.exists()) {
                     file.mkdirs()
                 }
+
+                downloadImages(dir = file)
             }
         }
 
-        mAdapter = DetailImagesAdapter {
-//            loadMore()
-        }
+        mAdapter = DetailImagesAdapter()
 
         binding.coverIv.loadImageWithInside(url = mainLoadsInfo.url)
         binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
@@ -92,28 +97,28 @@ class ImageDetailFragment : MainLoadFragment() {
             binding.nameTv.text = info.name
             binding.descTv.text = info.desc
             binding.timeTv.text = info.time
-            mAdapter?.setData(list = info.pictures ?: emptyList())
+            mAdapter.setData(list = info.pictures ?: emptyList())
             updateHasLoad()
+            loadMore()
         }.bindLife()
     }
 
     private fun loadMore() {
-        if (isLoadMore.get() || isLoadEnd.get()) {
+        if (isLoadEnd.get()) {
             return
         }
-        isLoadMore.set(true)
         LogComponent.printD(tag = TAG, message = "loadMore ${mainLoadsInfo.href} loadMoreIndex:${loadMoreIndex}")
         loadMoreIndex++
-        ImageLoadsManager.getXiuRenDetailMore(url = mainLoadsInfo.href.toPageUrl(page = loadMoreIndex)).switchThread().doOnSuccess { list ->
-            //如果是重复数据，直接判定end
-            if (list.isEmpty() || mAdapter?.getData()?.lastOrNull()?.url == list.lastOrNull()?.url) {
-                isLoadEnd.set(true)
-            } else {
-                mAdapter?.addData(list)
+        Single.just(true).delay(5, TimeUnit.SECONDS).flatMap {
+            ImageLoadsManager.getXiuRenDetailMore(url = mainLoadsInfo.href.toPageUrl(page = loadMoreIndex)).switchThread().doOnSuccess { list ->
+                //如果是重复数据，直接判定end
+                if (list.isEmpty() || mAdapter.getData().lastOrNull()?.url == list.lastOrNull()?.url) {
+                    isLoadEnd.set(true)
+                } else {
+                    mAdapter.addData(list)
+                }
+                updateHasLoad()
             }
-            updateHasLoad()
-        }.doFinally {
-            isLoadMore.set(false)
         }.bindLife()
 
     }
@@ -126,5 +131,17 @@ class ImageDetailFragment : MainLoadFragment() {
         return "${mainLoadsInfo.href}?page=${page}"
     }
 
+
+    private var downloadIndex = 0
+    private val downloadList = ArrayList<ImageInfo>()
+    private fun downloadImages(dir: File, page: Int = 1) {
+//        ImageLoadsManager.getXiuRenDetailMore(url = mainLoadsInfo.href.toPageUrl(page = page)).doOnSuccess { list ->
+//            if (downloadList.lastOrNull()?.url != list.lastOrNull()?.url) {
+//                downloadList.addAll(list)
+//            }
+//            downloadList.addAll(list)
+//
+//        }.bindLife()
+    }
 
 }
