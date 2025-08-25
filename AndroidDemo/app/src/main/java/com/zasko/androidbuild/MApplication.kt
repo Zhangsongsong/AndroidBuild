@@ -1,11 +1,13 @@
 package com.zasko.androidbuild
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.Process
 import androidx.core.content.getSystemService
+import com.zasko.androidbuild.activity.PlayerCache
 import com.zasko.androidbuild.components.HttpComponent
 import com.zasko.androidbuild.components.LogComponent
 
@@ -23,6 +25,8 @@ class MApplication : Application() {
         application = this
     }
 
+
+    @SuppressLint("UnsafeOptInUsageError")
     override fun onCreate() {
         super.onCreate()
         LogComponent.printD(tag = "MApplication", message = getCurrentProcessName())
@@ -30,6 +34,7 @@ class MApplication : Application() {
             return
         }
         HttpComponent.init(this)
+        PlayerCache.init(this)
     }
 
     private fun isMainProcess(): Boolean {
