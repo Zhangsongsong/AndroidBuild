@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+<!--        <trust-anchors>-->
+<!--            &lt;!&ndash; 信任系统预装 CA 证书 &ndash;&gt;-->
+<!--            <certificates src="user" />-->
+<!--        </trust-anchors>-->
+
+    </base-config>
+    <domain-config>
+        <domain includeSubdomains="true">i.snssdk.com</domain>
+        <domain includeSubdomains="true">is.snssdk.com</domain>
+        <domain includeSubdomains="true">pangolin.snssdk.com</domain>
+        <domain includeSubdomains="true">extlog.snssdk.com</domain>
+        <domain includeSubdomains="true">sf3-ttcdn-tos.pstatp.com</domain>
+        <domain includeSubdomains="true">bds.snssdk.com</domain>
+        <domain includeSubdomains="true">dig.bdurl.net</domain>
+<!--        <domain includeSubdomains="true">https://klink.volceapplog.com</domain>-->
+<!--        <domain includeSubdomains="true">https://alink.volceapplog.com</domain>-->
+
+<!--        <domain includeSubdomains="true">https://log-api.pangolin-sdk-toutiao-b.com</domain>-->
+    </domain-config>
+
+
+</network-security-config>

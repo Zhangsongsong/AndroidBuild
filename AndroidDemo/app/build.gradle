@@ -3,6 +3,7 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -52,6 +53,24 @@ dependencies {
     implementation platform(libs.androidx.compose.bom)
     implementation libs.androidx.ui.tooling.preview
 
+
+    // Retrofit
+    implementation libs.squareup.retrofit
+    implementation libs.squareup.okhttp
+    implementation libs.kotlinx.serialization.json
+
+    implementation libs.okhttp.logging.interceptor
+    implementation libs.retrofit.adapter.rxjava3
+    implementation libs.rxjava3.rxjava
+    implementation libs.rxjava3.rxkotlin
+    implementation libs.rxjava3.rxandroid
+
+
+
+    implementation "androidx.media3:media3-exoplayer:1.8.0"
+    implementation "androidx.media3:media3-exoplayer-dash:1.8.0"
+    implementation "androidx.media3:media3-ui:1.8.0"
+    implementation("androidx.media3:media3-ui-compose:1.8.0")
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

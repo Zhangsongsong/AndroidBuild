@@ -9,4 +9,6 @@
     <string name="material">Material</string>
 
     <string name="media_projection">屏幕截图</string>
+
+    <string name="feed_video">Feed 视频</string>
 </resources>

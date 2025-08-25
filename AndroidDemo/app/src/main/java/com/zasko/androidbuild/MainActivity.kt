@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.zasko.androidbuild.activity.ChangeThemeActivity
 import com.zasko.androidbuild.activity.CustomViewActivity
+import com.zasko.androidbuild.activity.FeedVideoActivity
 import com.zasko.androidbuild.activity.MaterialActivity
 import com.zasko.androidbuild.adapter.NormalAdapter
 import com.zasko.androidbuild.databinding.ActivityMainBinding
@@ -21,6 +22,8 @@ class MainActivity : BaseActivity() {
         const val ID_MATERIAL = 3
 
         const val ID_MEDIA_PROJECTION = 4
+
+        const val ID_FEED_VIDEO = 5
 
     }
 
@@ -52,13 +55,16 @@ class MainActivity : BaseActivity() {
                 ID_MEDIA_PROJECTION -> {
 
                 }
+
+                ID_FEED_VIDEO -> FeedVideoActivity.start(this)
             }
         }.apply {
             this.setData(
                 arrayListOf(
                     NormalAdapter.ItemInfo(id = ID_CUSTOM_VIEW, title = getString(R.string.custom_view)),
                     NormalAdapter.ItemInfo(id = ID_CHANGE_THEME, title = getString(R.string.change_theme)),
-                    NormalAdapter.ItemInfo(id = ID_MATERIAL, title = getString(R.string.material))
+                    NormalAdapter.ItemInfo(id = ID_MATERIAL, title = getString(R.string.material)),
+                    NormalAdapter.ItemInfo(id = ID_FEED_VIDEO, title = getString(R.string.feed_video))
                 )
             )
         }

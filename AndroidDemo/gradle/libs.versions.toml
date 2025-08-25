@@ -18,6 +18,15 @@ navigationUiKtx = "2.6.0"
 uiTooling = "1.8.1"
 glide = "4.16.0"
 
+retrofit = "2.9.0"
+okhttp = "4.11.0"
+kotlinJson = "1.5.1"
+okhttpLoggingInterceptor = "4.11.0"
+rxjava = "3.1.5"
+rxkotlin = "3.0.1"
+rxandroid = "3.0.1"
+kotlinSerialization = "1.8.10"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 #junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -42,9 +51,22 @@ androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", vers
 #androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
 #androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
 bumptech-glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+#Http
+squareup-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+squareup-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+kotlinx-serialization-json= { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinJson" }
+
+okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttpLoggingInterceptor" }
+retrofit-adapter-rxjava3 = { group = "com.squareup.retrofit2", name = "adapter-rxjava3", version.ref = "retrofit" }
+rxjava3-rxjava = { group = "io.reactivex.rxjava3", name = "rxjava", version.ref = "rxjava" }
+rxjava3-rxkotlin = { group = "io.reactivex.rxjava3", name = "rxkotlin", version.ref = "rxkotlin" }
+rxjava3-rxandroid = { group = "io.reactivex.rxjava3", name = "rxandroid", version.ref = "rxandroid" }
 #
 [plugins]
 #android-application = { id = "com.android.application", version.ref = "agp" }
 #kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinSerialization" }
+
+
 

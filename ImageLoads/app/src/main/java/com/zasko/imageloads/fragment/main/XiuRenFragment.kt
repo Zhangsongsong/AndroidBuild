@@ -17,6 +17,7 @@ import com.zasko.imageloads.utils.BuildConfig
 import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Single
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 class XiuRenFragment : MainLoadFragment() {
@@ -36,6 +37,8 @@ class XiuRenFragment : MainLoadFragment() {
 
     private val LOAD_MAX_SIZE = 20
 
+
+    private val isLoadMore = AtomicBoolean(false)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentNormalBinding.inflate(inflater)
