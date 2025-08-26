@@ -1,5 +1,6 @@
 package com.zasko.androidbuild.views
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
 import android.view.TextureView
@@ -7,16 +8,22 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
+import com.zasko.androidbuild.components.LogComponent
 
-@UnstableApi
+
 class ExoPlayerView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : FrameLayout(context, attrs) {
+    companion object {
+        const val TAG = "ExoPlayerView"
+    }
 
+    @SuppressLint("UnsafeOptInUsageError")
     private var contentFrame: AspectRatioFrameLayout = AspectRatioFrameLayout(context)
+
+    @SuppressLint("UnsafeOptInUsageError")
     private var currentResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
 
@@ -46,22 +53,35 @@ class ExoPlayerView @JvmOverloads constructor(
         mPlayer?.let { p ->
             p.setVideoTextureView(surfaceView)
             p.addListener(componentListener)
-
         }
+    }
 
+    fun getPlayer(): Player? {
+        return mPlayer
+    }
+
+    fun unBindBindPlayer() {
+        mPlayer = null
     }
 
 
     open inner class ComponentListener : Player.Listener {
         override fun onVideoSizeChanged(videoSize: VideoSize) {
             super.onVideoSizeChanged(videoSize)
+            LogComponent.printD(TAG, "onVideoSizeChanged size:${videoSize}")
             if (videoSize == VideoSize.UNKNOWN || mPlayer == null || mPlayer?.playbackState == Player.STATE_IDLE) {
                 return
             }
             updateAspectRatio()
         }
+
+        override fun onRenderedFirstFrame() {
+            super.onRenderedFirstFrame()
+            mPlayerListener?.onRenderedFirstFrame()
+        }
     }
 
+    @SuppressLint("UnsafeOptInUsageError")
     private fun updateAspectRatio() {
         mPlayer?.let { p ->
             val videoSize = p.videoSize
@@ -69,6 +89,21 @@ class ExoPlayerView @JvmOverloads constructor(
             val height = videoSize.height
             val videoAspectRatio = if ((height == 0 || width == 0)) 0f else (width * videoSize.pixelWidthHeightRatio) / height
             contentFrame.setAspectRatio(videoAspectRatio)
+        }
+    }
+
+
+    private var mPlayerListener: PlayerListener? = null
+
+
+    fun setPlayerListener(listener: PlayerListener) {
+        mPlayerListener = listener
+    }
+
+    interface PlayerListener {
+
+        fun onRenderedFirstFrame() {
+
         }
     }
 
