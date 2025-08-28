@@ -1,5 +1,6 @@
 package com.zasko.imageloads.fragment
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -7,12 +8,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.GridLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.data.MainLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
 import com.zasko.imageloads.manager.ImageLoadsManager
@@ -52,7 +54,6 @@ class ImageDetailFragment : MainLoadFragment() {
             }
             LogComponent.printD(tag = TAG, message = "mainLoadInfo:${mainLoadsInfo} ${Environment.getExternalStorageDirectory()}")
         }
-
     }
 
 
@@ -60,6 +61,11 @@ class ImageDetailFragment : MainLoadFragment() {
         binding = FragmentDetailImageBinding.inflate(inflater)
         initView()
         getDetail()
+        ViewCompat.setOnApplyWindowInsetsListener(binding.contentCons) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
         return binding.root
     }
 
@@ -75,16 +81,18 @@ class ImageDetailFragment : MainLoadFragment() {
             }
             if ((mAdapter.getData().size) > 0) {
                 val file = File("${FileUtil.getDownloadPath()}/${binding.nameTv.text}")
-                LogComponent.printD(tag = TAG, message = "initView file:${file.exists()}")
                 if (!file.exists()) {
                     file.mkdirs()
                 }
-
-                downloadImages(dir = file)
+                LogComponent.printD(tag = TAG, message = "initView file:${file.absolutePath}")
             }
         }
 
-        mAdapter = DetailImagesAdapter()
+        mAdapter = DetailImagesAdapter(loadMore = {
+            if (!binding.bufferLoadingView.isVisible) {
+                binding.bufferLoadingView.startAni()
+            }
+        })
 
         binding.coverIv.loadImageWithInside(url = mainLoadsInfo.url)
         binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
@@ -99,7 +107,7 @@ class ImageDetailFragment : MainLoadFragment() {
             binding.timeTv.text = info.time
             mAdapter.setData(list = info.pictures ?: emptyList())
             updateHasLoad()
-            loadMore()
+//            loadMore()
         }.bindLife()
     }
 
@@ -107,10 +115,14 @@ class ImageDetailFragment : MainLoadFragment() {
         if (isLoadEnd.get()) {
             return
         }
+        if (isLoadingMore.get()) {
+            return
+        }
+        isLoadingMore.set(true)
         LogComponent.printD(tag = TAG, message = "loadMore ${mainLoadsInfo.href} loadMoreIndex:${loadMoreIndex}")
         loadMoreIndex++
         Single.just(true).delay(5, TimeUnit.SECONDS).flatMap {
-            ImageLoadsManager.getXiuRenDetailMore(url = mainLoadsInfo.href.toPageUrl(page = loadMoreIndex)).switchThread().doOnSuccess { list ->
+            ImageLoadsManager.getXiuRenDetailMore(url = toPageUrl(page = loadMoreIndex)).switchThread().doOnSuccess { list ->
                 //如果是重复数据，直接判定end
                 if (list.isEmpty() || mAdapter.getData().lastOrNull()?.url == list.lastOrNull()?.url) {
                     isLoadEnd.set(true)
@@ -119,29 +131,20 @@ class ImageDetailFragment : MainLoadFragment() {
                 }
                 updateHasLoad()
             }
+        }.doFinally {
+            isLoadingMore.set(false)
+            if (!isLoadEnd.get()) {
+                loadMore()
+            }
         }.bindLife()
-
     }
 
+    @SuppressLint("SetTextI18n")
     private fun updateHasLoad() {
         binding.hasLoadCountTv.text = "${ContextCompat.getString(context, R.string.has_load)}${mAdapter?.getData()?.size}"
     }
 
-    private fun String.toPageUrl(page: Int = 1): String {
+    private fun toPageUrl(page: Int = 1): String {
         return "${mainLoadsInfo.href}?page=${page}"
     }
-
-
-    private var downloadIndex = 0
-    private val downloadList = ArrayList<ImageInfo>()
-    private fun downloadImages(dir: File, page: Int = 1) {
-//        ImageLoadsManager.getXiuRenDetailMore(url = mainLoadsInfo.href.toPageUrl(page = page)).doOnSuccess { list ->
-//            if (downloadList.lastOrNull()?.url != list.lastOrNull()?.url) {
-//                downloadList.addAll(list)
-//            }
-//            downloadList.addAll(list)
-//
-//        }.bindLife()
-    }
-
 }

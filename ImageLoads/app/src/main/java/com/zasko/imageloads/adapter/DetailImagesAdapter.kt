@@ -50,7 +50,7 @@ class DetailImagesAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.
 
     inner class MHolder(private val binding: ItemDetailImageBinding) : ViewHolder(binding.root) {
         fun bind(info: ImageInfo) {
-            binding.imageTv.loadImageWithInside(info.url)
+            binding.imageTv.getCoverView().loadImageWithInside(info.url)
         }
     }
 }

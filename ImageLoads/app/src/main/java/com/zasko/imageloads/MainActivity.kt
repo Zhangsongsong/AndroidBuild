@@ -37,7 +37,7 @@ class MainActivity : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
         viewModel.initBindLife(this)
-        binding.protectionLayout.setProtections(listOf(GradientProtection(WindowInsetsCompat.Side.TOP, Color.WHITE)))
+        binding.protectionLayout.setProtections(listOf(GradientProtection(WindowInsetsCompat.Side.TOP, getColor(R.color.teal_700))))
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             // Apply the insets as a margin to the view. This solution sets

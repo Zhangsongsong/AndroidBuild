@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.data.MainLoadsInfo

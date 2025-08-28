@@ -96,7 +96,7 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemLi
                         return false
                     }
 
-                }).centerInside().into(binding.coverIv)
+                }).centerInside().into(binding.coverIv.getCoverView())
 //            binding.coverIv.loadImageWithInside(info.url)
 
         }

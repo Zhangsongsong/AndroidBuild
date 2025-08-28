@@ -16,6 +16,7 @@ open class MainLoadFragment : Fragment(), BindLife by BindLife() {
 
 
     var isLoadEnd = AtomicBoolean(false)
+    var isLoadingMore = AtomicBoolean(false)
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
