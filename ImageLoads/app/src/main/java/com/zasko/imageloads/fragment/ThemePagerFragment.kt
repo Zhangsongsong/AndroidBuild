@@ -3,9 +3,10 @@ package com.zasko.imageloads.fragment
 import android.content.Context
 import androidx.fragment.app.Fragment
 import com.zasko.imageloads.base.BindLife
+import com.zasko.imageloads.base.PagerLoadListener
 import java.util.concurrent.atomic.AtomicBoolean
 
-open class MainLoadFragment : Fragment(), BindLife by BindLife() {
+open class ThemePagerFragment : Fragment(), BindLife by BindLife(), PagerLoadListener {
 
     companion object {
         var screenWidth = 0
@@ -30,12 +31,21 @@ open class MainLoadFragment : Fragment(), BindLife by BindLife() {
         super.onResume()
         if (!isInitResume) {
             isInitResume = true
-            initLoad()
+            initByResume()
         }
     }
 
-    open fun initLoad() {
+    open fun initByResume() {
 
+    }
+
+
+    fun checkRunAfterLoadingMore(moreLockBack: () -> Unit = {}, block: () -> Unit = {}) {
+        if (isLoadingMore.get()) {
+            moreLockBack.invoke()
+            return
+        }
+        block.invoke()
     }
 
 }

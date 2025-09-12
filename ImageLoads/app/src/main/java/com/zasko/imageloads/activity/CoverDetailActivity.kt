@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
-import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.fragment.ImageDetailFragment
 
 class CoverDetailActivity : BaseActivity() {
@@ -15,7 +15,7 @@ class CoverDetailActivity : BaseActivity() {
 
         private const val KEY_DATA = "key_data"
 
-        fun start(activity: Activity, data: MainLoadsInfo) {
+        fun start(activity: Activity, data: ImageLoadsInfo) {
             val intent = Intent(activity, CoverDetailActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             intent.putExtra(KEY_DATA, data)
@@ -30,7 +30,7 @@ class CoverDetailActivity : BaseActivity() {
         val fragment = ImageDetailFragment().apply {
             arguments = Bundle().apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    putSerializable(ImageDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA, MainLoadsInfo::class.java))
+                    putSerializable(ImageDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA, ImageLoadsInfo::class.java))
                 } else {
                     putSerializable(ImageDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA))
                 }

@@ -1,7 +1,7 @@
 package com.zasko.imageloads
 
-import android.graphics.Color
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -9,14 +9,15 @@ import androidx.core.view.insets.GradientProtection
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
-import com.zasko.imageloads.adapter.MainTitleAdapter
-import com.zasko.imageloads.adapter.MainViewPagerAdapter
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.ViewHolder
+import com.zasko.imageloads.activity.ImageThemePagerActivity
 import com.zasko.imageloads.base.BaseActivity
+import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.databinding.ActivityMainBinding
-import com.zasko.imageloads.fragment.MainLoadFragment
-import com.zasko.imageloads.fragment.main.HeiSiFragment
-import com.zasko.imageloads.fragment.main.XiuRenFragment
+import com.zasko.imageloads.databinding.ItemMainThemeSelectBinding
+import com.zasko.imageloads.utils.loadImage
+import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.viewmodel.MainViewModel
 
 class MainActivity : BaseActivity() {
@@ -29,9 +30,6 @@ class MainActivity : BaseActivity() {
     private lateinit var viewModel: MainViewModel
     private lateinit var binding: ActivityMainBinding
 
-    private var viewPagerAdapter: MainViewPagerAdapter? = null
-    private var titleAdapter: MainTitleAdapter? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -40,69 +38,70 @@ class MainActivity : BaseActivity() {
         binding.protectionLayout.setProtections(listOf(GradientProtection(WindowInsetsCompat.Side.TOP, getColor(R.color.teal_700))))
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            // Apply the insets as a margin to the view. This solution sets
-            // only the bottom, left, and right dimensions, but you can apply whichever
-            // insets are appropriate to your layout. You can also update the view padding
-            // if that's more appropriate.
             v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 leftMargin = insets.left
                 bottomMargin = insets.bottom
                 rightMargin = insets.right
             }
-
-            // Return CONSUMED if you don't want the window insets to keep passing
-            // down to descendant views.
             WindowInsetsCompat.CONSUMED
         }
-
         setContentView(binding.root)
 
-
-        val fragments = ArrayList<MainLoadFragment>()
-        addFragments(fragments = fragments)
-        viewPagerAdapter = MainViewPagerAdapter(this)
-        binding.viewpager.let {
-            it.isSaveEnabled = false
-            it.adapter = viewPagerAdapter
-            viewPagerAdapter?.setData(fragments)
-            it.offscreenPageLimit = fragments.size
-            it.isUserInputEnabled = false
-
-        }
-
-        initTitleView()
-
-
+        initView()
     }
 
-    private fun addFragments(fragments: ArrayList<MainLoadFragment>) {
-        MainViewModel.DRAWER_ITEMS.forEach {
-            when (it) {
-                R.string.xiuren -> {
-                    fragments.add(XiuRenFragment())
-                }
+    private fun initView() {
 
-                R.string.heisi -> {
-                    fragments.add(HeiSiFragment())
-                }
+        binding.fragmentRecycler.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = MAdapter().apply {
+                setData(
+                    arrayListOf(
+                        MainThemeSelectInfo(
+                            cover = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg", this@MainActivity.getString(R.string.xiuren)
+                        )
 
+                    )
+                )
             }
         }
     }
 
-    private fun initTitleView() {
-        titleAdapter = MainTitleAdapter { info ->
-            val index = MainViewModel.DRAWER_ITEMS.indexOf(info.id)
+    inner class MAdapter : RecyclerView.Adapter<MAdapter.MHolder>() {
 
-            if (index >= 0 && binding.viewpager.currentItem != index) {
-                binding.viewpager.setCurrentItem(index, false)
+        private val data = ArrayList<MainThemeSelectInfo>()
+
+        fun setData(list: List<MainThemeSelectInfo>) {
+            data.clear()
+            data.addAll(list)
+            notifyDataSetChanged()
+        }
+
+        inner class MHolder(private val binding: ItemMainThemeSelectBinding) : ViewHolder(binding.root) {
+            init {
+                binding.titleTv.onClick {
+                    ImageThemePagerActivity.start(context = this@MainActivity, theme = ImageThemePagerActivity.THEME_XIUREN)
+                }
+            }
+
+            fun bind(info: MainThemeSelectInfo) {
+                binding.titleTv.text = info.title
+                binding.coverIv.loadImage(info.cover)
             }
         }
-        binding.recyclerView.let {
-            it.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-            it.adapter = titleAdapter
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MHolder {
+            return MHolder(ItemMainThemeSelectBinding.inflate(LayoutInflater.from(parent.context), parent, false))
         }
-        titleAdapter?.submitList(MainViewModel.DRAWER_ITEMS.mapIndexed { index, i -> MainTitleAdapter.ItemInfo(id = i, isSelect = index == 0) })
+
+        override fun getItemCount(): Int {
+            return data.size
+        }
+
+        override fun onBindViewHolder(holder: MHolder, position: Int) {
+            return holder.bind(info = data[position])
+        }
 
     }
+
 }

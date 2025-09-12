@@ -12,12 +12,12 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.zasko.imageloads.adapter.MainLoadsAdapter
-import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.MainLoadFragment
+import com.zasko.imageloads.fragment.ThemePagerFragment
 import com.zasko.imageloads.manager.ImageLoadsManager
 
-class HeiSiFragment : MainLoadFragment() {
+class HeiSiFragment : ThemePagerFragment() {
 
     private lateinit var binding: FragmentNormalBinding
     private lateinit var adapter: MainLoadsAdapter
@@ -40,8 +40,8 @@ class HeiSiFragment : MainLoadFragment() {
 
     }
 
-    override fun initLoad() {
-        super.initLoad()
+    override fun initByResume() {
+        super.initByResume()
         startLoadImages()
     }
 
@@ -50,7 +50,7 @@ class HeiSiFragment : MainLoadFragment() {
             ImageLoadsManager.getImageData().doOnSuccess { result ->
                 Glide.with(this).asBitmap().load(result.data).into(object : CustomTarget<Bitmap>() {
                     override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                        adapter.addData(mutableListOf(MainLoadsInfo(url = result.data, width = resource.width, height = resource.height)))
+                        adapter.addData(mutableListOf(ImageLoadsInfo(url = result.data, width = resource.width, height = resource.height)))
                     }
 
                     override fun onLoadCleared(placeholder: Drawable?) {

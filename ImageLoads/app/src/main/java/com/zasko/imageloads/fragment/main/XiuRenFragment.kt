@@ -4,23 +4,26 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.zasko.imageloads.activity.CoverDetailActivity
 import com.zasko.imageloads.adapter.MainLoadsAdapter
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.MainLoadFragment
+import com.zasko.imageloads.fragment.ThemePagerFragment
 import com.zasko.imageloads.manager.ImageLoadsManager
 import com.zasko.imageloads.utils.BuildConfig
 import com.zasko.imageloads.utils.switchThread
+import com.zasko.imageloads.viewmodel.MainViewModel
+import com.zasko.imageloads.viewmodel.XiuRenViewModel
 import io.reactivex.rxjava3.core.Single
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
-class XiuRenFragment : MainLoadFragment() {
+class XiuRenFragment : ThemePagerFragment() {
 
     companion object {
         private const val TAG = "XiuRenFragment"
@@ -29,6 +32,7 @@ class XiuRenFragment : MainLoadFragment() {
     }
 
 
+    private lateinit var viewModel: XiuRenViewModel
     private lateinit var binding: FragmentNormalBinding
     private lateinit var adapter: MainLoadsAdapter
 
@@ -38,19 +42,18 @@ class XiuRenFragment : MainLoadFragment() {
     private val LOAD_MAX_SIZE = 20
 
 
-    private val isLoadMore = AtomicBoolean(false)
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        viewModel = ViewModelProvider(this)[XiuRenViewModel::class.java]
         binding = FragmentNormalBinding.inflate(inflater)
-        init()
+        initView()
         return binding.root
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-    }
+    private fun initView() {
+        binding.refreshLayout.setOnRefreshListener {
+            loadNewData()
+        }
 
-    private fun init() {
         adapter = MainLoadsAdapter(loadMore = {
             if (adapter.itemCount > 5) {
 //                getLoadMoreData()
@@ -60,26 +63,40 @@ class XiuRenFragment : MainLoadFragment() {
                 CoverDetailActivity.start(activity = act, data = itemInfo)
             }
         }
-        binding.refreshLayout.setOnRefreshListener {
-            getNewData()
-        }
-        binding.recyclerView.let {
-            it.layoutManager = StaggeredGridLayoutManager(2, RecyclerView.VERTICAL).apply {
+        binding.recyclerView.apply {
+            itemAnimator = null
+            layoutManager = StaggeredGridLayoutManager(2, RecyclerView.VERTICAL).apply {
                 this.gapStrategy = StaggeredGridLayoutManager.GAP_HANDLING_NONE
             }
-            it.adapter = adapter
+            adapter = this@XiuRenFragment.adapter
         }
-
     }
 
-
-    override fun initLoad() {
-        super.initLoad()
+    override fun initByResume() {
+        super.initByResume()
         binding.refreshLayout.isRefreshing = true
-        getNewData()
+        loadNewData()
     }
 
-    private fun setAdapterData(list: List<MainLoadsInfo>, isAdd: Boolean = false) {
+    override fun loadNewData() {
+        super.loadNewData()
+        checkRunAfterLoadingMore(moreLockBack = {
+            binding.refreshLayout.isRefreshing = false
+        }) {
+            loadStarIndex = 0
+            viewModel.getLocalData().switchThread().doOnSuccess {
+                loadStarIndex += LOAD_MAX_SIZE
+                setAdapterData(list = it)
+            }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
+        }
+    }
+
+    override fun loadMoreData() {
+        super.loadMoreData()
+    }
+
+
+    private fun setAdapterData(list: List<ImageLoadsInfo>, isAdd: Boolean = false) {
         if (isAdd) {
             adapter.addData(list)
         } else {
@@ -87,55 +104,14 @@ class XiuRenFragment : MainLoadFragment() {
         }
     }
 
-    private fun getNewData() {
-
-        if (isLoadMore.get()) {
-            binding.refreshLayout.isRefreshing = false
-            return
-        }
-        loadStarIndex = 0
-
-//        if (BuildConfig.isUseLocal) {
-//            getRandomData().switchThread().doOnSuccess { data ->
-//                setAdapterData(list = data)
-//            }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
-//
-//        } else {
-        ImageLoadsManager.getXiuRenData(loadStarIndex, domain = DOMAIN).switchThread().doOnSuccess { data ->
-            loadStarIndex += LOAD_MAX_SIZE
-            setAdapterData(list = data)
-        }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
-//        }
-    }
-
-    private fun getLoadMoreData() {
-        LogComponent.printD(tag = TAG, message = "getLoadMoreData isLoadMore:${isLoadMore.get()}")
-        if (isLoadMore.get()) {
-            return
-        }
-        isLoadMore.set(true)
-
-        if (BuildConfig.isUseLocal) {
-            getRandomData().switchThread().doOnSuccess { data ->
-                setAdapterData(list = data, isAdd = true)
-            }.doFinally { isLoadMore.set(false) }.bindLife()
-        } else {
-            ImageLoadsManager.getXiuRenData(start = loadStarIndex, domain = DOMAIN).switchThread().doOnSuccess { data ->
-                setAdapterData(list = data, isAdd = true)
-            }.doFinally {
-                isLoadMore.set(false)
-            }.bindLife()
-        }
-    }
-
-    private fun getRandomData(): Single<MutableList<MainLoadsInfo>> {
+    private fun getRandomData(): Single<MutableList<ImageLoadsInfo>> {
         return Single.just(true).map {
             //"https://i.xiutaku.com/photo/uploadfile/pic/17383.webp"
             val baseUrl = "https://i.xiutaku.com/photo/uploadfile/pic/"
-            val list = mutableListOf<MainLoadsInfo>()
+            val list = mutableListOf<ImageLoadsInfo>()
             repeat(20) {
                 val url = "${baseUrl}${Random.nextInt(from = 16000, until = 17383)}.webp"
-                list.add(MainLoadsInfo(url = url, width = 1024, height = 1535))
+                list.add(ImageLoadsInfo(url = url, width = 1024, height = 1535))
             }
             list
         }.delay(3, TimeUnit.SECONDS)

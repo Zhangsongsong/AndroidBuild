@@ -13,25 +13,25 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
-import com.zasko.imageloads.fragment.MainLoadFragment
+import com.zasko.imageloads.fragment.ThemePagerFragment
 import com.zasko.imageloads.utils.onClick
 
-class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemListener: (MainLoadsInfo) -> Unit) :
+class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemListener: (ImageLoadsInfo) -> Unit) :
     RecyclerView.Adapter<ViewHolder>() {
 
 
-    private val data = ArrayList<MainLoadsInfo>()
+    private val data = ArrayList<ImageLoadsInfo>()
 
-    fun setData(list: List<MainLoadsInfo>) {
+    fun setData(list: List<ImageLoadsInfo>) {
         val size = list.size
         data.clear()
         data.addAll(list)
         notifyItemRangeChanged(0, size)
     }
 
-    fun addData(list: List<MainLoadsInfo>) {
+    fun addData(list: List<ImageLoadsInfo>) {
         val size = data.size
         data.addAll(list)
         notifyItemRangeInserted(size, list.size)
@@ -65,7 +65,7 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemLi
 
 
     inner class MHolder(private val binding: ItemMainLoadsBinding) : ViewHolder(binding.root) {
-        private var currentInfo: MainLoadsInfo? = null
+        private var currentInfo: ImageLoadsInfo? = null
 
         init {
             binding.coverIv.onClick {
@@ -73,10 +73,10 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemLi
             }
         }
 
-        fun bind(info: MainLoadsInfo) {
+        fun bind(info: ImageLoadsInfo) {
             currentInfo = info
             val param = binding.coverIv.layoutParams
-            param.height = (MainLoadFragment.screenWidth / 2) * info.height / info.width
+            param.height = (ThemePagerFragment.screenWidth / 2) * info.height / info.width
             binding.coverIv.layoutParams = param
             Glide.with(binding.coverIv.context).load(info.url).diskCacheStrategy(DiskCacheStrategy.DATA)
                 .addListener(object : RequestListener<Drawable> {

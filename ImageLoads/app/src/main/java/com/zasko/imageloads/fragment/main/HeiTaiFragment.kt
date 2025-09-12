@@ -5,9 +5,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.MainLoadFragment
+import com.zasko.imageloads.fragment.ThemePagerFragment
 
-class HeiTaiFragment : MainLoadFragment() {
+class HeiTaiFragment : ThemePagerFragment() {
 
     private lateinit var binding: FragmentNormalBinding
 

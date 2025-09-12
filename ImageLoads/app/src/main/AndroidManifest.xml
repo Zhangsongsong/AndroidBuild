@@ -29,9 +29,13 @@
             </intent-filter>
         </activity>
 
+
+        <activity android:name=".activity.ImageThemePagerActivity" />
         <activity
             android:name=".activity.CoverDetailActivity"
             android:screenOrientation="portrait" />
+
+
     </application>
 
 </manifest>

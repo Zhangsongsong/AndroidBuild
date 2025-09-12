@@ -6,7 +6,7 @@ import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.HeiSiInfo
 import com.zasko.imageloads.data.ImageDetailInfo
 import com.zasko.imageloads.data.ImageInfo
-import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.TagsInfo
 import com.zasko.imageloads.manager.html.HtmlParseManager
 import com.zasko.imageloads.services.ImageLoadsServices
@@ -16,14 +16,13 @@ import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
-import org.jsoup.Jsoup
 import java.util.concurrent.TimeUnit
 
 object ImageLoadsManager {
 
     private const val TAG = "ImageLoadsManager"
 
-    private val imageServer by lazy {
+    val imageServer by lazy {
         HttpComponent.getRetrofit().create(ImageLoadsServices::class.java)
     }
 
@@ -48,7 +47,7 @@ object ImageLoadsManager {
     }
 
 
-    fun getXiuRenData(start: Int = 0, domain: String = ""): Single<List<MainLoadsInfo>> {
+    fun getXiuRenData(start: Int = 0, domain: String = ""): Single<List<ImageLoadsInfo>> {
         val single = if (BuildConfig.isUseLocal) {
             HtmlParseManager.parseXiuRenByLocal(context = MApplication.application)
         } else {
@@ -58,7 +57,7 @@ object ImageLoadsManager {
             val doc = MJson.parse(data.toString())
             val itemLinks = doc.getElementsByClass("item-link")
 //            LogComponent.printD(tag = TAG, message = "getXiuRenData item_link:${itemLinks.firstOrNull()?.getElementsByTag("a")}")
-            val resultList = mutableListOf<MainLoadsInfo>()
+            val resultList = mutableListOf<ImageLoadsInfo>()
             itemLinks.forEach { item ->
                 item.getElementsByTag("a").firstOrNull()?.let { aInfo ->
                     var href = aInfo.attr("href")
@@ -66,7 +65,7 @@ object ImageLoadsManager {
                         href = domain + href
                     }
                     item.getElementsByTag("img").firstOrNull()?.let { img ->
-                        resultList.add(MainLoadsInfo(
+                        resultList.add(ImageLoadsInfo(
                             url = img.attr("src"), width = img.attr("width").toInt(), height = img.attr("height").toInt(), href = href
                         ).apply {
                             LogComponent.printD(tag = TAG, message = "getXiuRenData mainLoadInfo:${this}")

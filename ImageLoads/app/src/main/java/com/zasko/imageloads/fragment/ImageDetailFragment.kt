@@ -15,7 +15,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.MainLoadsInfo
+import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
 import com.zasko.imageloads.manager.ImageLoadsManager
 import com.zasko.imageloads.utils.FileUtil
@@ -28,7 +28,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-class ImageDetailFragment : MainLoadFragment() {
+class ImageDetailFragment : ThemePagerFragment() {
 
 
     companion object {
@@ -36,7 +36,7 @@ class ImageDetailFragment : MainLoadFragment() {
         private const val TAG = "ImageDetailFragment"
     }
 
-    private lateinit var mainLoadsInfo: MainLoadsInfo
+    private lateinit var imageLoadsInfo: ImageLoadsInfo
 
     private lateinit var binding: FragmentDetailImageBinding
     private lateinit var mAdapter: DetailImagesAdapter
@@ -47,12 +47,12 @@ class ImageDetailFragment : MainLoadFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
-            mainLoadsInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                it.getSerializable(KEY_DATA, MainLoadsInfo::class.java)!!
+            imageLoadsInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                it.getSerializable(KEY_DATA, ImageLoadsInfo::class.java)!!
             } else {
-                it.getSerializable(KEY_DATA) as MainLoadsInfo
+                it.getSerializable(KEY_DATA) as ImageLoadsInfo
             }
-            LogComponent.printD(tag = TAG, message = "mainLoadInfo:${mainLoadsInfo} ${Environment.getExternalStorageDirectory()}")
+            LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo} ${Environment.getExternalStorageDirectory()}")
         }
     }
 
@@ -94,13 +94,13 @@ class ImageDetailFragment : MainLoadFragment() {
             }
         })
 
-        binding.coverIv.loadImageWithInside(url = mainLoadsInfo.url)
+        binding.coverIv.loadImageWithInside(url = imageLoadsInfo.url)
         binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
         binding.pictureRecycler.adapter = mAdapter
     }
 
     private fun getDetail() {
-        ImageLoadsManager.getXiuRenDetail(url = mainLoadsInfo.href).switchThread().doOnSuccess { info ->
+        ImageLoadsManager.getXiuRenDetail(url = imageLoadsInfo.href).switchThread().doOnSuccess { info ->
             binding.loadingBar.isVisible = false
             binding.nameTv.text = info.name
             binding.descTv.text = info.desc
@@ -119,7 +119,7 @@ class ImageDetailFragment : MainLoadFragment() {
             return
         }
         isLoadingMore.set(true)
-        LogComponent.printD(tag = TAG, message = "loadMore ${mainLoadsInfo.href} loadMoreIndex:${loadMoreIndex}")
+        LogComponent.printD(tag = TAG, message = "loadMore ${imageLoadsInfo.href} loadMoreIndex:${loadMoreIndex}")
         loadMoreIndex++
         Single.just(true).delay(5, TimeUnit.SECONDS).flatMap {
             ImageLoadsManager.getXiuRenDetailMore(url = toPageUrl(page = loadMoreIndex)).switchThread().doOnSuccess { list ->
@@ -145,6 +145,6 @@ class ImageDetailFragment : MainLoadFragment() {
     }
 
     private fun toPageUrl(page: Int = 1): String {
-        return "${mainLoadsInfo.href}?page=${page}"
+        return "${imageLoadsInfo.href}?page=${page}"
     }
 }
