@@ -7,6 +7,7 @@ import androidx.fragment.app.Fragment
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.fragment.main.XiuRenFragment
+import com.zasko.imageloads.utils.Constants
 
 class ImageThemePagerActivity : BaseActivity() {
     companion object {
@@ -14,28 +15,20 @@ class ImageThemePagerActivity : BaseActivity() {
 
 
         private const val KEY_THEME = "key_theme"
-        const val THEME_XIUREN = 1
-
 
         fun start(context: Context, theme: Int) {
             context.startActivity(Intent(context, ImageThemePagerActivity::class.java).apply {
                 putExtra(KEY_THEME, theme)
             })
         }
-
-
     }
-
 
     private var fragment: Fragment? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_image_theme_pager)
-
-
-        fragment = when (intent.getIntExtra(KEY_THEME, THEME_XIUREN)) {
-
+        fragment = when (intent.getIntExtra(KEY_THEME, Constants.THEME_TYPE_XIUREN)) {
             else -> {
                 XiuRenFragment()
             }

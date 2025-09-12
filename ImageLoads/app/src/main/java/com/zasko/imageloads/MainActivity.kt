@@ -16,6 +16,7 @@ import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.databinding.ActivityMainBinding
 import com.zasko.imageloads.databinding.ItemMainThemeSelectBinding
+import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.loadImage
 import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.viewmodel.MainViewModel
@@ -80,7 +81,7 @@ class MainActivity : BaseActivity() {
         inner class MHolder(private val binding: ItemMainThemeSelectBinding) : ViewHolder(binding.root) {
             init {
                 binding.titleTv.onClick {
-                    ImageThemePagerActivity.start(context = this@MainActivity, theme = ImageThemePagerActivity.THEME_XIUREN)
+                    ImageThemePagerActivity.start(context = this@MainActivity, theme = Constants.THEME_TYPE_XIUREN)
                 }
             }
 

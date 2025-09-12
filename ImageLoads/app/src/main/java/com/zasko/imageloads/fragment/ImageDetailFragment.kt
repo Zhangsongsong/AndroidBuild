@@ -1,18 +1,16 @@
 package com.zasko.imageloads.fragment
 
-import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
-import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
@@ -23,6 +21,8 @@ import com.zasko.imageloads.utils.PermissionUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.utils.switchThread
+import com.zasko.imageloads.viewmodel.ImageDetailViewModel
+import com.zasko.imageloads.viewmodel.XiuRenViewModel
 import io.reactivex.rxjava3.core.Single
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -36,10 +36,11 @@ class ImageDetailFragment : ThemePagerFragment() {
         private const val TAG = "ImageDetailFragment"
     }
 
+    private lateinit var viewModel: ImageDetailViewModel
     private lateinit var imageLoadsInfo: ImageLoadsInfo
-
     private lateinit var binding: FragmentDetailImageBinding
     private lateinit var mAdapter: DetailImagesAdapter
+
 
     private var loadMoreIndex = 1
 
@@ -54,6 +55,10 @@ class ImageDetailFragment : ThemePagerFragment() {
             }
             LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo} ${Environment.getExternalStorageDirectory()}")
         }
+        viewModel = ViewModelProvider(this)[ImageDetailViewModel::class.java].apply {
+            setLoadsInfo(imageLoadsInfo)
+        }
+
     }
 
 
@@ -106,7 +111,6 @@ class ImageDetailFragment : ThemePagerFragment() {
             binding.descTv.text = info.desc
             binding.timeTv.text = info.time
             mAdapter.setData(list = info.pictures ?: emptyList())
-            updateHasLoad()
 //            loadMore()
         }.bindLife()
     }
@@ -129,7 +133,6 @@ class ImageDetailFragment : ThemePagerFragment() {
                 } else {
                     mAdapter.addData(list)
                 }
-                updateHasLoad()
             }
         }.doFinally {
             isLoadingMore.set(false)
@@ -139,10 +142,6 @@ class ImageDetailFragment : ThemePagerFragment() {
         }.bindLife()
     }
 
-    @SuppressLint("SetTextI18n")
-    private fun updateHasLoad() {
-        binding.hasLoadCountTv.text = "${ContextCompat.getString(context, R.string.has_load)}${mAdapter?.getData()?.size}"
-    }
 
     private fun toPageUrl(page: Int = 1): String {
         return "${imageLoadsInfo.href}?page=${page}"

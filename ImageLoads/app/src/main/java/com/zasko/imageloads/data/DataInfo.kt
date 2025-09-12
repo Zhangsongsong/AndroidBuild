@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 import java.io.Serializable as SerializableJava
 
 @Serializable
-data class ImageLoadsInfo(var url: String = "", var width: Int = -1, var height: Int = -1, var href: String = "") : SerializableJava
+data class ImageLoadsInfo(var fromType: Int = 0, var url: String = "", var width: Int = -1, var height: Int = -1, var href: String = "") :
+    SerializableJava
 
 
 @Serializable

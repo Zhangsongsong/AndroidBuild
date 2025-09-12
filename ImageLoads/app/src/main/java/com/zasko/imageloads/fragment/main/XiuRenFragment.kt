@@ -9,18 +9,13 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.zasko.imageloads.activity.CoverDetailActivity
 import com.zasko.imageloads.adapter.MainLoadsAdapter
-import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentNormalBinding
 import com.zasko.imageloads.fragment.ThemePagerFragment
-import com.zasko.imageloads.manager.ImageLoadsManager
-import com.zasko.imageloads.utils.BuildConfig
 import com.zasko.imageloads.utils.switchThread
-import com.zasko.imageloads.viewmodel.MainViewModel
 import com.zasko.imageloads.viewmodel.XiuRenViewModel
 import io.reactivex.rxjava3.core.Single
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
 class XiuRenFragment : ThemePagerFragment() {
@@ -60,7 +55,9 @@ class XiuRenFragment : ThemePagerFragment() {
             }
         }) { itemInfo ->
             activity?.let { act ->
-                CoverDetailActivity.start(activity = act, data = itemInfo)
+                CoverDetailActivity.start(activity = act, data = itemInfo.apply {
+                    fromType
+                })
             }
         }
         binding.recyclerView.apply {
