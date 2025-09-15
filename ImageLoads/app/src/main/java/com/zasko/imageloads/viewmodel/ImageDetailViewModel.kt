@@ -1,5 +1,6 @@
 package com.zasko.imageloads.viewmodel
 
+import android.content.Context
 import com.zasko.imageloads.base.BaseViewModel
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageDetailInfo
@@ -19,8 +20,9 @@ class ImageDetailViewModel : BaseViewModel() {
 
     private var loadsInfo: ImageLoadsInfo? = null
 
-
+    private var currentDetailInfo: ImageDetailInfo? = null
     private lateinit var detailAction: DetailAction
+
 
     fun setLoadsInfo(info: ImageLoadsInfo) {
         loadsInfo = info
@@ -30,13 +32,15 @@ class ImageDetailViewModel : BaseViewModel() {
             }
 
             else -> {
-                XiuRenDetail()
+                object : DetailAction {}
             }
         }
     }
 
     fun getDetailInfo(): Single<ImageDetailInfo> {
-        return detailAction.getDetailInfo()
+        return detailAction.getDetailInfo().doOnSuccess {
+            currentDetailInfo = it
+        }
     }
 
     fun getNextPageIndex(currentIndex: Int): Int {
@@ -48,8 +52,15 @@ class ImageDetailViewModel : BaseViewModel() {
     }
 
 
-    fun downloadPic() {
+    fun downloadPic(context: Context) {
         LogComponent.printD(TAG, "downloadPic:${detailAction.getDownloadDir()}")
+        LogComponent.printD(TAG, "downloadPic:${currentDetailInfo}")
+        currentDetailInfo?.let { info ->
+            detailAction.startDownload(
+                context = context, dir = detailAction.getParentFile(parentName = info.name), pictures = info.pictures ?: emptyList()
+            )?.bindLifeJob()
+        }
+
     }
 
 

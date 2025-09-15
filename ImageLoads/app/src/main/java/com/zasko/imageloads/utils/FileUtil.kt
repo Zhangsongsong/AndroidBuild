@@ -95,3 +95,11 @@ fun String.getUrlToSuffix(): String {
     }
     return this.split(".").lastOrNull() ?: ""
 }
+
+fun Int.makeUpTen(): String {
+    return this.toString().padStart(7, '0')
+}
+
+fun String.toFileNameByIndex(index: Int): String {
+    return "${index.makeUpTen()}.${this.getUrlToSuffix()}"
+}

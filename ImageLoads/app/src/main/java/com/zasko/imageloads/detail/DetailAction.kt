@@ -1,8 +1,10 @@
 package com.zasko.imageloads.detail
 
+import android.content.Context
 import com.zasko.imageloads.data.ImageDetailInfo
 import com.zasko.imageloads.data.ImageInfo
 import io.reactivex.rxjava3.core.Single
+import kotlinx.coroutines.Job
 
 interface DetailAction {
 
@@ -23,4 +25,11 @@ interface DetailAction {
         return ""
     }
 
+    fun getParentFile(parentName: String): String {
+        return ""
+    }
+
+    fun startDownload(context: Context, dir: String, pictures: List<ImageInfo>): Job? {
+        return null
+    }
 }

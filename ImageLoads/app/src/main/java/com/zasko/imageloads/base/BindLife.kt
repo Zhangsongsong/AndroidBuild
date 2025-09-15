@@ -81,9 +81,8 @@ interface BindLife {
     }
 
     val jobs: MutableList<Job>
-
-    fun Job.bindLife() {
-        jobs.add(this)
+    fun addJobBindLife(job: Job) {
+        jobs.add(job)
     }
 
     fun cancelJobs() {

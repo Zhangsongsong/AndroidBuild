@@ -56,6 +56,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo} ${Environment.getExternalStorageDirectory()}")
         }
         viewModel = ViewModelProvider(this)[ImageDetailViewModel::class.java].apply {
+            this.initBindLife(this@ImageDetailFragment)
             setLoadsInfo(imageLoadsInfo)
         }
 
@@ -137,7 +138,7 @@ class ImageDetailFragment : ThemePagerFragment() {
         }
         binding.downloadTipTv.isVisible = true
         binding.waterBucketView.isVisible = true
-        viewModel.downloadPic()
+        viewModel.downloadPic(context = binding.waterBucketView.context)
 
     }
 }

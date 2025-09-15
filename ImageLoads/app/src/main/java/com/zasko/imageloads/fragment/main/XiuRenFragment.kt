@@ -12,6 +12,7 @@ import com.zasko.imageloads.adapter.MainLoadsAdapter
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentNormalBinding
 import com.zasko.imageloads.fragment.ThemePagerFragment
+import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.switchThread
 import com.zasko.imageloads.viewmodel.XiuRenViewModel
 import io.reactivex.rxjava3.core.Single
@@ -56,7 +57,7 @@ class XiuRenFragment : ThemePagerFragment() {
         }) { itemInfo ->
             activity?.let { act ->
                 CoverDetailActivity.start(activity = act, data = itemInfo.apply {
-                    fromType
+                    fromType = Constants.THEME_TYPE_XIUREN
                 })
             }
         }
