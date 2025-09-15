@@ -30,10 +30,13 @@
                     android:paddingBottom="10dp">
 
                     <com.zasko.imageloads.view.WaterBucketView
+                        android:id="@+id/waterBucketView"
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
+                        android:visibility="gone"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        app:layout_constraintTop_toTopOf="parent"
+                        tools:visibility="visible" />
 
 
                     <ImageView
@@ -160,6 +163,21 @@
         </FrameLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <TextView
+        android:id="@+id/downloadTipTv"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:alpha="0.8"
+        android:background="@color/color_act_bg"
+        android:gravity="center"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:text="@string/downloading_tip"
+        android:textColor="@color/color_fd5b24"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

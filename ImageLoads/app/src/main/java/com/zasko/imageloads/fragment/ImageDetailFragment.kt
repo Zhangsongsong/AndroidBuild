@@ -65,7 +65,7 @@ class ImageDetailFragment : ThemePagerFragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         binding = FragmentDetailImageBinding.inflate(inflater)
         initView()
-        getDetail()
+        loadNewData()
         ViewCompat.setOnApplyWindowInsetsListener(binding.contentCons) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
@@ -79,18 +79,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             activity?.finish()
         }
         binding.downloadIv.onClick {
-            FileUtil.createExternalDir()
-            PermissionUtil.getReadAndWriteExternal(context = requireActivity())
-            if (!File(FileUtil.getDownloadPath()).exists() || isDownloading.get()) {
-                return@onClick
-            }
-            if ((mAdapter.getData().size) > 0) {
-                val file = File("${FileUtil.getDownloadPath()}/${binding.nameTv.text}")
-                if (!file.exists()) {
-                    file.mkdirs()
-                }
-                LogComponent.printD(tag = TAG, message = "initView file:${file.absolutePath}")
-            }
+            startDownload()
         }
 
         mAdapter = DetailImagesAdapter(loadMore = {
@@ -104,18 +93,19 @@ class ImageDetailFragment : ThemePagerFragment() {
         binding.pictureRecycler.adapter = mAdapter
     }
 
-    private fun getDetail() {
-        ImageLoadsManager.getXiuRenDetail(url = imageLoadsInfo.href).switchThread().doOnSuccess { info ->
+    override fun loadNewData() {
+        super.loadNewData()
+        viewModel.getDetailInfo().switchThread().doOnSuccess { info ->
             binding.loadingBar.isVisible = false
             binding.nameTv.text = info.name
             binding.descTv.text = info.desc
             binding.timeTv.text = info.time
             mAdapter.setData(list = info.pictures ?: emptyList())
-//            loadMore()
         }.bindLife()
     }
 
-    private fun loadMore() {
+    override fun loadMoreData() {
+        super.loadMoreData()
         if (isLoadEnd.get()) {
             return
         }
@@ -124,26 +114,30 @@ class ImageDetailFragment : ThemePagerFragment() {
         }
         isLoadingMore.set(true)
         LogComponent.printD(tag = TAG, message = "loadMore ${imageLoadsInfo.href} loadMoreIndex:${loadMoreIndex}")
-        loadMoreIndex++
-        Single.just(true).delay(5, TimeUnit.SECONDS).flatMap {
-            ImageLoadsManager.getXiuRenDetailMore(url = toPageUrl(page = loadMoreIndex)).switchThread().doOnSuccess { list ->
-                //如果是重复数据，直接判定end
-                if (list.isEmpty() || mAdapter.getData().lastOrNull()?.url == list.lastOrNull()?.url) {
-                    isLoadEnd.set(true)
-                } else {
-                    mAdapter.addData(list)
-                }
+
+        val nextIndex = viewModel.getNextPageIndex(currentIndex = loadMoreIndex)
+        viewModel.getDetailMore(pageIndex = nextIndex).switchThread().doOnSuccess { list ->
+            //如果是重复数据，直接判定end
+            if (list.isEmpty() || mAdapter.getData().lastOrNull()?.url == list.lastOrNull()?.url) {
+                isLoadEnd.set(true)
+            } else {
+                mAdapter.addData(list)
             }
         }.doFinally {
             isLoadingMore.set(false)
-            if (!isLoadEnd.get()) {
-                loadMore()
-            }
         }.bindLife()
+
     }
 
+    private fun startDownload() {
+        FileUtil.createExternalDir()
+        PermissionUtil.getReadAndWriteExternal(context = requireActivity())
+        if (!File(FileUtil.getDownloadPath()).exists() || isDownloading.get()) {
+            return
+        }
+        binding.downloadTipTv.isVisible = true
+        binding.waterBucketView.isVisible = true
+        viewModel.downloadPic()
 
-    private fun toPageUrl(page: Int = 1): String {
-        return "${imageLoadsInfo.href}?page=${page}"
     }
 }

@@ -52,7 +52,6 @@ class MainActivity : BaseActivity() {
     }
 
     private fun initView() {
-
         binding.fragmentRecycler.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = MAdapter().apply {
@@ -61,7 +60,6 @@ class MainActivity : BaseActivity() {
                         MainThemeSelectInfo(
                             cover = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg", this@MainActivity.getString(R.string.xiuren)
                         )
-
                     )
                 )
             }

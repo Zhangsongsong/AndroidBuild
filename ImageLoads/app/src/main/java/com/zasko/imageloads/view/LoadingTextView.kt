@@ -50,47 +50,78 @@ class WaterBucketView @JvmOverloads constructor(
         strokeWidth = 8f
     }
 
-    private val waterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // 前层水
+    private val frontWavePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#3F51B5")
         style = Paint.Style.FILL
+        alpha = 180
     }
 
-    private var progress = 0.5f   // 水位 0~1
-    private var waveOffset = 0f // 波浪水平偏移
-    private var waveLength = 0f // 波长
+    // 后层水（稍浅）
+    private val backWavePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#5C6BC0")
+        style = Paint.Style.FILL
+        alpha = 120
+    }
 
-    private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+    private var progress = 0.0f          // 当前水位
+    private var waveOffset1 = 0f         // 前层波浪偏移
+    private var waveOffset2 = 0f         // 后层波浪偏移
+    private var waveLength = 0f          // 基础波长
+
+    private var progressAnimator: ValueAnimator? = null
+
+    // 两个偏移动画，速度不同
+    private val animator1 = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 2000
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener {
-            // 让偏移量在一个完整波长内循环
-            val value = it.animatedValue as Float
-            waveOffset = value * waveLength * 2
+            waveOffset1 = (it.animatedValue as Float) * waveLength
             invalidate()
         }
     }
 
-    init {
-        // 在 View attach 后才启动动画（防止未 attach 提前 start）
-        if (!isInEditMode) {
-            animator.start()
+    private val animator2 = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 4000
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = LinearInterpolator()
+        addUpdateListener {
+            waveOffset2 = (it.animatedValue as Float) * waveLength
+            invalidate()
         }
     }
 
-    fun setProgress(ratio: Float) {
-        progress = ratio.coerceIn(0f, 1f)
-        invalidate()
+    fun setProgress(target: Float) {
+        val end = target.coerceIn(0f, 1f)
+
+        progressAnimator?.cancel()
+        progressAnimator = ValueAnimator.ofFloat(progress, end).apply {
+            duration = (Math.abs(end - progress) * 2000).toLong().coerceAtLeast(800)
+            interpolator = LinearInterpolator()
+            addUpdateListener {
+                progress = it.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+    }
+
+    fun getProgress(): Float {
+        return progress
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (!animator.isStarted) animator.start()
+        if (!animator1.isStarted) animator1.start()
+        if (!animator2.isStarted) animator2.start()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        animator.cancel()
+        animator1.cancel()
+        animator2.cancel()
+        progressAnimator?.cancel()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -100,48 +131,50 @@ class WaterBucketView @JvmOverloads constructor(
         val height = height.toFloat()
         val bucketRect = RectF(10f, 10f, width - 10f, height - 10f)
 
-        // 桶的外框
+        // 桶外框
         canvas.drawRoundRect(bucketRect, 30f, 30f, bucketPaint)
 
-        // 波长取容器宽度一半
-        waveLength = bucketRect.width() / 2
+        waveLength = bucketRect.width()
 
-        // 保存图层，限制水波只画在桶里
         val saveCount = canvas.saveLayer(bucketRect, null)
 
-        // 裁剪桶内部
-        canvas.clipRect(bucketRect.left, bucketRect.top, bucketRect.right, bucketRect.bottom)
+        // ✅ 用圆角矩形做裁剪
+        val clipPath = Path().apply {
+            addRoundRect(bucketRect, 30f, 30f, Path.Direction.CW)
+        }
+        canvas.clipPath(clipPath)
 
-        // 水位高度
         val waterLevel = bucketRect.bottom - (bucketRect.height() * progress)
 
-        // 波浪路径
-        val path = Path()
-        path.moveTo(bucketRect.left - waveOffset, waterLevel)
+        // 画后层波浪
+        drawWave(canvas, bucketRect, waterLevel, waveOffset2, height * 0.015f, backWavePaint)
 
-        val waveHeight = 40f
-        var x = -waveLength * 2
-        while (x <= bucketRect.width() * 2) {
-            // 波峰
-            path.quadTo(
-                x + waveLength / 2, waterLevel - waveHeight,
-                x + waveLength, waterLevel
-            )
-            // 波谷
-            path.quadTo(
-                x + waveLength * 1.5f, waterLevel + waveHeight,
-                x + waveLength * 2, waterLevel
-            )
-            x += waveLength * 2
+        // 画前层波浪
+        drawWave(canvas, bucketRect, waterLevel, waveOffset1, height * 0.02f, frontWavePaint)
+
+        canvas.restoreToCount(saveCount)
+    }
+
+
+    private fun drawWave(
+        canvas: Canvas, bucketRect: RectF, waterLevel: Float, offset: Float, amplitude: Float, paint: Paint
+    ) {
+        val path = Path()
+        path.moveTo(bucketRect.left, waterLevel)
+
+        var x = bucketRect.left
+        while (x <= bucketRect.right) {
+            val y = (amplitude * Math.sin((2 * Math.PI / waveLength) * (x + offset))).toFloat()
+            path.lineTo(x, waterLevel + y)
+            x += 10
         }
 
         path.lineTo(bucketRect.right, bucketRect.bottom)
         path.lineTo(bucketRect.left, bucketRect.bottom)
         path.close()
 
-        canvas.drawPath(path, waterPaint)
-
-        canvas.restoreToCount(saveCount)
+        canvas.drawPath(path, paint)
     }
 }
+
 

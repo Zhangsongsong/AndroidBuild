@@ -11,4 +11,5 @@
 
     <string name="has_load">已加载:</string>
     <string name="has_download">已下载:</string>
+    <string name="downloading_tip">下载中，尽量不要离开此页</string>
 </resources>
