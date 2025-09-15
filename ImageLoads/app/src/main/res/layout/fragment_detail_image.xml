@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/contentCons"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/white">
 
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -154,7 +155,7 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         android:text="@string/downloading_tip"
-        android:textColor="@color/color_fd5b24"
+        android:textColor="@color/color_e75858"
         android:textStyle="bold"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent" />

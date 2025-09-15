@@ -2,6 +2,14 @@ package com.zasko.imageloads.detail
 
 interface DownloadListener {
 
+    fun onStartGettingMaxPage() {
+
+    }
+
+    fun onEndGettingMaxPage() {
+
+    }
+
     fun onStartDownload(all: Int, dir: String) {
 
     }

@@ -65,21 +65,23 @@ class XiuRenDetail : DetailAction {
         return parentFile.absolutePath
     }
 
-    override fun getImageList(): Single<List<ImageInfo>> {
+    override fun getImageList(listener: GettingImageListener?): Single<List<ImageInfo>> {
         return getDetailInfo().map { it.pictures ?: emptyList() }.flatMap { firstList ->
+            listener?.onGettingPage(0)
             if (firstList.isEmpty()) {
                 Single.just(emptyList())
             } else {
                 val lastItem = firstList.last()
-                fetchAllPages(page = getNextPageIndex(cIndex = 1), lastItem).map { nextList ->
+                fetchAllPages(page = getNextPageIndex(cIndex = 1), listener = listener, lastItem).map { nextList ->
                     firstList + nextList
                 }
             }
         }
     }
 
-    private fun fetchAllPages(page: Int, lastPagerItem: ImageInfo?): Single<List<ImageInfo>> {
+    private fun fetchAllPages(page: Int, listener: GettingImageListener?, lastPagerItem: ImageInfo?): Single<List<ImageInfo>> {
         return getDetailMore(page).delay(5, TimeUnit.SECONDS).flatMap { list ->
+            listener?.onGettingPage(page)
             if (list.isEmpty()) {
                 Single.just(emptyList())
             } else {
@@ -87,7 +89,7 @@ class XiuRenDetail : DetailAction {
                 if (lastItem.url == lastPagerItem?.url) {
                     Single.just(emptyList())
                 } else {
-                    fetchAllPages(page + 1, lastItem).map { nextList ->
+                    fetchAllPages(page + 1, listener = listener, lastItem).map { nextList ->
                         list + nextList
                     }
                 }

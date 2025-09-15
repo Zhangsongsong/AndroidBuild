@@ -12,12 +12,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
+import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
 import com.zasko.imageloads.detail.DownloadListener
 import com.zasko.imageloads.detail.DownloadListenerAbs
+import com.zasko.imageloads.detail.GettingImageListener
 import com.zasko.imageloads.manager.ImageLoadsManager
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
@@ -133,6 +135,7 @@ class ImageDetailFragment : ThemePagerFragment() {
 
     }
 
+
     private fun startDownload() {
         FileUtil.createExternalDir()
         PermissionUtil.getReadAndWriteExternal(context = requireActivity())
@@ -140,10 +143,26 @@ class ImageDetailFragment : ThemePagerFragment() {
             return
         }
         binding.downloadTipTv.isVisible = true
-        viewModel.downloadPic(context = binding.downloadCountTv.context, object : DownloadListenerAbs() {
+        viewModel.downloadPic(context = binding.downloadCountTv.context, gettingListener = object : GettingImageListener {
+            override fun onGettingPage(page: Int) {
+                super.onGettingPage(page)
+                LogComponent.printD(TAG, "startDownload onGettingPage page:${page}")
+            }
+        }, listener = object : DownloadListenerAbs() {
+
+            override fun onStartGettingMaxPage() {
+                super.onStartGettingMaxPage()
+                isDownloading.set(true)
+                binding.downloadTipTv.apply {
+                    text = context.getString(R.string.getting_max_page_list)
+                }
+            }
+
             override fun onStartDownload(all: Int, dir: String) {
                 super.onStartDownload(all, dir)
-                isDownloading.set(true)
+                binding.downloadTipTv.apply {
+                    text = context.getString(R.string.downloading_tip)
+                }
             }
 
             @SuppressLint("SetTextI18n")
@@ -155,6 +174,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             override fun onEndDownload(all: Int, dir: String) {
                 super.onEndDownload(all, dir)
                 isDownloading.set(false)
+                binding.downloadTipTv.isVisible = false
             }
         })
 

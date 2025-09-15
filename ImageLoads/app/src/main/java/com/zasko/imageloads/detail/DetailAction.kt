@@ -33,7 +33,7 @@ interface DetailAction {
         return null
     }
 
-    fun getImageList(): Single<List<ImageInfo>> {
+    fun getImageList(listener: GettingImageListener? = null): Single<List<ImageInfo>> {
         return Single.just(emptyList())
     }
 }

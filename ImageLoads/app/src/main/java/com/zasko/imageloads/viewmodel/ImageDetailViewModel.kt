@@ -8,6 +8,7 @@ import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.detail.DetailAction
 import com.zasko.imageloads.detail.DownloadListener
+import com.zasko.imageloads.detail.GettingImageListener
 import com.zasko.imageloads.detail.XiuRenDetail
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.switchThread
@@ -54,15 +55,18 @@ class ImageDetailViewModel : BaseViewModel() {
     }
 
 
-    fun downloadPic(context: Context, listener: DownloadListener) {
+    fun downloadPic(context: Context, gettingListener: GettingImageListener, listener: DownloadListener) {
         LogComponent.printD(TAG, "downloadPic:${detailAction.getDownloadDir()}")
         LogComponent.printD(TAG, "downloadPic:${currentDetailInfo}")
         currentDetailInfo?.let { info ->
-            detailAction.getImageList().switchThread().doOnSuccess { list ->
+            listener.onStartGettingMaxPage()
+            detailAction.getImageList(listener = gettingListener).switchThread().doOnSuccess { list ->
                 LogComponent.printD(TAG, "downloadPic size:${list.size}")
                 detailAction.startDownload(
                     context = context, dir = detailAction.getParentFile(parentName = info.name), pictures = list, listener = listener
                 )?.bindLifeJob()
+            }.doFinally {
+                listener.onEndGettingMaxPage()
             }.bindLife()
 
         }

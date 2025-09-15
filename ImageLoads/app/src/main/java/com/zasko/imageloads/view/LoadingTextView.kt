@@ -50,7 +50,7 @@ class WaterBucketView @JvmOverloads constructor(
     }
 
     private val bucketPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.DKGRAY
+        color = context.getColor(R.color.white)
         style = Paint.Style.STROKE
         strokeWidth = 8f
     }
