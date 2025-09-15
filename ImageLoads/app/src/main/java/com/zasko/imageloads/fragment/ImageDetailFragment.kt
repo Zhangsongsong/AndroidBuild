@@ -1,5 +1,6 @@
 package com.zasko.imageloads.fragment
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -15,6 +16,8 @@ import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
+import com.zasko.imageloads.detail.DownloadListener
+import com.zasko.imageloads.detail.DownloadListenerAbs
 import com.zasko.imageloads.manager.ImageLoadsManager
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
@@ -137,8 +140,23 @@ class ImageDetailFragment : ThemePagerFragment() {
             return
         }
         binding.downloadTipTv.isVisible = true
-        binding.waterBucketView.isVisible = true
-        viewModel.downloadPic(context = binding.waterBucketView.context)
+        viewModel.downloadPic(context = binding.downloadCountTv.context, object : DownloadListenerAbs() {
+            override fun onStartDownload(all: Int, dir: String) {
+                super.onStartDownload(all, dir)
+                isDownloading.set(true)
+            }
+
+            @SuppressLint("SetTextI18n")
+            override fun onOneEndDownLoad(index: Int, all: Int, dir: String, fileName: String) {
+                super.onOneEndDownLoad(index, all, dir, fileName)
+                binding.downloadCountTv.text = "${index}/${all}"
+            }
+
+            override fun onEndDownload(all: Int, dir: String) {
+                super.onEndDownload(all, dir)
+                isDownloading.set(false)
+            }
+        })
 
     }
 }

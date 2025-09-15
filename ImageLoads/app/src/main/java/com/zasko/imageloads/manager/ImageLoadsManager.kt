@@ -78,8 +78,8 @@ object ImageLoadsManager {
     }
 
     fun getXiuRenDetail(url: String = ""): Single<ImageDetailInfo> {
-        return HtmlParseManager.parseXiuRenDetail(context = MApplication.application).map { data ->
-//        return imageServer.getXiuRenDetail(url).map { data ->
+//        return HtmlParseManager.parseXiuRenDetail(context = MApplication.application).map { data ->
+        return imageServer.getXiuRenDetail(url).map { data ->
             val doc = MJson.parse(data.toString())
             val name = doc.getElementsByClass("article-header").firstOrNull()?.getElementsByTag("h1")?.firstOrNull()?.text() ?: ""
             var time = ""
@@ -105,6 +105,7 @@ object ImageLoadsManager {
     }
 
     fun getXiuRenDetailMore(url: String = ""): Single<List<ImageInfo>> {
+        LogComponent.printD(TAG, "getXiuRenDetailMore url:${url}")
         return imageServer.getXiuRenDetail(url = url).map { data ->
             val doc = MJson.parse(data)
             doc.getElementsByClass("article-fulltext").firstOrNull()?.getElementsByTag("img")?.map {

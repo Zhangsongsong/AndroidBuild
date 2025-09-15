@@ -29,7 +29,11 @@ interface DetailAction {
         return ""
     }
 
-    fun startDownload(context: Context, dir: String, pictures: List<ImageInfo>): Job? {
+    fun startDownload(context: Context, dir: String, pictures: List<ImageInfo>, listener: DownloadListener? = null): Job? {
         return null
+    }
+
+    fun getImageList(): Single<List<ImageInfo>> {
+        return Single.just(emptyList())
     }
 }

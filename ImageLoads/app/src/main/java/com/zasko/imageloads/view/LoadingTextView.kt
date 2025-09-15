@@ -16,6 +16,7 @@ import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.zasko.imageloads.R
+import com.zasko.imageloads.components.LogComponent
 
 class LoadingTextView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
@@ -43,6 +44,10 @@ class LoadingTextView @JvmOverloads constructor(
 class WaterBucketView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
+
+    companion object {
+        private const val TAG = "WaterBucketView"
+    }
 
     private val bucketPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.DKGRAY
@@ -93,8 +98,8 @@ class WaterBucketView @JvmOverloads constructor(
     }
 
     fun setProgress(target: Float) {
+        LogComponent.printD(TAG, "setProgress target:${target}")
         val end = target.coerceIn(0f, 1f)
-
         progressAnimator?.cancel()
         progressAnimator = ValueAnimator.ofFloat(progress, end).apply {
             duration = (Math.abs(end - progress) * 2000).toLong().coerceAtLeast(800)

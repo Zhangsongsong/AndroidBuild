@@ -7,8 +7,10 @@ import com.zasko.imageloads.data.ImageDetailInfo
 import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.detail.DetailAction
+import com.zasko.imageloads.detail.DownloadListener
 import com.zasko.imageloads.detail.XiuRenDetail
 import com.zasko.imageloads.utils.Constants
+import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Single
 
 class ImageDetailViewModel : BaseViewModel() {
@@ -52,15 +54,18 @@ class ImageDetailViewModel : BaseViewModel() {
     }
 
 
-    fun downloadPic(context: Context) {
+    fun downloadPic(context: Context, listener: DownloadListener) {
         LogComponent.printD(TAG, "downloadPic:${detailAction.getDownloadDir()}")
         LogComponent.printD(TAG, "downloadPic:${currentDetailInfo}")
         currentDetailInfo?.let { info ->
-            detailAction.startDownload(
-                context = context, dir = detailAction.getParentFile(parentName = info.name), pictures = info.pictures ?: emptyList()
-            )?.bindLifeJob()
-        }
+            detailAction.getImageList().switchThread().doOnSuccess { list ->
+                LogComponent.printD(TAG, "downloadPic size:${list.size}")
+                detailAction.startDownload(
+                    context = context, dir = detailAction.getParentFile(parentName = info.name), pictures = list, listener = listener
+                )?.bindLifeJob()
+            }.bindLife()
 
+        }
     }
 
 
