@@ -1,5 +1,6 @@
 package com.zasko.imageloads.viewmodel
 
+import android.app.Activity
 import android.content.Context
 import com.zasko.imageloads.base.BaseViewModel
 import com.zasko.imageloads.components.LogComponent
@@ -11,8 +12,11 @@ import com.zasko.imageloads.detail.DownloadListener
 import com.zasko.imageloads.detail.GettingImageListener
 import com.zasko.imageloads.detail.XiuRenDetail
 import com.zasko.imageloads.utils.Constants
+import com.zasko.imageloads.utils.FileUtil
+import com.zasko.imageloads.utils.PermissionUtil
 import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Single
+import java.io.File
 
 class ImageDetailViewModel : BaseViewModel() {
 
@@ -72,5 +76,17 @@ class ImageDetailViewModel : BaseViewModel() {
         }
     }
 
+    fun checkHasDownload(): Boolean {
+        if (currentDetailInfo == null) {
+            return false
+        }
+        val file = File(detailAction.getDownloadDir(), currentDetailInfo?.name ?: "")
+        return file.exists()
+    }
+
+    fun createAndNeedPermission(activity: Activity) {
+        FileUtil.createExternalDir()
+        PermissionUtil.getReadAndWriteExternal(context = activity)
+    }
 
 }

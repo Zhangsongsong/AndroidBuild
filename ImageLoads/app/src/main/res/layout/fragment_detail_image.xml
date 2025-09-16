@@ -54,23 +54,12 @@
                         android:id="@+id/downloadIv"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:layout_marginTop="0dp"
+                        android:layout_marginTop="10dp"
                         app:layout_constraintEnd_toEndOf="@id/coverIv"
                         app:layout_constraintStart_toStartOf="@id/coverIv"
                         app:layout_constraintTop_toBottomOf="@id/coverIv"
                         app:srcCompat="@drawable/baseline_cloud_download_24" />
 
-                    <TextView
-                        android:id="@+id/downloadCountTv"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/color_act_bg"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@id/downloadIv"
-                        app:layout_constraintStart_toStartOf="@id/downloadIv"
-                        app:layout_constraintTop_toBottomOf="@id/downloadIv"
-                        tools:text="1/100" />
 
                     <TextView
                         android:id="@+id/nameTv"
@@ -144,21 +133,6 @@
         </FrameLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
-    <TextView
-        android:id="@+id/downloadTipTv"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:alpha="0.8"
-        android:background="@color/color_act_bg"
-        android:gravity="center"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:text="@string/downloading_tip"
-        android:textColor="@color/color_e75858"
-        android:textStyle="bold"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,7 +1,9 @@
 package com.zasko.imageloads.fragment
 
 import android.content.Context
+import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import com.zasko.imageloads.base.BindLife
 import com.zasko.imageloads.base.PagerLoadListener
 import java.util.concurrent.atomic.AtomicBoolean
@@ -47,5 +49,12 @@ open class ThemePagerFragment : Fragment(), BindLife by BindLife(), PagerLoadLis
         }
         block.invoke()
     }
+
+    fun runInAct(block: (act: FragmentActivity) -> Unit) {
+        activity?.let {
+            block.invoke(it)
+        }
+    }
+
 
 }

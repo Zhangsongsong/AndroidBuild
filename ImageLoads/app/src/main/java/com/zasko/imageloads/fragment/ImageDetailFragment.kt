@@ -17,20 +17,19 @@ import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
-import com.zasko.imageloads.detail.DownloadListener
 import com.zasko.imageloads.detail.DownloadListenerAbs
 import com.zasko.imageloads.detail.GettingImageListener
-import com.zasko.imageloads.manager.ImageLoadsManager
+import com.zasko.imageloads.dialog.CenterDefaultDialog
+import com.zasko.imageloads.dialog.DownloadTipDialog
+import com.zasko.imageloads.dialog.WarningDialog
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
+import com.zasko.imageloads.utils.setTint
 import com.zasko.imageloads.utils.switchThread
 import com.zasko.imageloads.viewmodel.ImageDetailViewModel
-import com.zasko.imageloads.viewmodel.XiuRenViewModel
-import io.reactivex.rxjava3.core.Single
 import java.io.File
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class ImageDetailFragment : ThemePagerFragment() {
@@ -58,7 +57,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             } else {
                 it.getSerializable(KEY_DATA) as ImageLoadsInfo
             }
-            LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo} ${Environment.getExternalStorageDirectory()}")
+            LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo}")
         }
         viewModel = ViewModelProvider(this)[ImageDetailViewModel::class.java].apply {
             this.initBindLife(this@ImageDetailFragment)
@@ -85,7 +84,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             activity?.finish()
         }
         binding.downloadIv.onClick {
-            startDownload()
+            checkAndCanDownload()
         }
 
         mAdapter = DetailImagesAdapter(loadMore = {
@@ -97,6 +96,7 @@ class ImageDetailFragment : ThemePagerFragment() {
         binding.coverIv.loadImageWithInside(url = imageLoadsInfo.url)
         binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
         binding.pictureRecycler.adapter = mAdapter
+
     }
 
     override fun loadNewData() {
@@ -107,6 +107,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             binding.descTv.text = info.desc
             binding.timeTv.text = info.time
             mAdapter.setData(list = info.pictures ?: emptyList())
+            binding.downloadIv.setTint(binding.downloadIv.context.getColor(if (viewModel.checkHasDownload()) R.color.color_act_bg else R.color.color_222125))
         }.bindLife()
     }
 
@@ -135,15 +136,38 @@ class ImageDetailFragment : ThemePagerFragment() {
 
     }
 
+    private var downloadDialog: DownloadTipDialog? = null
 
-    private fun startDownload() {
-        FileUtil.createExternalDir()
-        PermissionUtil.getReadAndWriteExternal(context = requireActivity())
+    private fun checkAndCanDownload() {
+        viewModel.createAndNeedPermission(activity = requireActivity())
         if (!File(FileUtil.getDownloadPath()).exists() || isDownloading.get()) {
             return
         }
-        binding.downloadTipTv.isVisible = true
-        viewModel.downloadPic(context = binding.downloadCountTv.context, gettingListener = object : GettingImageListener {
+        if (viewModel.checkHasDownload()) {
+            runInAct { act ->
+                val dialog = WarningDialog(act, clickBack = { status, d ->
+                    when (status) {
+                        CenterDefaultDialog.VALUE_POSITIVE -> {
+                            startDownload()
+                        }
+                    }
+                    d.dismiss()
+                })
+                dialog.show()
+            }
+        } else {
+            startDownload()
+        }
+    }
+
+    private fun startDownload() {
+        if (downloadDialog == null) {
+            runInAct { act ->
+                downloadDialog = DownloadTipDialog(activity = act)
+            }
+        }
+        downloadDialog?.show()
+        viewModel.downloadPic(context = binding.downloadIv.context, gettingListener = object : GettingImageListener {
             override fun onGettingPage(page: Int) {
                 super.onGettingPage(page)
                 LogComponent.printD(TAG, "startDownload onGettingPage page:${page}")
@@ -153,28 +177,25 @@ class ImageDetailFragment : ThemePagerFragment() {
             override fun onStartGettingMaxPage() {
                 super.onStartGettingMaxPage()
                 isDownloading.set(true)
-                binding.downloadTipTv.apply {
-                    text = context.getString(R.string.getting_max_page_list)
-                }
+                downloadDialog?.setTitleText(text = context?.getString(R.string.getting_max_page_list) ?: "")
             }
 
             override fun onStartDownload(all: Int, dir: String) {
                 super.onStartDownload(all, dir)
-                binding.downloadTipTv.apply {
-                    text = context.getString(R.string.downloading_tip)
-                }
+                downloadDialog?.setTitleText(text = context?.getString(R.string.downloading_tip) ?: "")
             }
 
             @SuppressLint("SetTextI18n")
             override fun onOneEndDownLoad(index: Int, all: Int, dir: String, fileName: String) {
                 super.onOneEndDownLoad(index, all, dir, fileName)
-                binding.downloadCountTv.text = "${index}/${all}"
+
+                downloadDialog?.updateProgress(progress = index.toFloat() / all, text = "${index}/${all}")
             }
 
             override fun onEndDownload(all: Int, dir: String) {
                 super.onEndDownload(all, dir)
                 isDownloading.set(false)
-                binding.downloadTipTv.isVisible = false
+                downloadDialog?.dismiss()
             }
         })
 

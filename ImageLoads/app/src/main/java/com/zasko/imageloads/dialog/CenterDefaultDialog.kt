@@ -1,16 +1,16 @@
 package com.zasko.imageloads.dialog
 
+import android.app.Activity
 import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.LayoutInflater
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDialog
 import androidx.viewbinding.ViewBinding
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BindLife
 
-abstract class CenterDefaultDialog<Binding : ViewBinding>(activity: AppCompatActivity, styleId: Int = R.style.Theme_DefaultDialog) :
+abstract class CenterDefaultDialog<Binding : ViewBinding>(activity: Activity, styleId: Int = R.style.Theme_DefaultDialog) :
     AppCompatDialog(activity, styleId), BindLife by BindLife() {
 
     companion object {
@@ -23,6 +23,9 @@ abstract class CenterDefaultDialog<Binding : ViewBinding>(activity: AppCompatAct
     val binding: Binding by lazy {
         createViewBinding(LayoutInflater.from(context))
     }
+
+
+    var status = VALUE_NEGATIVE
 
 
     open val gravity: Int = Gravity.CENTER
