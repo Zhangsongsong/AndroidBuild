@@ -88,9 +88,6 @@ class ImageDetailFragment : ThemePagerFragment() {
         }
 
         mAdapter = DetailImagesAdapter(loadMore = {
-            if (!binding.bufferLoadingView.isVisible) {
-                binding.bufferLoadingView.startAni()
-            }
             loadMoreData()
         })
 
@@ -123,6 +120,8 @@ class ImageDetailFragment : ThemePagerFragment() {
         if (isLoadingMore.get()) {
             return
         }
+        binding.bufferLoadingView.isVisible = true
+        binding.bufferLoadingView.startAni()
         isLoadingMore.set(true)
         LogComponent.printD(tag = TAG, message = "loadMore ${imageLoadsInfo.href} loadMoreIndex:${loadMoreIndex}")
 
@@ -136,6 +135,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             }
         }.doFinally {
             binding.bufferLoadingView.stopAni()
+            binding.bufferLoadingView.isVisible = false
             isLoadingMore.set(false)
         }.bindLife()
 

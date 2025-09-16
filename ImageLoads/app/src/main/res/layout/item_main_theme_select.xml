@@ -38,6 +38,7 @@
 
 
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/userDataFromCons"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:alpha="0.5"
@@ -69,8 +70,20 @@
             app:layout_constraintStart_toEndOf="@id/useDataFromTv"
             app:layout_constraintTop_toTopOf="parent" />
 
-
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <TextView
+        android:id="@+id/hasDownloadTv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:alpha="0.5"
+        android:background="@drawable/bg_dialog"
+        android:padding="8dp"
+        android:text="@string/has_download"
+        android:textColor="@color/white"
+        app:layout_constraintBottom_toBottomOf="@id/coverCardView"
+        app:layout_constraintEnd_toEndOf="@id/coverCardView" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

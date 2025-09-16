@@ -91,6 +91,12 @@ class MainActivity : BaseActivity() {
                 binding.useDataFromSwitch.setOnCheckedChangeListener { _, isChecked ->
                     currentInfo?.dataUseFrom = if (isChecked) DataUseFrom.PRIVATE_FILE.value else DataUseFrom.NETWORK.value
                 }
+                binding.userDataFromCons.onClick {
+                    binding.useDataFromSwitch.isChecked = !binding.useDataFromSwitch.isChecked
+                }
+                binding.hasDownloadTv.onClick {
+
+                }
             }
 
             fun bind(info: MainThemeSelectInfo) {
