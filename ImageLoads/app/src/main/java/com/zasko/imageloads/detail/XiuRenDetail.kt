@@ -67,7 +67,7 @@ class XiuRenDetail : DetailAction {
 
     override fun getImageList(listener: GettingImageListener?): Single<List<ImageInfo>> {
         return getDetailInfo().map { it.pictures ?: emptyList() }.flatMap { firstList ->
-            listener?.onGettingPage(0)
+            listener?.onGettingPage(1)
             if (firstList.isEmpty()) {
                 Single.just(emptyList())
             } else {

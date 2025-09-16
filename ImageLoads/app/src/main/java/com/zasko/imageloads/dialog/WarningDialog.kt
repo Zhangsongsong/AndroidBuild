@@ -30,8 +30,14 @@ class WarningDialog(
 
     override fun dismiss() {
         super.dismiss()
-
+        dismissBack.invoke(status)
     }
 
+
+    fun updateALlText(content: String, negative: String, positive: String) {
+        binding.contentTv.text = content
+        binding.positiveTv.text = positive
+        binding.negativeTv.text = negative
+    }
 
 }

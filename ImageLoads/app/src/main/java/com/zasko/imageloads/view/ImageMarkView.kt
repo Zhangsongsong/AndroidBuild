@@ -21,7 +21,7 @@ class ImageMarkView @JvmOverloads constructor(
     init {
         addView(coverIv, LayoutParams(LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         markView = View(context).apply {
-            alpha = 0.9f
+            alpha = 0.3f
 
             setBackgroundColor(context.getColor(R.color.color_222125))
         }

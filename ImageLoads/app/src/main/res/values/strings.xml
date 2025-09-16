@@ -14,4 +14,8 @@
 
     <string name="downloading_tip">下载中，尽量不要离开此页</string>
     <string name="getting_max_page_list">正在获取页面数量，尽量不要离开此页</string>
+
+    <string name="if_oval_download">是否重新下载覆盖?</string>
+    <string name="yes">是</string>
+    <string name="no">否</string>
 </resources>

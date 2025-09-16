@@ -91,12 +91,16 @@ class ImageDetailFragment : ThemePagerFragment() {
             if (!binding.bufferLoadingView.isVisible) {
                 binding.bufferLoadingView.startAni()
             }
+            loadMoreData()
         })
 
         binding.coverIv.loadImageWithInside(url = imageLoadsInfo.url)
         binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
         binding.pictureRecycler.adapter = mAdapter
+    }
 
+    private fun updateHasDownloadView() {
+        binding.downloadIv.setTint(binding.downloadIv.context.getColor(if (viewModel.checkHasDownload()) R.color.color_act_bg else R.color.color_222125))
     }
 
     override fun loadNewData() {
@@ -107,7 +111,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             binding.descTv.text = info.desc
             binding.timeTv.text = info.time
             mAdapter.setData(list = info.pictures ?: emptyList())
-            binding.downloadIv.setTint(binding.downloadIv.context.getColor(if (viewModel.checkHasDownload()) R.color.color_act_bg else R.color.color_222125))
+            updateHasDownloadView()
         }.bindLife()
     }
 
@@ -131,6 +135,7 @@ class ImageDetailFragment : ThemePagerFragment() {
                 mAdapter.addData(list)
             }
         }.doFinally {
+            binding.bufferLoadingView.stopAni()
             isLoadingMore.set(false)
         }.bindLife()
 
@@ -154,6 +159,10 @@ class ImageDetailFragment : ThemePagerFragment() {
                     d.dismiss()
                 })
                 dialog.show()
+                dialog.updateALlText(
+                    content = act.getString(R.string.if_oval_download), negative = act.getString(R.string.no), positive = act.getString(R.string.yes)
+                )
+
             }
         } else {
             startDownload()
@@ -171,6 +180,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             override fun onGettingPage(page: Int) {
                 super.onGettingPage(page)
                 LogComponent.printD(TAG, "startDownload onGettingPage page:${page}")
+                downloadDialog?.addGettingText(text = "page:${page}")
             }
         }, listener = object : DownloadListenerAbs() {
 
@@ -196,6 +206,7 @@ class ImageDetailFragment : ThemePagerFragment() {
                 super.onEndDownload(all, dir)
                 isDownloading.set(false)
                 downloadDialog?.dismiss()
+                updateHasDownloadView()
             }
         })
 

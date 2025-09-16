@@ -3,7 +3,6 @@ package com.zasko.imageloads.dialog
 import android.app.Activity
 import android.view.LayoutInflater
 import com.zasko.imageloads.databinding.DialogDownloadTipBinding
-import com.zasko.imageloads.utils.onClick
 
 class DownloadTipDialog(private val activity: Activity) : CenterDefaultDialog<DialogDownloadTipBinding>(activity = activity) {
 
@@ -18,6 +17,7 @@ class DownloadTipDialog(private val activity: Activity) : CenterDefaultDialog<Di
 
     override fun bindingStart(binding: DialogDownloadTipBinding) {
         super.bindingStart(binding)
+        setCanceledOnTouchOutside(false)
     }
 
     fun updateProgress(progress: Float, text: String) {
@@ -27,6 +27,13 @@ class DownloadTipDialog(private val activity: Activity) : CenterDefaultDialog<Di
 
     fun setTitleText(text: String) {
         binding.titleTv.text = text
+    }
+
+
+    private val stringBuilder = StringBuilder()
+    fun addGettingText(text: String) {
+        stringBuilder.append(text).append("\n")
+        binding.gettingDescTv.text = stringBuilder
     }
 
 

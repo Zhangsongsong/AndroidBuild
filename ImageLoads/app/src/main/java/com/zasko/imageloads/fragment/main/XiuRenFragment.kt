@@ -52,7 +52,7 @@ class XiuRenFragment : ThemePagerFragment() {
 
         adapter = MainLoadsAdapter(loadMore = {
             if (adapter.itemCount > 5) {
-//                getLoadMoreData()
+                loadMoreData()
             }
         }) { itemInfo ->
             activity?.let { act ->
@@ -82,7 +82,7 @@ class XiuRenFragment : ThemePagerFragment() {
             binding.refreshLayout.isRefreshing = false
         }) {
             loadStarIndex = 0
-            viewModel.getLocalData().switchThread().doOnSuccess {
+            viewModel.getNetworkData(start = loadStarIndex).switchThread().doOnSuccess {
                 loadStarIndex += LOAD_MAX_SIZE
                 setAdapterData(list = it)
             }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
@@ -91,6 +91,16 @@ class XiuRenFragment : ThemePagerFragment() {
 
     override fun loadMoreData() {
         super.loadMoreData()
+        if (binding.refreshLayout.isRefreshing || isLoadingMore.get()) {
+            return
+        }
+        isLoadingMore.set(true)
+        viewModel.getNetworkData(start = loadStarIndex).switchThread().doOnSuccess {
+            loadStarIndex += LOAD_MAX_SIZE
+            setAdapterData(list = it, isAdd = true)
+        }.doFinally { isLoadingMore.set(false) }.bindLife()
+
+
     }
 
 

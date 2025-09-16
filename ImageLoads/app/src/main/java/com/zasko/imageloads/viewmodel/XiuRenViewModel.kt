@@ -42,16 +42,18 @@ class XiuRenViewModel : BaseViewModel(), HtmlParse {
     }
 
 
-    fun getNetworkData(start: Int): Single<String> {
-        return ImageLoadsManager.imageServer.getXiuRen(start = start)
+    fun getNetworkData(start: Int): Single<List<ImageLoadsInfo>> {
+        return ImageLoadsManager.imageServer.getXiuRen(start = start).map {
+            transformHome(data = it)
+        }
     }
 
     fun getLocalData(): Single<List<ImageLoadsInfo>> {
         return HtmlParseManager.parseXiuRenByLocal(context = MApplication.application).map { data ->
             transformHome(data = data.toString())
         }
-
     }
+
 
 
 }
