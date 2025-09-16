@@ -13,10 +13,10 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import com.zasko.imageloads.activity.ImageThemePagerActivity
 import com.zasko.imageloads.base.BaseActivity
+import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.databinding.ActivityMainBinding
 import com.zasko.imageloads.databinding.ItemMainThemeSelectBinding
-import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.loadImage
 import com.zasko.imageloads.utils.onClick
@@ -59,7 +59,10 @@ class MainActivity : BaseActivity() {
                 setData(
                     arrayListOf(
                         MainThemeSelectInfo(
-                            cover = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg", this@MainActivity.getString(R.string.xiuren)
+                            cover = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg",
+                            this@MainActivity.getString(R.string.xiuren),
+                            dataUseFrom = DataUseFrom.PRIVATE_FILE.value,
+                            theme = Constants.THEME_TYPE_XIUREN
                         )
                     )
                 )
@@ -79,16 +82,22 @@ class MainActivity : BaseActivity() {
         }
 
         inner class MHolder(private val binding: ItemMainThemeSelectBinding) : ViewHolder(binding.root) {
+            private var currentInfo: MainThemeSelectInfo? = null
+
             init {
-                binding.titleTv.onClick {
-                    ImageThemePagerActivity.start(context = this@MainActivity, theme = Constants.THEME_TYPE_XIUREN)
-//                    DownloadTipDialog(this@MainActivity).show()
+                binding.titleTv.onClick { _ ->
+                    currentInfo?.let { info -> ImageThemePagerActivity.start(context = this@MainActivity, info) }
+                }
+                binding.useDataFromSwitch.setOnCheckedChangeListener { _, isChecked ->
+                    currentInfo?.dataUseFrom = if (isChecked) DataUseFrom.PRIVATE_FILE.value else DataUseFrom.NETWORK.value
                 }
             }
 
             fun bind(info: MainThemeSelectInfo) {
+                currentInfo = info
                 binding.titleTv.text = info.title
                 binding.coverIv.loadImage(info.cover)
+                binding.useDataFromSwitch.isChecked = info.dataUseFrom == DataUseFrom.PRIVATE_FILE.value
             }
         }
 

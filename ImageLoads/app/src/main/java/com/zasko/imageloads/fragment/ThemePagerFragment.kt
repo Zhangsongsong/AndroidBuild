@@ -1,7 +1,6 @@
 package com.zasko.imageloads.fragment
 
 import android.content.Context
-import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import com.zasko.imageloads.base.BindLife
@@ -12,6 +11,8 @@ open class ThemePagerFragment : Fragment(), BindLife by BindLife(), PagerLoadLis
 
     companion object {
         var screenWidth = 0
+
+        const val KEY_DATA = "key_data"
     }
 
 

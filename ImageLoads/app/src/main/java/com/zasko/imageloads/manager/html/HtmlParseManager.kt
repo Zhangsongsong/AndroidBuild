@@ -14,7 +14,7 @@ object HtmlParseManager {
 
     fun parseBaiduByLocal(context: Context): Single<StringBuilder> {
         return Single.just(true).map {
-            FileUtil.getFileToHtml(context = context, fileName = "html/baidu.html") ?: StringBuilder("")
+            FileUtil.getAssessFileToHtml(context = context, fileName = "html/baidu.html") ?: StringBuilder("")
         }.doOnSuccess { data ->
             LogComponent.printD(tag = TAG, message = "parseBaiduByLocal Thread:${Thread.currentThread().name}")
             val doc = Jsoup.parse(data.toString())
@@ -24,13 +24,13 @@ object HtmlParseManager {
 
     fun parseXiuRenByLocal(context: Context): Single<StringBuilder> {
         return Single.just(true).map {
-            FileUtil.getFileToHtml(context = context, fileName = "html/xiuren.html") ?: StringBuilder("")
+            FileUtil.getAssessFileToHtml(context = context, fileName = "html/xiuren.html") ?: StringBuilder("")
         }
     }
 
     fun parseXiuRenDetail(context: Context): Single<StringBuilder> {
         return Single.just(true).map {
-            FileUtil.getFileToHtml(context = context, fileName = "html/xiuren_detail.html") ?: StringBuilder("")
+            FileUtil.getAssessFileToHtml(context = context, fileName = "html/xiuren_detail.html") ?: StringBuilder("")
         }
     }
 }

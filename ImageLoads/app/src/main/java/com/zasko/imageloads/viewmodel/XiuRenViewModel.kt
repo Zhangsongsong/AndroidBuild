@@ -1,16 +1,14 @@
 package com.zasko.imageloads.viewmodel
 
-import com.zasko.imageloads.MApplication
 import com.zasko.imageloads.base.BaseViewModel
 import com.zasko.imageloads.base.HtmlParse
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.manager.ImageLoadsManager
-import com.zasko.imageloads.manager.html.HtmlParseManager
-import com.zasko.imageloads.utils.BuildConfig
+import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.MJson
-import com.zasko.imageloads.utils.switchThread
 import io.reactivex.rxjava3.core.Single
+import java.io.File
 
 class XiuRenViewModel : BaseViewModel(), HtmlParse {
 
@@ -44,16 +42,40 @@ class XiuRenViewModel : BaseViewModel(), HtmlParse {
 
     fun getNetworkData(start: Int): Single<List<ImageLoadsInfo>> {
         return ImageLoadsManager.imageServer.getXiuRen(start = start).map {
+            savePageHtml(start, html = it)
             transformHome(data = it)
         }
     }
 
-    fun getLocalData(): Single<List<ImageLoadsInfo>> {
-        return HtmlParseManager.parseXiuRenByLocal(context = MApplication.application).map { data ->
-            transformHome(data = data.toString())
+    fun getLocalData(start: Int): Single<List<ImageLoadsInfo>> {
+        return Single.just(true).map {
+            val file = File(getParentHtmlDir(), "$start")
+            if (file.exists()) {
+                transformHome(data = FileUtil.getFileToHtml(file)?.toString() ?: "")
+            } else {
+                emptyList()
+            }
         }
+
+        /* return HtmlParseManager.parseXiuRenByLocal(context = MApplication.application).map { data ->
+             transformHome(data = data.toString())
+         }*/
     }
 
+    private fun getParentHtmlDir(): String {
+        val parentFile = File(FileUtil.getPrivateHtmlDir() + "/${FileUtil.NAME_XIUREN}")
+        if (!parentFile.exists()) {
+            parentFile.mkdirs()
+        }
+        return parentFile.absolutePath
+    }
 
-
+    private fun savePageHtml(start: Int, html: String) {
+        val file = File(getParentHtmlDir(), "$start")
+        if (file.exists()) {
+            file.delete()
+        }
+        file.writeText(html, Charsets.UTF_8)
+        LogComponent.printD(TAG, "savePageHtml start:${start} html:${html.length}")
+    }
 }

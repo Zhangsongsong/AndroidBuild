@@ -6,19 +6,20 @@ import android.os.Bundle
 import androidx.fragment.app.Fragment
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
+import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.fragment.ThemePagerFragment
 import com.zasko.imageloads.fragment.main.XiuRenFragment
-import com.zasko.imageloads.utils.Constants
 
 class ImageThemePagerActivity : BaseActivity() {
     companion object {
         private const val TAG = "ImageThemePager"
 
 
-        private const val KEY_THEME = "key_theme"
+        private const val KEY_DATA = "key_theme"
 
-        fun start(context: Context, theme: Int) {
+        fun start(context: Context, data: MainThemeSelectInfo) {
             context.startActivity(Intent(context, ImageThemePagerActivity::class.java).apply {
-                putExtra(KEY_THEME, theme)
+                putExtra(KEY_DATA, data)
             })
         }
     }
@@ -28,9 +29,14 @@ class ImageThemePagerActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_image_theme_pager)
-        fragment = when (intent.getIntExtra(KEY_THEME, Constants.THEME_TYPE_XIUREN)) {
+        val dataInfo = intent.getSerializableExtra(KEY_DATA) as MainThemeSelectInfo
+        fragment = when (dataInfo.theme) {
             else -> {
-                XiuRenFragment()
+                XiuRenFragment().apply {
+                    arguments = Bundle().apply {
+                        putSerializable(ThemePagerFragment.KEY_DATA, dataInfo)
+                    }
+                }
             }
         }
         supportFragmentManager.beginTransaction().replace(R.id.fragmentLayout, fragment!!).commit()

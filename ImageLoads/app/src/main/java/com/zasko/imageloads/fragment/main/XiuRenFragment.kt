@@ -10,6 +10,8 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.zasko.imageloads.activity.CoverDetailActivity
 import com.zasko.imageloads.adapter.MainLoadsAdapter
 import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.databinding.FragmentNormalBinding
 import com.zasko.imageloads.fragment.ThemePagerFragment
 import com.zasko.imageloads.utils.Constants
@@ -30,16 +32,23 @@ class XiuRenFragment : ThemePagerFragment() {
 
     private lateinit var viewModel: XiuRenViewModel
     private lateinit var binding: FragmentNormalBinding
-    private lateinit var adapter: MainLoadsAdapter
 
+
+    private lateinit var adapter: MainLoadsAdapter
+    private var dataInfo: MainThemeSelectInfo? = null
 
     private var loadStarIndex = 0
-
     private val LOAD_MAX_SIZE = 20
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        dataInfo = arguments?.getSerializable(KEY_DATA) as? MainThemeSelectInfo
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        viewModel = ViewModelProvider(this)[XiuRenViewModel::class.java]
+        viewModel = ViewModelProvider(this)[XiuRenViewModel::class.java].apply {
+            this.initBindLife(this@XiuRenFragment)
+        }
         binding = FragmentNormalBinding.inflate(inflater)
         initView()
         return binding.root
@@ -82,7 +91,7 @@ class XiuRenFragment : ThemePagerFragment() {
             binding.refreshLayout.isRefreshing = false
         }) {
             loadStarIndex = 0
-            viewModel.getNetworkData(start = loadStarIndex).switchThread().doOnSuccess {
+            getData(start = loadStarIndex).switchThread().doOnSuccess {
                 loadStarIndex += LOAD_MAX_SIZE
                 setAdapterData(list = it)
             }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
@@ -95,12 +104,17 @@ class XiuRenFragment : ThemePagerFragment() {
             return
         }
         isLoadingMore.set(true)
-        viewModel.getNetworkData(start = loadStarIndex).switchThread().doOnSuccess {
+        getData(start = loadStarIndex).switchThread().doOnSuccess {
             loadStarIndex += LOAD_MAX_SIZE
             setAdapterData(list = it, isAdd = true)
         }.doFinally { isLoadingMore.set(false) }.bindLife()
+    }
 
-
+    private fun getData(start: Int): Single<List<ImageLoadsInfo>> {
+        return when (dataInfo?.dataUseFrom) {
+            DataUseFrom.PRIVATE_FILE.value -> viewModel.getLocalData(start = start)
+            else -> viewModel.getNetworkData(start = start)
+        }
     }
 
 
