@@ -32,8 +32,10 @@
 
         <activity android:name=".activity.ImageThemePagerActivity" />
         <activity
-            android:name=".activity.CoverDetailActivity"
+            android:name=".activity.PersonDetailActivity"
             android:screenOrientation="portrait" />
+
+        <activity android:name=".activity.HasDownloadActivity" />
 
 
     </application>

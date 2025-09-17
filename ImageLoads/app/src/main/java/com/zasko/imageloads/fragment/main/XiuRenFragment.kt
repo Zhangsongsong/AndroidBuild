@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.zasko.imageloads.activity.CoverDetailActivity
+import com.zasko.imageloads.activity.PersonDetailActivity
 import com.zasko.imageloads.adapter.MainLoadsAdapter
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -65,7 +65,7 @@ class XiuRenFragment : ThemePagerFragment() {
             }
         }) { itemInfo ->
             activity?.let { act ->
-                CoverDetailActivity.start(activity = act, data = itemInfo.apply {
+                PersonDetailActivity.start(activity = act, data = itemInfo.apply {
                     fromType = Constants.THEME_TYPE_XIUREN
                 })
             }

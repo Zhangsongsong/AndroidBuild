@@ -3,7 +3,6 @@ package com.zasko.imageloads.fragment
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,7 +22,6 @@ import com.zasko.imageloads.dialog.CenterDefaultDialog
 import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.dialog.WarningDialog
 import com.zasko.imageloads.utils.FileUtil
-import com.zasko.imageloads.utils.PermissionUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.utils.setTint
@@ -32,7 +30,7 @@ import com.zasko.imageloads.viewmodel.ImageDetailViewModel
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
-class ImageDetailFragment : ThemePagerFragment() {
+class PersonDetailFragment : ThemePagerFragment() {
 
 
     companion object {
@@ -60,7 +58,7 @@ class ImageDetailFragment : ThemePagerFragment() {
             LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo}")
         }
         viewModel = ViewModelProvider(this)[ImageDetailViewModel::class.java].apply {
-            this.initBindLife(this@ImageDetailFragment)
+            this.initBindLife(this@PersonDetailFragment)
             setLoadsInfo(imageLoadsInfo)
         }
 

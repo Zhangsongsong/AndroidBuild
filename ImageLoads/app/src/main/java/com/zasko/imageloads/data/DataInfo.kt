@@ -24,3 +24,8 @@ data class ImageDetailInfo(
     var name: String = "", var desc: String = "", var time: String = "", var tags: List<TagsInfo>? = null, var pictures: List<ImageInfo>? = null
 )
 
+
+@Serializable
+data class HasDownloadInfo(var name: String = "", var path: String = "", var images: List<String>? = emptyList())
+
+
