@@ -2,9 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp">
+    android:layout_height="wrap_content">
 
 
     <androidx.cardview.widget.CardView
@@ -41,7 +39,6 @@
         android:id="@+id/userDataFromCons"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:alpha="0.5"
         android:background="@drawable/bg_dialog"
         android:paddingStart="4dp"
         android:paddingEnd="4dp"
@@ -53,7 +50,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="列表是否使用本地数据"
-            android:textColor="@color/white"
+            android:textColor="@color/purple_200"
             android:textSize="11sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/useDataFromSwitch"
@@ -79,9 +76,11 @@
         android:layout_height="wrap_content"
         android:alpha="0.5"
         android:background="@drawable/bg_dialog"
+        android:fontFamily="@font/hfsuave_bold"
         android:padding="8dp"
         android:text="@string/has_download"
-        android:textColor="@color/white"
+        android:textColor="@color/purple_200"
+        android:textSize="14sp"
         app:layout_constraintBottom_toBottomOf="@id/coverCardView"
         app:layout_constraintEnd_toEndOf="@id/coverCardView" />
 

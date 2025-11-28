@@ -18,7 +18,7 @@ import com.zasko.imageloads.databinding.ItemMainLoadsBinding
 import com.zasko.imageloads.fragment.LoadBaseFragment
 import com.zasko.imageloads.utils.onClick
 
-class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemListener: (ImageLoadsInfo) -> Unit) :
+class ImageListLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemListener: (ImageLoadsInfo) -> Unit) :
     RecyclerView.Adapter<ViewHolder>() {
 
 

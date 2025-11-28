@@ -20,11 +20,11 @@ import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.schedulers.Schedulers
 import java.io.File
 
-class HasDownloadActivity : BaseActivity() {
+class XiuRenHasDownloadActivity : BaseActivity() {
 
     companion object {
         fun start(context: Context) {
-            context.startActivity(Intent(context, HasDownloadActivity::class.java))
+            context.startActivity(Intent(context, XiuRenHasDownloadActivity::class.java))
         }
     }
 

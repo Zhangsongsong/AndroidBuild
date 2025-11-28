@@ -8,9 +8,9 @@
 
 
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/contentCons"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:paddingTop="44dp">
+        android:layout_height="match_parent">
 
 
         <androidx.recyclerview.widget.RecyclerView

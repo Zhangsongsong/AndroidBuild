@@ -35,7 +35,7 @@
             android:name=".activity.PersonDetailActivity"
             android:screenOrientation="portrait" />
 
-        <activity android:name=".ui.xiuren.HasDownloadActivity" />
+        <activity android:name=".ui.xiuren.XiuRenHasDownloadActivity" />
 
 
     </application>

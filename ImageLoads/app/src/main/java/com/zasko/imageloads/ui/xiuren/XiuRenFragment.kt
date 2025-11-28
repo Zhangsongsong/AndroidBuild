@@ -8,7 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.zasko.imageloads.activity.PersonDetailActivity
-import com.zasko.imageloads.adapter.MainLoadsAdapter
+import com.zasko.imageloads.adapter.ImageListLoadsAdapter
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -34,7 +34,7 @@ class XiuRenFragment : LoadBaseFragment() {
     private lateinit var binding: FragmentNormalBinding
 
 
-    private lateinit var adapter: MainLoadsAdapter
+    private lateinit var adapter: ImageListLoadsAdapter
     private var dataInfo: MainThemeSelectInfo? = null
 
     private var loadStarIndex = 0
@@ -59,7 +59,7 @@ class XiuRenFragment : LoadBaseFragment() {
             loadNewData()
         }
 
-        adapter = MainLoadsAdapter(loadMore = {
+        adapter = ImageListLoadsAdapter(loadMore = {
             if (adapter.itemCount > 5) {
                 loadMoreData()
             }

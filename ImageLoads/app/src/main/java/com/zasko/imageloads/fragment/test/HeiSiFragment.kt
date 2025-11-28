@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
-import com.zasko.imageloads.adapter.MainLoadsAdapter
+import com.zasko.imageloads.adapter.ImageListLoadsAdapter
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentNormalBinding
 import com.zasko.imageloads.fragment.LoadBaseFragment
@@ -20,7 +20,7 @@ import com.zasko.imageloads.manager.ImageLoadsManager
 class HeiSiFragment : LoadBaseFragment() {
 
     private lateinit var binding: FragmentNormalBinding
-    private lateinit var adapter: MainLoadsAdapter
+    private lateinit var adapter: ImageListLoadsAdapter
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentNormalBinding.inflate(inflater)
@@ -29,7 +29,7 @@ class HeiSiFragment : LoadBaseFragment() {
     }
 
     private fun initView() {
-        adapter = MainLoadsAdapter() {
+        adapter = ImageListLoadsAdapter() {
 
         }
         binding.recyclerView.let {
