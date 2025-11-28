@@ -11,7 +11,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
-import com.zasko.imageloads.activity.ImageThemePagerActivity
+import com.zasko.imageloads.activity.PersonListActivity
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -86,7 +86,7 @@ class MainActivity : BaseActivity() {
 
             init {
                 binding.titleTv.onClick { _ ->
-                    currentInfo?.let { info -> ImageThemePagerActivity.start(context = this@MainActivity, info) }
+                    currentInfo?.let { info -> PersonListActivity.start(context = this@MainActivity, info) }
                 }
                 binding.useDataFromSwitch.setOnCheckedChangeListener { _, isChecked ->
                     currentInfo?.dataUseFrom = if (isChecked) DataUseFrom.PRIVATE_FILE.value else DataUseFrom.NETWORK.value

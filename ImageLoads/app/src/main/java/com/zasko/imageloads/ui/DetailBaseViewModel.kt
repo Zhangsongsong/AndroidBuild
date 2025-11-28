@@ -1,13 +1,16 @@
-package com.zasko.imageloads.detail
+package com.zasko.imageloads.ui
 
+import android.app.Activity
 import android.content.Context
 import com.bumptech.glide.Glide
+import com.zasko.imageloads.base.BaseViewModel
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageDetailInfo
 import com.zasko.imageloads.data.ImageInfo
-import com.zasko.imageloads.data.ImageLoadsInfo
-import com.zasko.imageloads.manager.ImageLoadsManager
+import com.zasko.imageloads.listener.DownloadListener
+import com.zasko.imageloads.listener.GettingImageListener
 import com.zasko.imageloads.utils.FileUtil
+import com.zasko.imageloads.utils.PermissionUtil
 import com.zasko.imageloads.utils.toFileNameByIndex
 import io.reactivex.rxjava3.core.Single
 import kotlinx.coroutines.CoroutineScope
@@ -17,62 +20,47 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlin.collections.plus
+import kotlin.io.copyTo
 
-class XiuRenDetail : DetailAction {
+abstract class DetailBaseViewModel : BaseViewModel() {
 
     companion object {
-        private const val TAG = "XiuRenDetail"
-
-        private const val DOMAIN = "https://xiutaku.com"
-    }
-
-    private var loadsInfo: ImageLoadsInfo? = null
-
-    fun setLoadsInfo(info: ImageLoadsInfo) {
-        loadsInfo = info
-    }
-
-    private fun toPageUrl(page: Int = 1): String {
-        return "${DOMAIN}${loadsInfo?.href}?page=${page}"
+        private const val TAG = "DetailBaseViewModel"
     }
 
 
-    override fun getDetailInfo(): Single<ImageDetailInfo> {
-        return ImageLoadsManager.getXiuRenDetail(url = toPageUrl(page = 1))
-    }
-
-    override fun getNextPageIndex(cIndex: Int): Int {
-        return cIndex + 1
-    }
-
-    override fun getDetailMore(pageIndex: Int): Single<List<ImageInfo>> {
-        return ImageLoadsManager.getXiuRenDetailMore(url = toPageUrl(page = pageIndex))
-    }
-
-    override fun getDownloadDir(): String {
-        val file = File("${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_XIUREN}")
+    open fun getDownloadDir(parentPath: String): String {
+        val file = File("${FileUtil.getDownloadPath()}/${parentPath}")
         if (!file.exists()) {
             file.mkdirs()
         }
         return file.absolutePath
     }
 
-    override fun getParentFile(parentName: String): String {
-        val parentFile = File("${getDownloadDir()}/${parentName}")
-        if (!parentFile.exists()) {
-            parentFile.mkdirs()
-        }
-        return parentFile.absolutePath
+
+    fun createAndNeedPermission(activity: Activity) {
+        FileUtil.createExternalDir()
+        PermissionUtil.getReadAndWriteExternal(context = activity)
     }
 
-    override fun getImageList(listener: GettingImageListener?): Single<List<ImageInfo>> {
+    open fun checkHasDownload(): Boolean {
+        return false
+    }
+
+    abstract fun getDetailInfo(): Single<ImageDetailInfo>
+
+
+    abstract fun getDetailMore(pageIndex: Int): Single<List<ImageInfo>>
+
+    open fun getImageList(listener: GettingImageListener?): Single<List<ImageInfo>> {
         return getDetailInfo().map { it.pictures ?: emptyList() }.flatMap { firstList ->
             listener?.onGettingPage(1)
             if (firstList.isEmpty()) {
                 Single.just(emptyList())
             } else {
                 val lastItem = firstList.last()
-                fetchAllPages(page = getNextPageIndex(cIndex = 1), listener = listener, lastItem).map { nextList ->
+                fetchAllPages(page = 2, listener = listener, lastItem).map { nextList ->
                     firstList + nextList
                 }
             }
@@ -97,7 +85,7 @@ class XiuRenDetail : DetailAction {
         }
     }
 
-    override fun startDownload(context: Context, dir: String, pictures: List<ImageInfo>, listener: DownloadListener?): Job? {
+    fun startDownload(context: Context, dir: String, pictures: List<ImageInfo>, listener: DownloadListener?): Job? {
         return CoroutineScope(Dispatchers.IO).launch {
             LogComponent.printD(TAG, "startDownload dir:${dir}")
             withContext(Dispatchers.IO) {
@@ -132,10 +120,12 @@ class XiuRenDetail : DetailAction {
         return destFile
     }
 
+
     private suspend fun runInMain(blocking: () -> Unit) {
         withContext(Dispatchers.Main) {
             blocking.invoke()
         }
     }
+
 
 }

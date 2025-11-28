@@ -30,7 +30,7 @@
         </activity>
 
 
-        <activity android:name=".activity.ImageThemePagerActivity" />
+        <activity android:name=".activity.PersonListActivity" />
         <activity
             android:name=".activity.PersonDetailActivity"
             android:screenOrientation="portrait" />

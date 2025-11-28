@@ -7,7 +7,7 @@ import com.zasko.imageloads.base.BindLife
 import com.zasko.imageloads.base.PagerLoadListener
 import java.util.concurrent.atomic.AtomicBoolean
 
-open class ThemePagerFragment : Fragment(), BindLife by BindLife(), PagerLoadListener {
+open class LoadBaseFragment : Fragment(), BindLife by BindLife(), PagerLoadListener {
 
     companion object {
         var screenWidth = 0

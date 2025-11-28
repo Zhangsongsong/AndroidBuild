@@ -1,97 +1,53 @@
-package com.zasko.imageloads.fragment
+package com.zasko.imageloads.ui.xiuren
 
 import android.annotation.SuppressLint
-import android.os.Build
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.ImageLoadsInfo
-import com.zasko.imageloads.databinding.FragmentDetailImageBinding
-import com.zasko.imageloads.detail.DownloadListenerAbs
-import com.zasko.imageloads.detail.GettingImageListener
+import com.zasko.imageloads.listener.DownloadListenerAbs
+import com.zasko.imageloads.listener.GettingImageListener
 import com.zasko.imageloads.dialog.CenterDefaultDialog
 import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.dialog.WarningDialog
+import com.zasko.imageloads.fragment.DetailBaseFragment
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.utils.setTint
 import com.zasko.imageloads.utils.switchThread
-import com.zasko.imageloads.viewmodel.ImageDetailViewModel
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
-class PersonDetailFragment : ThemePagerFragment() {
 
+class XiuRenDetailFragment : DetailBaseFragment() {
 
     companion object {
-        const val KEY_DATA = "key_data"
-        private const val TAG = "ImageDetailFragment"
+        private const val TAG = "XiuRenDetail"
     }
-
-    private lateinit var viewModel: ImageDetailViewModel
-    private lateinit var imageLoadsInfo: ImageLoadsInfo
-    private lateinit var binding: FragmentDetailImageBinding
-    private lateinit var mAdapter: DetailImagesAdapter
 
 
     private var loadMoreIndex = 1
+    lateinit var viewModel: XiuRenViewDetailModel
+
 
     private val isDownloading = AtomicBoolean(false)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        arguments?.let {
-            imageLoadsInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                it.getSerializable(KEY_DATA, ImageLoadsInfo::class.java)!!
-            } else {
-                it.getSerializable(KEY_DATA) as ImageLoadsInfo
-            }
-            LogComponent.printD(tag = TAG, message = "mainLoadInfo:${imageLoadsInfo}")
-        }
-        viewModel = ViewModelProvider(this)[ImageDetailViewModel::class.java].apply {
-            this.initBindLife(this@PersonDetailFragment)
-            setLoadsInfo(imageLoadsInfo)
+
+        viewModel = ViewModelProvider(this)[XiuRenViewDetailModel::class.java].apply {
+            this.initBindLife(this@XiuRenDetailFragment)
+            setLoadInfo(imageLoadsInfo)
         }
 
     }
 
-
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-        binding = FragmentDetailImageBinding.inflate(inflater)
-        initView()
+    override fun bindStart() {
+        super.bindStart()
         loadNewData()
-        ViewCompat.setOnApplyWindowInsetsListener(binding.contentCons) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-        return binding.root
-    }
-
-    private fun initView() {
-        binding.backIv.onClick {
-            activity?.finish()
-        }
-        binding.downloadIv.onClick {
-            checkAndCanDownload()
-        }
-
-        mAdapter = DetailImagesAdapter(loadMore = {
-            loadMoreData()
-        })
-
-        binding.coverIv.loadImageWithInside(url = imageLoadsInfo.url)
-        binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
-        binding.pictureRecycler.adapter = mAdapter
     }
 
     private fun updateHasDownloadView() {
@@ -139,28 +95,14 @@ class PersonDetailFragment : ThemePagerFragment() {
 
     }
 
-    private var downloadDialog: DownloadTipDialog? = null
-
-    private fun checkAndCanDownload() {
+    override fun handleClickDownload() {
         viewModel.createAndNeedPermission(activity = requireActivity())
         if (!File(FileUtil.getDownloadPath()).exists() || isDownloading.get()) {
             return
         }
         if (viewModel.checkHasDownload()) {
-            runInAct { act ->
-                val dialog = WarningDialog(act, clickBack = { status, d ->
-                    when (status) {
-                        CenterDefaultDialog.VALUE_POSITIVE -> {
-                            startDownload()
-                        }
-                    }
-                    d.dismiss()
-                })
-                dialog.show()
-                dialog.updateALlText(
-                    content = act.getString(R.string.if_oval_download), negative = act.getString(R.string.no), positive = act.getString(R.string.yes)
-                )
-
+            showWarningDialog {
+                startDownload()
             }
         } else {
             startDownload()
@@ -168,12 +110,7 @@ class PersonDetailFragment : ThemePagerFragment() {
     }
 
     private fun startDownload() {
-        if (downloadDialog == null) {
-            runInAct { act ->
-                downloadDialog = DownloadTipDialog(activity = act)
-            }
-        }
-        downloadDialog?.show()
+        showDownloadDialog()
         viewModel.downloadPic(context = binding.downloadIv.context, gettingListener = object : GettingImageListener {
             override fun onGettingPage(page: Int) {
                 super.onGettingPage(page)

@@ -1,4 +1,4 @@
-package com.zasko.imageloads.fragment.main
+package com.zasko.imageloads.fragment.test
 
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
@@ -14,10 +14,10 @@ import com.bumptech.glide.request.transition.Transition
 import com.zasko.imageloads.adapter.MainLoadsAdapter
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.ThemePagerFragment
+import com.zasko.imageloads.fragment.LoadBaseFragment
 import com.zasko.imageloads.manager.ImageLoadsManager
 
-class HeiSiFragment : ThemePagerFragment() {
+class HeiSiFragment : LoadBaseFragment() {
 
     private lateinit var binding: FragmentNormalBinding
     private lateinit var adapter: MainLoadsAdapter

@@ -1,13 +1,13 @@
-package com.zasko.imageloads.fragment.main
+package com.zasko.imageloads.fragment.test
 
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.ThemePagerFragment
+import com.zasko.imageloads.fragment.LoadBaseFragment
 
-class HeiTaiFragment : ThemePagerFragment() {
+class HeiTaiFragment : LoadBaseFragment() {
 
     private lateinit var binding: FragmentNormalBinding
 

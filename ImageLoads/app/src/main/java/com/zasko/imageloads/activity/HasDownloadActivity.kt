@@ -39,7 +39,21 @@ class HasDownloadActivity : BaseActivity() {
     }
 
 
-    private class MAdapter : RecyclerView.Adapter<MAdapter.MHolder> {
+    private class MAdapter : RecyclerView.Adapter<MAdapter.MHolder>() {
+        override fun onCreateViewHolder(
+            parent: ViewGroup,
+            viewType: Int
+        ): MHolder {
+            TODO("Not yet implemented")
+        }
+
+        override fun onBindViewHolder(holder: MHolder, position: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun getItemCount(): Int {
+            TODO("Not yet implemented")
+        }
 
         inner class MHolder(private val binding: ItemHasDownloadBinding) : ViewHolder(binding.root) {
 

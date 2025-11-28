@@ -1,4 +1,4 @@
-package com.zasko.imageloads.fragment.main
+package com.zasko.imageloads.ui.xiuren
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,11 +9,11 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.zasko.imageloads.activity.PersonDetailActivity
 import com.zasko.imageloads.adapter.MainLoadsAdapter
+import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
-import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.ThemePagerFragment
+import com.zasko.imageloads.fragment.LoadBaseFragment
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.switchThread
 import com.zasko.imageloads.viewmodel.XiuRenViewModel
@@ -21,7 +21,7 @@ import io.reactivex.rxjava3.core.Single
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
-class XiuRenFragment : ThemePagerFragment() {
+class XiuRenFragment : LoadBaseFragment() {
 
     companion object {
         private const val TAG = "XiuRenFragment"
@@ -65,7 +65,7 @@ class XiuRenFragment : ThemePagerFragment() {
             }
         }) { itemInfo ->
             activity?.let { act ->
-                PersonDetailActivity.start(activity = act, data = itemInfo.apply {
+                PersonDetailActivity.Companion.start(activity = act, data = itemInfo.apply {
                     fromType = Constants.THEME_TYPE_XIUREN
                 })
             }
@@ -132,7 +132,7 @@ class XiuRenFragment : ThemePagerFragment() {
             val baseUrl = "https://i.xiutaku.com/photo/uploadfile/pic/"
             val list = mutableListOf<ImageLoadsInfo>()
             repeat(20) {
-                val url = "${baseUrl}${Random.nextInt(from = 16000, until = 17383)}.webp"
+                val url = "${baseUrl}${Random.Default.nextInt(from = 16000, until = 17383)}.webp"
                 list.add(ImageLoadsInfo(url = url, width = 1024, height = 1535))
             }
             list

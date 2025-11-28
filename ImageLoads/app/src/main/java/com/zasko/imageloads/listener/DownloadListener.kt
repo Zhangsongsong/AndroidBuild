@@ -1,4 +1,4 @@
-package com.zasko.imageloads.detail
+package com.zasko.imageloads.listener
 
 interface DownloadListener {
 

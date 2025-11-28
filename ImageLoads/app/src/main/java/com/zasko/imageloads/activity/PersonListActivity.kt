@@ -7,10 +7,10 @@ import androidx.fragment.app.Fragment
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.data.MainThemeSelectInfo
-import com.zasko.imageloads.fragment.ThemePagerFragment
-import com.zasko.imageloads.fragment.main.XiuRenFragment
+import com.zasko.imageloads.fragment.LoadBaseFragment
+import com.zasko.imageloads.ui.xiuren.XiuRenFragment
 
-class ImageThemePagerActivity : BaseActivity() {
+class PersonListActivity : BaseActivity() {
     companion object {
         private const val TAG = "ImageThemePager"
 
@@ -18,7 +18,7 @@ class ImageThemePagerActivity : BaseActivity() {
         private const val KEY_DATA = "key_theme"
 
         fun start(context: Context, data: MainThemeSelectInfo) {
-            context.startActivity(Intent(context, ImageThemePagerActivity::class.java).apply {
+            context.startActivity(Intent(context, PersonListActivity::class.java).apply {
                 putExtra(KEY_DATA, data)
             })
         }
@@ -34,7 +34,7 @@ class ImageThemePagerActivity : BaseActivity() {
             else -> {
                 XiuRenFragment().apply {
                     arguments = Bundle().apply {
-                        putSerializable(ThemePagerFragment.KEY_DATA, dataInfo)
+                        putSerializable(LoadBaseFragment.KEY_DATA, dataInfo)
                     }
                 }
             }

@@ -15,7 +15,7 @@ import com.bumptech.glide.request.target.Target
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
-import com.zasko.imageloads.fragment.ThemePagerFragment
+import com.zasko.imageloads.fragment.LoadBaseFragment
 import com.zasko.imageloads.utils.onClick
 
 class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemListener: (ImageLoadsInfo) -> Unit) :
@@ -76,7 +76,7 @@ class MainLoadsAdapter(private val loadMore: () -> Unit = {}, private val itemLi
         fun bind(info: ImageLoadsInfo) {
             currentInfo = info
             val param = binding.coverIv.layoutParams
-            param.height = (ThemePagerFragment.screenWidth / 2) * info.height / info.width
+            param.height = (LoadBaseFragment.screenWidth / 2) * info.height / info.width
             binding.coverIv.layoutParams = param
             Glide.with(binding.coverIv.context).load(info.url).diskCacheStrategy(DiskCacheStrategy.DATA)
                 .addListener(object : RequestListener<Drawable> {

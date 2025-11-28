@@ -7,7 +7,8 @@ import android.os.Bundle
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.data.ImageLoadsInfo
-import com.zasko.imageloads.fragment.PersonDetailFragment
+import com.zasko.imageloads.fragment.DetailBaseFragment
+import com.zasko.imageloads.ui.xiuren.XiuRenDetailFragment
 
 class PersonDetailActivity : BaseActivity() {
 
@@ -27,12 +28,12 @@ class PersonDetailActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_cover_detail)
-        val fragment = PersonDetailFragment().apply {
+        val fragment = XiuRenDetailFragment().apply {
             arguments = Bundle().apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    putSerializable(PersonDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA, ImageLoadsInfo::class.java))
+                    putSerializable(DetailBaseFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA, ImageLoadsInfo::class.java))
                 } else {
-                    putSerializable(PersonDetailFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA))
+                    putSerializable(DetailBaseFragment.KEY_DATA, intent.getSerializableExtra(KEY_DATA))
                 }
             }
         }
