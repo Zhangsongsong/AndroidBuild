@@ -17,6 +17,7 @@ import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.databinding.ActivityMainBinding
 import com.zasko.imageloads.databinding.ItemMainThemeSelectBinding
+import com.zasko.imageloads.ui.xiuren.HasDownloadActivity
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.loadImage
 import com.zasko.imageloads.utils.onClick
@@ -95,7 +96,7 @@ class MainActivity : BaseActivity() {
                     binding.useDataFromSwitch.isChecked = !binding.useDataFromSwitch.isChecked
                 }
                 binding.hasDownloadTv.onClick {
-
+                    HasDownloadActivity.start(context = this@MainActivity)
                 }
             }
 

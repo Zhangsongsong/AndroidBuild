@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
+import com.zasko.imageloads.R
 import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.databinding.ItemDetailImageBinding
 import com.zasko.imageloads.utils.loadImageWithInside
@@ -50,7 +51,7 @@ class DetailImagesAdapter(private val loadMore: () -> Unit = {}) : RecyclerView.
 
     inner class MHolder(private val binding: ItemDetailImageBinding) : ViewHolder(binding.root) {
         fun bind(info: ImageInfo) {
-            binding.imageTv.getCoverView().loadImageWithInside(info.url)
+            binding.imageTv.getCoverView().loadImageWithInside(info.url, placeId = R.mipmap.icon_pic)
         }
     }
 }

@@ -18,6 +18,7 @@ import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.dialog.WarningDialog
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
+import com.zasko.imageloads.utils.setTint
 
 open class DetailBaseFragment : LoadBaseFragment() {
 
@@ -75,6 +76,12 @@ open class DetailBaseFragment : LoadBaseFragment() {
         binding.pictureRecycler.adapter = mAdapter
     }
 
+
+    open fun updateHasDownloadView() {
+
+    }
+
+
     fun showDownloadDialog() {
         if (downloadDialog == null) {
             runInAct { act ->
@@ -103,7 +110,6 @@ open class DetailBaseFragment : LoadBaseFragment() {
             dialog.updateALlText(
                 content = act.getString(R.string.if_oval_download), negative = act.getString(R.string.no), positive = act.getString(R.string.yes)
             )
-
         }
     }
 

@@ -4,19 +4,12 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.GridLayoutManager
 import com.zasko.imageloads.R
-import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
+import com.zasko.imageloads.fragment.DetailBaseFragment
 import com.zasko.imageloads.listener.DownloadListenerAbs
 import com.zasko.imageloads.listener.GettingImageListener
-import com.zasko.imageloads.dialog.CenterDefaultDialog
-import com.zasko.imageloads.dialog.DownloadTipDialog
-import com.zasko.imageloads.dialog.WarningDialog
-import com.zasko.imageloads.fragment.DetailBaseFragment
 import com.zasko.imageloads.utils.FileUtil
-import com.zasko.imageloads.utils.loadImageWithInside
-import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.utils.setTint
 import com.zasko.imageloads.utils.switchThread
 import java.io.File
@@ -50,9 +43,13 @@ class XiuRenDetailFragment : DetailBaseFragment() {
         loadNewData()
     }
 
-    private fun updateHasDownloadView() {
+
+    override fun updateHasDownloadView() {
+        super.updateHasDownloadView()
         binding.downloadIv.setTint(binding.downloadIv.context.getColor(if (viewModel.checkHasDownload()) R.color.color_act_bg else R.color.color_222125))
+
     }
+
 
     override fun loadNewData() {
         super.loadNewData()

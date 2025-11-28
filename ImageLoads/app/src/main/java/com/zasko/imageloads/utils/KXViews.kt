@@ -11,8 +11,12 @@ fun ImageView.loadImage(url: String) {
 }
 
 
-fun ImageView.loadImageWithInside(url: String) {
-    Glide.with(this.context).load(url).centerInside().into(this)
+fun ImageView.loadImageWithInside(url: String, placeId: Int = -1) {
+
+    Glide.with(this.context).load(url).centerInside().let {
+        if (placeId != -1) it.placeholder(placeId)
+        it
+    }.into(this)
 }
 
 fun ImageView.setTint(color: Int) {
