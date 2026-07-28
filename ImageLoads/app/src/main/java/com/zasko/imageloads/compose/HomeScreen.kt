@@ -56,6 +56,7 @@ import com.bumptech.glide.integration.compose.placeholder
 fun HomeScreen(
     themes: List<MainThemeSelectInfo>,
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
+    onOpenRandom: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
@@ -88,6 +89,7 @@ fun HomeScreen(
                 ThemeSelectCard(
                     info = theme,
                     onOpenTheme = onOpenTheme,
+                    onOpenRandom = onOpenRandom,
                     onOpenDownloads = onOpenDownloads,
                     onUseLocalChanged = onUseLocalChanged,
                 )
@@ -101,6 +103,7 @@ fun HomeScreen(
 private fun ThemeSelectCard(
     info: MainThemeSelectInfo,
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
+    onOpenRandom: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
@@ -216,6 +219,26 @@ private fun ThemeSelectCard(
                         )
                     }
                 }
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onOpenRandom(info) },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, outlineColor),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_shuffle_24),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFF5F6368),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "随机图片",
+                        color = Color(0xFF3C4043),
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
@@ -291,6 +314,7 @@ private fun HomeScreenPreview() {
                 ),
             ),
             onOpenTheme = {},
+            onOpenRandom = {},
             onOpenDownloads = {},
             onUseLocalChanged = { _, _ -> },
         )

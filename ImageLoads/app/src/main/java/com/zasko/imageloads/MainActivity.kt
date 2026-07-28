@@ -48,6 +48,9 @@ class MainActivity : BaseComposeActivity() {
             onOpenTheme = { info ->
                 openTheme(info = info)
             },
+            onOpenRandom = { info ->
+                openRandomTheme(info = info)
+            },
             onOpenDownloads = {
                 XiuRenHasDownloadActivity.start(context = this@MainActivity)
             },
@@ -55,6 +58,13 @@ class MainActivity : BaseComposeActivity() {
                 useLocalData = checked
             },
         )
+    }
+
+    private fun openRandomTheme(info: MainThemeSelectInfo) {
+        when (info.theme) {
+            Constants.THEME_TYPE_XIUREN -> XiuRenActivity.startRandom(context = this, data = info)
+            else -> PersonListActivity.start(context = this, data = info)
+        }
     }
 
     private fun openTheme(info: MainThemeSelectInfo) {

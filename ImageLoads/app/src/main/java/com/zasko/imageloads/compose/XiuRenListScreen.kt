@@ -50,6 +50,7 @@ fun XiuRenListScreen(
     onOpenWeb: () -> Unit,
     onLoadMore: () -> Unit,
     onImageClick: (ImageLoadsInfo) -> Unit,
+    showWebAction: Boolean = true,
 ) {
     val gridState = rememberLazyStaggeredGridState()
     val shouldLoadMore by remember(gridState, images.size) {
@@ -72,13 +73,15 @@ fun XiuRenListScreen(
                 title = title,
                 onBack = onBack,
                 actions = {
-                    IconButton(
-                        onClick = onOpenWeb,
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_public_24),
-                            contentDescription = null,
-                        )
+                    if (showWebAction) {
+                        IconButton(
+                            onClick = onOpenWeb,
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_public_24),
+                                contentDescription = null,
+                            )
+                        }
                     }
                 },
             )

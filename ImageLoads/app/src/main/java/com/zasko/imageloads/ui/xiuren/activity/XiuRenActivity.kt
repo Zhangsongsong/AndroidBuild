@@ -10,15 +10,27 @@ import android.widget.FrameLayout
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.xiuren.XiuRenFragment
+import com.zasko.imageloads.ui.xiuren.XiuRenRandomFragment
 
 class XiuRenActivity : BaseActivity() {
 
     companion object {
         private const val KEY_DATA = "key_data"
+        private const val KEY_MODE = "key_mode"
+        private const val MODE_LIST = "mode_list"
+        private const val MODE_RANDOM = "mode_random"
 
         fun start(context: Context, data: MainThemeSelectInfo) {
             context.startActivity(Intent(context, XiuRenActivity::class.java).apply {
                 putExtra(KEY_DATA, data)
+                putExtra(KEY_MODE, MODE_LIST)
+            })
+        }
+
+        fun startRandom(context: Context, data: MainThemeSelectInfo) {
+            context.startActivity(Intent(context, XiuRenActivity::class.java).apply {
+                putExtra(KEY_DATA, data)
+                putExtra(KEY_MODE, MODE_RANDOM)
             })
         }
     }
@@ -38,11 +50,17 @@ class XiuRenActivity : BaseActivity() {
         )
 
         if (savedInstanceState == null) {
+            val data = readThemeInfo()
             supportFragmentManager
                 .beginTransaction()
-                .replace(containerId, XiuRenFragment.newInstance(readThemeInfo()))
+                .replace(containerId, createFragment(data = data))
                 .commit()
         }
+    }
+
+    private fun createFragment(data: MainThemeSelectInfo) = when (intent.getStringExtra(KEY_MODE)) {
+        MODE_RANDOM -> XiuRenRandomFragment.newInstance(data = data)
+        else -> XiuRenFragment.newInstance(data = data)
     }
 
     private fun readThemeInfo(): MainThemeSelectInfo {
