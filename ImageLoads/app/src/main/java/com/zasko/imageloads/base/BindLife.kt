@@ -104,7 +104,5 @@ fun BindLife(): BindLife = object : BindLife {
              }
              IKLog.d("$TAG CoroutineScope end result:${result} ${Thread.currentThread().name}")
          }.bindLife()*/
-    override val jobs: MutableList<Job>
-        get() = emptyArray<Job>().toMutableList()
+    override val jobs: MutableList<Job> = mutableListOf()
 }
-
