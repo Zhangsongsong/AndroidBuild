@@ -21,14 +21,15 @@ import java.lang.reflect.Type
 
 object HttpComponent {
 
-
     private lateinit var retrofit: Retrofit
 
     fun init(application: Application) {
 
-        val httpClient = OkHttpClient.Builder().addInterceptor(HttpLoggingInterceptor(logger = {
-            LogComponent.printD(tag = "HttpLoggingInterceptor", message = it)
-        }).setLevel(HttpLoggingInterceptor.Level.BODY)).build()
+        val httpClient = OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor(logger = {
+                LogComponent.printD(tag = "HttpLoggingInterceptor", message = it)
+            }).setLevel(HttpLoggingInterceptor.Level.BODY))
+            .build()
 
         val json = Json {
             ignoreUnknownKeys = true
@@ -105,5 +106,3 @@ class StringResponseBodyConverter : Converter<ResponseBody, String> {
     }
 
 }
-
-

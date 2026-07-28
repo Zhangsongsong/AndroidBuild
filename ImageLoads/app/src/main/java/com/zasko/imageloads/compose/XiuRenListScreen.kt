@@ -47,7 +47,7 @@ fun XiuRenListScreen(
     isRefreshing: Boolean,
     isLoadingMore: Boolean,
     onBack: () -> Unit,
-    onRefresh: () -> Unit,
+    onOpenWeb: () -> Unit,
     onLoadMore: () -> Unit,
     onImageClick: (ImageLoadsInfo) -> Unit,
 ) {
@@ -73,20 +73,12 @@ fun XiuRenListScreen(
                 onBack = onBack,
                 actions = {
                     IconButton(
-                        onClick = onRefresh,
-                        enabled = !isRefreshing && !isLoadingMore,
+                        onClick = onOpenWeb,
                     ) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_refresh_24),
-                                contentDescription = null,
-                            )
-                        }
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_public_24),
+                            contentDescription = null,
+                        )
                     }
                 },
             )

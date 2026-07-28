@@ -48,7 +48,7 @@ private fun XiuRenListScreenPreview() {
             isRefreshing = false,
             isLoadingMore = true,
             onBack = {},
-            onRefresh = {},
+            onOpenWeb = {},
             onLoadMore = {},
             onImageClick = {},
         )

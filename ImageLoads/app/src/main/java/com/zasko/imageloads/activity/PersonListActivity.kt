@@ -16,6 +16,7 @@ import com.zasko.imageloads.compose.XiuRenListScreen
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.ui.xiuren.activity.XiuRenWebViewActivity
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.switchThread
 import com.zasko.imageloads.ui.xiuren.XiuRenViewModel
@@ -57,7 +58,7 @@ class PersonListActivity : BaseComposeActivity() {
                     isRefreshing = isRefreshing,
                     isLoadingMore = isLoadingMoreState,
                     onBack = ::finish,
-                    onRefresh = ::loadNewData,
+                    onOpenWeb = ::openWebView,
                     onLoadMore = ::loadMoreData,
                     onImageClick = ::openDetail,
                 )
@@ -129,5 +130,9 @@ class PersonListActivity : BaseComposeActivity() {
                 fromType = Constants.THEME_TYPE_XIUREN
             },
         )
+    }
+
+    private fun openWebView() {
+        XiuRenWebViewActivity.start(context = this)
     }
 }

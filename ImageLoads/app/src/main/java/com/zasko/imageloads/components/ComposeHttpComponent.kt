@@ -7,12 +7,17 @@ import androidx.compose.runtime.rememberUpdatedState
 import com.zasko.imageloads.data.HeiSiInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.Query
 import retrofit2.http.Url
+import java.io.IOException
 
 object ComposeHttpComponent {
+
+    private const val MAX_IO_RETRY_COUNT = 2
 
     private val imageServer by lazy {
         HttpComponent.getRetrofit().create(ComposeImageLoadsServices::class.java)
@@ -85,8 +90,26 @@ object ComposeHttpComponent {
 
     private suspend fun <T> ioRequest(block: suspend () -> T): T {
         return withContext(Dispatchers.IO) {
-            block()
+            retryIoRequest(block = block)
         }
+    }
+
+    private suspend fun <T> retryIoRequest(block: suspend () -> T): T {
+        var lastError: IOException? = null
+        repeat(MAX_IO_RETRY_COUNT + 1) { attempt ->
+            try {
+                return block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                lastError = e
+                if (attempt == MAX_IO_RETRY_COUNT) {
+                    throw e
+                }
+                delay(400L * (attempt + 1))
+            }
+        }
+        throw lastError ?: IOException("Compose request failed")
     }
 }
 
@@ -102,6 +125,19 @@ private interface ComposeImageLoadsServices {
     suspend fun getImage(@Url url: String = "https://v2.api-m.com/api/heisi?return=2"): HeiSiInfo
 
     @GET
+    @Headers(
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,ko;q=0.7",
+        "Referer: https://xiutaku.com/",
+        "Sec-CH-UA: \"Not;A=Brand\";v=\"8\", \"Chromium\";v=\"150\", \"Google Chrome\";v=\"150\"",
+        "Sec-CH-UA-Mobile: ?0",
+        "Sec-CH-UA-Platform: \"macOS\"",
+        "Upgrade-Insecure-Requests: 1",
+        "Sec-Fetch-Dest: document",
+        "Sec-Fetch-Mode: navigate",
+        "Sec-Fetch-Site: none",
+    )
     suspend fun getXiuRen(@Url url: String = "https://xiutaku.com/", @Query("start") start: Int = 0): String
 
     @GET

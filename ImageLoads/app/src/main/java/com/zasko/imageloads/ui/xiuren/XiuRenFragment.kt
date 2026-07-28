@@ -15,6 +15,7 @@ import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
+import com.zasko.imageloads.ui.xiuren.activity.XiuRenWebViewActivity
 import com.zasko.imageloads.utils.Constants
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +27,14 @@ class XiuRenFragment : ComposeBaseFragment() {
     companion object {
         private const val TAG = "XiuRenFragment"
         private const val LOAD_MAX_SIZE = 20
+
+        fun newInstance(data: MainThemeSelectInfo): XiuRenFragment {
+            return XiuRenFragment().apply {
+                arguments = Bundle().apply {
+                    putSerializable(KEY_DATA, data)
+                }
+            }
+        }
     }
 
     private enum class LoadMode {
@@ -56,7 +65,7 @@ class XiuRenFragment : ComposeBaseFragment() {
                 isRefreshing = isRefreshing,
                 isLoadingMore = isLoadingMoreState,
                 onBack = { activity?.finish() },
-                onRefresh = ::loadNewData,
+                onOpenWeb = ::openWebView,
                 onLoadMore = ::loadMoreData,
                 onImageClick = ::openDetail,
             )
@@ -217,6 +226,12 @@ class XiuRenFragment : ComposeBaseFragment() {
             )
         }
     }
+
+    private fun openWebView() {
+        activity?.let { act ->
+            XiuRenWebViewActivity.start(context = act)
+        }
+    }
 }
 
 @Preview(name = "XiuRen Fragment", showBackground = true, widthDp = 360, heightDp = 720)
@@ -229,7 +244,7 @@ private fun XiuRenFragmentPreview() {
             isRefreshing = false,
             isLoadingMore = true,
             onBack = {},
-            onRefresh = {},
+            onOpenWeb = {},
             onLoadMore = {},
             onImageClick = {},
         )

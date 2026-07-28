@@ -15,6 +15,7 @@ import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.xiuren.XiuRenHasDownloadActivity
+import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
 
 class MainActivity : BaseComposeActivity() {
@@ -45,7 +46,7 @@ class MainActivity : BaseComposeActivity() {
         HomeScreen(
             themes = listOf(themeInfo),
             onOpenTheme = { info ->
-                PersonListActivity.start(context = this@MainActivity, data = info)
+                openTheme(info = info)
             },
             onOpenDownloads = {
                 XiuRenHasDownloadActivity.start(context = this@MainActivity)
@@ -54,6 +55,13 @@ class MainActivity : BaseComposeActivity() {
                 useLocalData = checked
             },
         )
+    }
+
+    private fun openTheme(info: MainThemeSelectInfo) {
+        when (info.theme) {
+            Constants.THEME_TYPE_XIUREN -> XiuRenActivity.start(context = this, data = info)
+            else -> PersonListActivity.start(context = this, data = info)
+        }
     }
 
     private companion object {
