@@ -24,8 +24,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.R
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.ui.meizi5.toMeizi5ImageModel
 import com.zasko.imageloads.utils.Constants
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage as OfficialGlideImage
@@ -108,6 +109,7 @@ private fun ThemeSelectCard(
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
     val useLocalData = info.dataUseFrom == DataUseFrom.PRIVATE_FILE.value
+    val isAvailable = info.isAvailable()
     val outlineColor = Color(0xFFE0E3EB)
 
     OutlinedCard(
@@ -134,7 +136,7 @@ private fun ThemeSelectCard(
                     .clickable { onOpenTheme(info) },
             ) {
                 OfficialGlideImage(
-                    model = info.cover,
+                    model = info.coverModel(),
                     contentDescription = info.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -153,14 +155,22 @@ private fun ThemeSelectCard(
                         .clickable { onOpenTheme(info) },
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(
-                        text = info.title,
-                        color = colorResource(id = R.color.color_h1),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = info.title,
+                            modifier = Modifier.weight(1f),
+                            color = colorResource(id = R.color.color_h1),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        ThemeStatusBadge(isAvailable = isAvailable)
+                    }
                     Text(
                         text = if (useLocalData) "本地缓存" else "网络内容",
                         color = colorResource(id = R.color.color_h2),
@@ -199,48 +209,55 @@ private fun ThemeSelectCard(
                             modifier = Modifier.size(18.dp),
                         )
                     }
-                    OutlinedButton(
-                        onClick = { onOpenDownloads(info) },
+                    OutlinedIconButton(
+                        modifier = Modifier.size(40.dp),
+                        onClick = { onOpenRandom(info) },
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, outlineColor),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.baseline_cloud_download_24),
-                            contentDescription = null,
+                            painter = painterResource(id = R.drawable.baseline_shuffle_24),
+                            contentDescription = "随机图片",
                             modifier = Modifier.size(18.dp),
                             tint = Color(0xFF5F6368),
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(id = R.string.has_download),
-                            color = Color(0xFF3C4043),
-                            maxLines = 1,
+                    }
+                    OutlinedIconButton(
+                        modifier = Modifier.size(40.dp),
+                        onClick = { onOpenDownloads(info) },
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, outlineColor),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_cloud_download_24),
+                            contentDescription = stringResource(id = R.string.has_download),
+                            modifier = Modifier.size(18.dp),
+                            tint = Color(0xFF5F6368),
                         )
                     }
                 }
-                OutlinedButton(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { onOpenRandom(info) },
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, outlineColor),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.baseline_shuffle_24),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = Color(0xFF5F6368),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "随机图片",
-                        color = Color(0xFF3C4043),
-                        maxLines = 1,
-                    )
-                }
             }
         }
+    }
+}
+
+@Composable
+private fun ThemeStatusBadge(isAvailable: Boolean) {
+    val backgroundColor = if (isAvailable) Color(0xFF188038) else Color(0xFF9AA0A6)
+    val text = if (isAvailable) "可用" else "不可用"
+
+    Surface(
+        shape = RoundedCornerShape(3.dp),
+        color = backgroundColor,
+        contentColor = Color.White,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
     }
 }
 
@@ -297,6 +314,20 @@ private fun DataSourceOption(
                 maxLines = 1,
             )
         }
+    }
+}
+
+private fun MainThemeSelectInfo.isAvailable(): Boolean {
+    return when (theme) {
+        Constants.THEME_TYPE_XIUREN -> false
+        else -> title.isNotBlank() && cover.isNotBlank()
+    }
+}
+
+private fun MainThemeSelectInfo.coverModel(): Any {
+    return when (theme) {
+        Constants.THEME_TYPE_MEIZI5 -> cover.toMeizi5ImageModel()
+        else -> cover
     }
 }
 

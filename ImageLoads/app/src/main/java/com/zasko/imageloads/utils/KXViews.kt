@@ -7,16 +7,35 @@ import com.bumptech.glide.Glide
 
 
 fun ImageView.loadImage(url: String) {
-    Glide.with(this.context).load(url).centerCrop().into(this)
+    loadImageModel(url)
+}
+
+fun ImageView.loadImage(model: Any?) {
+    loadImageModel(model)
+}
+
+private fun ImageView.loadImageModel(model: Any?) {
+    Glide.with(this.context).load(model.trimIfString()).centerCrop().into(this)
 }
 
 
 fun ImageView.loadImageWithInside(url: String, placeId: Int = -1) {
+    loadImageWithInsideModel(model = url, placeId = placeId)
+}
 
-    Glide.with(this.context).load(url).centerInside().let {
+fun ImageView.loadImageWithInside(model: Any?, placeId: Int = -1) {
+    loadImageWithInsideModel(model = model, placeId = placeId)
+}
+
+private fun ImageView.loadImageWithInsideModel(model: Any?, placeId: Int = -1) {
+    Glide.with(this.context).load(model.trimIfString()).centerInside().let {
         if (placeId != -1) it.placeholder(placeId)
         it
     }.into(this)
+}
+
+private fun Any?.trimIfString(): Any? {
+    return if (this is String) trim() else this
 }
 
 fun ImageView.setTint(color: Int) {

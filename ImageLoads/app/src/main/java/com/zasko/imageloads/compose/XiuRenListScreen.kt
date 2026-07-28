@@ -17,23 +17,32 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.R
 import com.zasko.imageloads.data.ImageLoadsInfo
@@ -51,6 +60,17 @@ fun XiuRenListScreen(
     onLoadMore: () -> Unit,
     onImageClick: (ImageLoadsInfo) -> Unit,
     showWebAction: Boolean = true,
+    imageModelProvider: (ImageLoadsInfo) -> Any? = { it.url },
+    imageRatioProvider: (ImageLoadsInfo) -> Float = { it.defaultDisplayRatio() },
+    showActionMenu: Boolean = false,
+    isSelectionMode: Boolean = false,
+    selectedImageKeys: Set<String> = emptySet(),
+    isDownloadActionEnabled: Boolean = true,
+    selectionDownloadText: String? = null,
+    imageKeyProvider: (ImageLoadsInfo) -> String = { it.url },
+    onImageDownloadModeClick: () -> Unit = {},
+    onCancelSelection: () -> Unit = {},
+    onDownloadSelected: () -> Unit = {},
 ) {
     val gridState = rememberLazyStaggeredGridState()
     val shouldLoadMore by remember(gridState, images.size) {
@@ -70,13 +90,42 @@ fun XiuRenListScreen(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = title,
-                onBack = onBack,
+                title = if (isSelectionMode) "已选择 ${selectedImageKeys.size} 张" else title,
+                onBack = {
+                    if (isSelectionMode) {
+                        onCancelSelection()
+                    } else {
+                        onBack()
+                    }
+                },
                 actions = {
-                    if (showWebAction) {
-                        IconButton(
-                            onClick = onOpenWeb,
-                        ) {
+                    if (isSelectionMode) {
+                        val enabled = selectedImageKeys.isNotEmpty() && isDownloadActionEnabled
+                        if (selectionDownloadText == null) {
+                            IconButton(
+                                enabled = enabled,
+                                onClick = onDownloadSelected,
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_cloud_download_24),
+                                    contentDescription = null,
+                                )
+                            }
+                        } else {
+                            TextButton(
+                                enabled = enabled,
+                                onClick = onDownloadSelected,
+                            ) {
+                                Text(text = selectionDownloadText)
+                            }
+                        }
+                    } else if (showActionMenu) {
+                        ImageListActionMenu(
+                            onOpenWeb = onOpenWeb,
+                            onImageDownloadModeClick = onImageDownloadModeClick,
+                        )
+                    } else if (showWebAction) {
+                        IconButton(onClick = onOpenWeb) {
                             Icon(
                                 painter = painterResource(id = R.drawable.baseline_public_24),
                                 contentDescription = null,
@@ -105,8 +154,13 @@ fun XiuRenListScreen(
                     verticalItemSpacing = 4.dp,
                 ) {
                     itemsIndexed(images) { _, imageInfo ->
+                        val imageKey = imageKeyProvider(imageInfo)
                         ImageLoadTile(
                             info = imageInfo,
+                            model = imageModelProvider(imageInfo),
+                            ratio = imageRatioProvider(imageInfo),
+                            isSelectionMode = isSelectionMode,
+                            isSelected = selectedImageKeys.contains(imageKey),
                             onClick = onImageClick,
                         )
                     }
@@ -128,30 +182,122 @@ fun XiuRenListScreen(
 }
 
 @Composable
-private fun ImageLoadTile(
-    info: ImageLoadsInfo,
-    onClick: (ImageLoadsInfo) -> Unit,
+private fun ImageListActionMenu(
+    onOpenWeb: () -> Unit,
+    onImageDownloadModeClick: () -> Unit,
 ) {
-    val ratio = remember(info.width, info.height) {
-        if (info.width > 0 && info.height > 0) {
-            (info.width.toFloat() / info.height.toFloat()).coerceIn(0.45f, 1.8f)
-        } else {
-            2f / 3f
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                painter = painterResource(id = R.drawable.baseline_more_vert_24),
+                contentDescription = null,
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(text = "打开网页") },
+                leadingIcon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_public_24),
+                        contentDescription = null,
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onOpenWeb()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(text = "图片下载") },
+                leadingIcon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_cloud_download_24),
+                        contentDescription = null,
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onImageDownloadModeClick()
+                },
+            )
         }
     }
+}
+
+@Composable
+private fun ImageLoadTile(
+    info: ImageLoadsInfo,
+    model: Any?,
+    ratio: Float,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onClick: (ImageLoadsInfo) -> Unit,
+) {
+    val displayRatio = remember(ratio) { ratio.coerceIn(0.2f, 5f) }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(ratio)
+            .aspectRatio(displayRatio)
             .clip(RoundedCornerShape(4.dp))
             .background(Color(0xFFF1F1F1))
             .clickable { onClick(info) },
     ) {
         GlideImage(
-            model = info.url,
+            model = model,
             modifier = Modifier.fillMaxSize(),
             scaleType = ImageView.ScaleType.CENTER_INSIDE,
         )
+        if (isSelectionMode) {
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0x33000000)),
+                )
+            }
+            SelectionIndicator(
+                isSelected = isSelected,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SelectionIndicator(
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(if (isSelected) Color(0xFF1967D2) else Color(0xB3FFFFFF)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isSelected) {
+            Text(
+                text = "✓",
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+private fun ImageLoadsInfo.defaultDisplayRatio(): Float {
+    return if (width > 0 && height > 0) {
+        (width.toFloat() / height.toFloat()).coerceIn(0.45f, 1.8f)
+    } else {
+        2f / 3f
     }
 }

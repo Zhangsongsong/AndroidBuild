@@ -21,7 +21,7 @@ class XiuRenRandomFragment : ComposeBaseFragment() {
     companion object {
         private const val TAG = "XiuRenRandomFragment"
         private const val LOAD_MAX_SIZE = 20
-        private const val START_IMAGE_ID = 17351
+        private const val START_IMAGE_ID = 18268
         private const val IMAGE_WIDTH = 1024
         private const val IMAGE_HEIGHT = 1535
         private const val IMAGE_URL = "https://i.xiutaku.com/photo/uploadfile/pic/%d.webp"

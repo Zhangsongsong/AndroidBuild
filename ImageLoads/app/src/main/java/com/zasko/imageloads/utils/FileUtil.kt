@@ -22,7 +22,10 @@ object FileUtil {
     private const val PICTURE_OTHERS = "others"
 
     const val PICTURE_XIUREN = "xiuren"
+    const val PICTURE_MEIZI5 = "meizi5"
+    const val PICTURE_MEIZI5_COVERS = "covers"
     const val NAME_XIUREN = "xiuren"
+    const val NAME_MEIZI5 = "meizi5"
 
     /**
      *               --xiuren

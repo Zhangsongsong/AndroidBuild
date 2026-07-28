@@ -20,4 +20,9 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <ImageView
+        android:id="@+id/textIv"
+        android:layout_width="100dp"
+        android:layout_height="100dp" />
+
 </androidx.core.view.insets.ProtectionLayout>

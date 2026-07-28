@@ -38,6 +38,10 @@
         <activity android:name=".ui.xiuren.activity.XiuRenActivity" />
         <activity android:name=".ui.xiuren.activity.XiuRenWebViewActivity" />
         <activity android:name=".ui.xiuren.XiuRenHasDownloadActivity" />
+        <activity android:name=".ui.meizi5.Meizi5Activity" />
+        <activity android:name=".ui.meizi5.Meizi5HasDownloadActivity" />
+
+        <activity android:name=".ui.TestActivity" />
 
 
     </application>
