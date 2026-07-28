@@ -1,6 +1,5 @@
 package com.zasko.imageloads.compose
 
-import android.widget.ImageView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,6 +47,9 @@ import com.zasko.imageloads.R
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.utils.Constants
+import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
+import com.bumptech.glide.integration.compose.GlideImage as OfficialGlideImage
+import com.bumptech.glide.integration.compose.placeholder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +96,7 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun ThemeSelectCard(
     info: MainThemeSelectInfo,
@@ -126,10 +130,13 @@ private fun ThemeSelectCard(
                     .background(Color(0xFFE8EAED))
                     .clickable { onOpenTheme(info) },
             ) {
-                GlideImage(
+                OfficialGlideImage(
                     model = info.cover,
+                    contentDescription = info.title,
                     modifier = Modifier.fillMaxSize(),
-                    scaleType = ImageView.ScaleType.CENTER_CROP,
+                    contentScale = ContentScale.Crop,
+                    loading = placeholder(R.mipmap.icon_pic),
+                    failure = placeholder(R.mipmap.icon_pic),
                 )
             }
 

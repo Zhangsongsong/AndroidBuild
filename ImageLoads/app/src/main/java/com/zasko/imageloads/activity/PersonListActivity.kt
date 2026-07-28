@@ -18,7 +18,7 @@ import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.switchThread
-import com.zasko.imageloads.viewmodel.XiuRenViewModel
+import com.zasko.imageloads.ui.xiuren.XiuRenViewModel
 import io.reactivex.rxjava3.core.Single
 
 class PersonListActivity : BaseComposeActivity() {

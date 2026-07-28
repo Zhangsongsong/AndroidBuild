@@ -1,142 +1,246 @@
 package com.zasko.imageloads.ui.xiuren
 
+import android.os.Build
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.tooling.preview.Preview
 import com.zasko.imageloads.activity.PersonDetailActivity
-import com.zasko.imageloads.adapter.ImageListLoadsAdapter
-import com.zasko.imageloads.data.DataUseFrom
+import com.zasko.imageloads.compose.ImageLoadsTheme
+import com.zasko.imageloads.compose.XiuRenListScreen
+import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
-import com.zasko.imageloads.databinding.FragmentNormalBinding
-import com.zasko.imageloads.fragment.LoadBaseFragment
+import com.zasko.imageloads.fragment.ComposeBaseFragment
 import com.zasko.imageloads.utils.Constants
-import com.zasko.imageloads.utils.switchThread
-import com.zasko.imageloads.viewmodel.XiuRenViewModel
-import io.reactivex.rxjava3.core.Single
-import java.util.concurrent.TimeUnit
-import kotlin.random.Random
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
-class XiuRenFragment : LoadBaseFragment() {
+class XiuRenFragment : ComposeBaseFragment() {
 
     companion object {
         private const val TAG = "XiuRenFragment"
-
-
+        private const val LOAD_MAX_SIZE = 20
     }
 
+    private enum class LoadMode {
+        Refresh,
+        More,
+    }
 
-    private lateinit var viewModel: XiuRenViewModel
-    private lateinit var binding: FragmentNormalBinding
+    private val images = mutableStateListOf<ImageLoadsInfo>()
 
-
-    private lateinit var adapter: ImageListLoadsAdapter
     private var dataInfo: MainThemeSelectInfo? = null
-
-    private var loadStarIndex = 0
-    private val LOAD_MAX_SIZE = 20
+    private var loadStartIndex = 0
+    private var isRefreshing by mutableStateOf(false)
+    private var isLoadingMoreState by mutableStateOf(false)
+    private var activeRequest: Job? = null
+    private var requestVersion = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        dataInfo = arguments?.getSerializable(KEY_DATA) as? MainThemeSelectInfo
+        dataInfo = readThemeInfo()
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        viewModel = ViewModelProvider(this)[XiuRenViewModel::class.java].apply {
-            this.initBindLife(this@XiuRenFragment)
-        }
-        binding = FragmentNormalBinding.inflate(inflater)
-        initView()
-        return binding.root
-    }
-
-    private fun initView() {
-        binding.refreshLayout.setOnRefreshListener {
-            loadNewData()
-        }
-
-        adapter = ImageListLoadsAdapter(loadMore = {
-            if (adapter.itemCount > 5) {
-                loadMoreData()
-            }
-        }) { itemInfo ->
-            activity?.let { act ->
-                PersonDetailActivity.Companion.start(activity = act, data = itemInfo.apply {
-                    fromType = Constants.THEME_TYPE_XIUREN
-                })
-            }
-        }
-        binding.recyclerView.apply {
-            itemAnimator = null
-            layoutManager = StaggeredGridLayoutManager(2, RecyclerView.VERTICAL).apply {
-                this.gapStrategy = StaggeredGridLayoutManager.GAP_HANDLING_NONE
-            }
-            adapter = this@XiuRenFragment.adapter
+    @Composable
+    override fun FragmentContent() {
+        ImageLoadsTheme {
+            XiuRenListScreen(
+                title = dataInfo?.title.orEmpty(),
+                images = images,
+                isRefreshing = isRefreshing,
+                isLoadingMore = isLoadingMoreState,
+                onBack = { activity?.finish() },
+                onRefresh = ::loadNewData,
+                onLoadMore = ::loadMoreData,
+                onImageClick = ::openDetail,
+            )
         }
     }
 
     override fun initByResume() {
         super.initByResume()
-        binding.refreshLayout.isRefreshing = true
         loadNewData()
     }
 
-    override fun loadNewData() {
-        super.loadNewData()
-        checkRunAfterLoadingMore(moreLockBack = {
-            binding.refreshLayout.isRefreshing = false
-        }) {
-            loadStarIndex = 0
-            getData(start = loadStarIndex).switchThread().doOnSuccess {
-                loadStarIndex += LOAD_MAX_SIZE
-                setAdapterData(list = it)
-            }.doFinally { binding.refreshLayout.isRefreshing = false }.bindLife()
-        }
-    }
-
-    override fun loadMoreData() {
-        super.loadMoreData()
-        if (binding.refreshLayout.isRefreshing || isLoadingMore.get()) {
+    private fun loadNewData() {
+        if (isLoadingMore.get()) {
+            isRefreshing = false
             return
         }
-        isLoadingMore.set(true)
-        getData(start = loadStarIndex).switchThread().doOnSuccess {
-            loadStarIndex += LOAD_MAX_SIZE
-            setAdapterData(list = it, isAdd = true)
-        }.doFinally { isLoadingMore.set(false) }.bindLife()
+
+        requestImages(LoadMode.Refresh)
     }
 
-    private fun getData(start: Int): Single<List<ImageLoadsInfo>> {
-        return when (dataInfo?.dataUseFrom) {
-            DataUseFrom.PRIVATE_FILE.value -> viewModel.getLocalData(start = start)
-            else -> viewModel.getNetworkData(start = start)
+    private fun loadMoreData() {
+        if (!canLoadMore()) {
+            return
         }
+
+        requestImages(LoadMode.More)
     }
 
+    override fun onClearComposeView() {
+        clearViewRequests()
+    }
 
-    private fun setAdapterData(list: List<ImageLoadsInfo>, isAdd: Boolean = false) {
-        if (isAdd) {
-            adapter.addData(list)
-        } else {
-            adapter.setData(list)
+    private fun canLoadMore(): Boolean {
+        return !isRefreshing && !isLoadingMore.get() && !isLoadEnd.get()
+    }
+
+    private fun requestImages(mode: LoadMode) {
+        val scope = composeRequestScope ?: return
+        val start = when (mode) {
+            LoadMode.Refresh -> 0
+            LoadMode.More -> loadStartIndex
         }
-    }
+        val requestId = nextRequestId()
 
-    private fun getRandomData(): Single<MutableList<ImageLoadsInfo>> {
-        return Single.just(true).map {
-            //"https://i.xiutaku.com/photo/uploadfile/pic/17383.webp"
-            val baseUrl = "https://i.xiutaku.com/photo/uploadfile/pic/"
-            val list = mutableListOf<ImageLoadsInfo>()
-            repeat(20) {
-                val url = "${baseUrl}${Random.Default.nextInt(from = 16000, until = 17383)}.webp"
-                list.add(ImageLoadsInfo(url = url, width = 1024, height = 1535))
+        activeRequest?.cancel()
+        beginLoading(mode)
+        activeRequest = scope.launch {
+            try {
+                val list = loadImages(start = start)
+                if (isActiveRequest(requestId = requestId, scope = scope)) {
+                    applyLoadedImages(mode = mode, start = start, list = list)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                if (isActiveRequest(requestId = requestId, scope = scope)) {
+                    LogComponent.printE(tag = TAG, message = throwable.toString())
+                }
+            } finally {
+                if (isActiveRequest(requestId = requestId, scope = scope)) {
+                    endLoading(mode)
+                    activeRequest = null
+                }
             }
-            list
-        }.delay(3, TimeUnit.SECONDS)
+        }
     }
 
+    private fun beginLoading(mode: LoadMode) {
+        when (mode) {
+            LoadMode.Refresh -> {
+                loadStartIndex = 0
+                isLoadEnd.set(false)
+                isRefreshing = true
+            }
+
+            LoadMode.More -> {
+                isLoadingMore.set(true)
+                isLoadingMoreState = true
+            }
+        }
+    }
+
+    private fun applyLoadedImages(
+        mode: LoadMode,
+        start: Int,
+        list: List<ImageLoadsInfo>,
+    ) {
+        when (mode) {
+            LoadMode.Refresh -> {
+                loadStartIndex = start + LOAD_MAX_SIZE
+                images.clear()
+                images.addAll(list)
+                isLoadEnd.set(list.isEmpty())
+            }
+
+            LoadMode.More -> {
+                if (list.isEmpty()) {
+                    isLoadEnd.set(true)
+                } else {
+                    loadStartIndex = start + LOAD_MAX_SIZE
+                    images.addAll(list)
+                }
+            }
+        }
+    }
+
+    private fun endLoading(mode: LoadMode) {
+        when (mode) {
+            LoadMode.Refresh -> isRefreshing = false
+            LoadMode.More -> {
+                isLoadingMore.set(false)
+                isLoadingMoreState = false
+            }
+        }
+    }
+
+    private fun clearViewRequests() {
+        requestVersion += 1
+        activeRequest?.cancel()
+        activeRequest = null
+        isRefreshing = false
+        isLoadingMore.set(false)
+        isLoadingMoreState = false
+    }
+
+    private fun nextRequestId(): Int {
+        requestVersion += 1
+        return requestVersion
+    }
+
+    private fun isActiveRequest(requestId: Int, scope: CoroutineScope): Boolean {
+        return requestId == requestVersion && composeRequestScope == scope
+    }
+
+    private fun readThemeInfo(): MainThemeSelectInfo? {
+        return arguments?.let { args ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                args.getSerializable(KEY_DATA, MainThemeSelectInfo::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                args.getSerializable(KEY_DATA) as? MainThemeSelectInfo
+            }
+        }
+    }
+
+    private suspend fun loadImages(start: Int): List<ImageLoadsInfo> {
+        return XiuRenRepository.getImages(
+            dataUseFrom = dataInfo?.dataUseFrom,
+            start = start,
+        )
+    }
+
+    private fun openDetail(itemInfo: ImageLoadsInfo) {
+        activity?.let { act ->
+            PersonDetailActivity.start(
+                activity = act,
+                data = itemInfo.copy(fromType = Constants.THEME_TYPE_XIUREN),
+            )
+        }
+    }
 }
+
+@Preview(name = "XiuRen Fragment", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun XiuRenFragmentPreview() {
+    ImageLoadsTheme {
+        XiuRenListScreen(
+            title = "秀人网",
+            images = xiuRenPreviewImages,
+            isRefreshing = false,
+            isLoadingMore = true,
+            onBack = {},
+            onRefresh = {},
+            onLoadMore = {},
+            onImageClick = {},
+        )
+    }
+}
+
+private val xiuRenPreviewImages = listOf(
+    ImageLoadsInfo(url = "preview://xiuren-1", width = 1024, height = 1536),
+    ImageLoadsInfo(url = "preview://xiuren-2", width = 900, height = 1280),
+    ImageLoadsInfo(url = "preview://xiuren-3", width = 1200, height = 1600),
+    ImageLoadsInfo(url = "preview://xiuren-4", width = 960, height = 1440),
+    ImageLoadsInfo(url = "preview://xiuren-5", width = 1024, height = 1400),
+    ImageLoadsInfo(url = "preview://xiuren-6", width = 960, height = 1300),
+)
