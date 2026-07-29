@@ -2,6 +2,7 @@ package com.zasko.imageloads.compose
 
 import android.widget.ImageView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ fun HasDownloadScreen(
     items: List<HasDownloadInfo>,
     isLoading: Boolean,
     onBack: () -> Unit,
+    onItemClick: (HasDownloadInfo) -> Unit = {},
 ) {
     Scaffold(
         containerColor = Color.White,
@@ -69,7 +71,10 @@ fun HasDownloadScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         items(items) { info ->
-                            HasDownloadItem(info = info)
+                            HasDownloadItem(
+                                info = info,
+                                onClick = { onItemClick(info) },
+                            )
                         }
                     }
                 }
@@ -79,9 +84,14 @@ fun HasDownloadScreen(
 }
 
 @Composable
-private fun HasDownloadItem(info: HasDownloadInfo) {
+private fun HasDownloadItem(
+    info: HasDownloadInfo,
+    onClick: () -> Unit,
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),

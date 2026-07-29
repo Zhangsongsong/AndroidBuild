@@ -26,6 +26,14 @@ object Meizi5Repository : HtmlParse {
         }
     }
 
+    suspend fun getDetail(dataUseFrom: Int?, url: String): Meizi5DetailInfo {
+        return if (dataUseFrom == DataUseFrom.PRIVATE_FILE.value) {
+            getLocalDetail(url = url)
+        } else {
+            getNetworkDetail(url = url)
+        }
+    }
+
     override fun getDomain(): String {
         return HOME_URL
     }
@@ -57,6 +65,32 @@ object Meizi5Repository : HtmlParse {
         return resultList
     }
 
+    fun transformDetail(url: String, data: String): Meizi5DetailInfo {
+        val doc = MJson.parse(data)
+        val title = doc.selectFirst("h1.entry-title")?.text()?.trim().orEmpty()
+        val date = doc.selectFirst(".entry-header .entry-meta .entry-date")?.text()?.trim().orEmpty()
+        val tags = doc.select(".post-tags a").map { it.text().trim() }.filter { it.isNotBlank() }
+        val pictures = doc.select("div.entry.themeform img[src]").mapNotNull { img ->
+            val src = img.attr("src").toAbsoluteUrl()
+            if (src.isBlank()) {
+                null
+            } else {
+                ImageLoadsInfo(
+                    url = src,
+                    width = img.attr("width").trim().toIntOrNull() ?: DEFAULT_IMAGE_WIDTH,
+                    height = img.attr("height").trim().toIntOrNull() ?: DEFAULT_IMAGE_HEIGHT,
+                )
+            }
+        }
+        return Meizi5DetailInfo(
+            url = url,
+            title = title,
+            date = date,
+            tags = tags,
+            pictures = pictures,
+        )
+    }
+
     private suspend fun getLocalImages(page: Int): List<ImageLoadsInfo> {
         return withContext(Dispatchers.IO) {
             getLocalDataFromCache(page = page)
@@ -67,6 +101,25 @@ object Meizi5Repository : HtmlParse {
         val html = ComposeHttpComponent.getMeizi5(url = buildPageUrl(page = page))
         return withContext(Dispatchers.IO) {
             transformAndSaveNetworkData(page = page, html = html)
+        }
+    }
+
+    private suspend fun getLocalDetail(url: String): Meizi5DetailInfo {
+        return withContext(Dispatchers.IO) {
+            val file = File(getDetailHtmlDir(), url.toDetailCacheFileName())
+            if (file.exists()) {
+                transformDetail(url = url, data = FileUtil.getFileToHtml(file)?.toString() ?: "")
+            } else {
+                Meizi5DetailInfo(url = url)
+            }
+        }
+    }
+
+    private suspend fun getNetworkDetail(url: String): Meizi5DetailInfo {
+        val html = ComposeHttpComponent.getMeizi5(url = url)
+        return withContext(Dispatchers.IO) {
+            saveDetailHtml(url = url, html = html)
+            transformDetail(url = url, data = html)
         }
     }
 
@@ -101,6 +154,23 @@ object Meizi5Repository : HtmlParse {
         return parentFile.absolutePath
     }
 
+    private fun getDetailHtmlDir(): String {
+        val parentFile = File(getParentHtmlDir(), "detail")
+        if (!parentFile.exists()) {
+            parentFile.mkdirs()
+        }
+        return parentFile.absolutePath
+    }
+
+    private fun saveDetailHtml(url: String, html: String) {
+        val file = File(getDetailHtmlDir(), url.toDetailCacheFileName())
+        if (file.exists()) {
+            file.delete()
+        }
+        file.writeText(html, Charsets.UTF_8)
+        LogComponent.printD(tag = TAG, message = "saveDetailHtml url:${url} html:${html.length}")
+    }
+
     private fun buildPageUrl(page: Int): String {
         return if (page <= 1) {
             HOME_URL
@@ -119,4 +189,17 @@ object Meizi5Repository : HtmlParse {
             else -> HOME_URL + url
         }
     }
+
+    private fun String.toDetailCacheFileName(): String {
+        val name = substringAfterLast('/').substringBefore('?').trim()
+        return name.ifBlank { hashCode().toString() }
+    }
 }
+
+data class Meizi5DetailInfo(
+    val url: String = "",
+    val title: String = "",
+    val date: String = "",
+    val tags: List<String> = emptyList(),
+    val pictures: List<ImageLoadsInfo> = emptyList(),
+)

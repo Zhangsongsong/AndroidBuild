@@ -52,6 +52,7 @@ class Meizi5Fragment : ComposeBaseFragment() {
     }
 
     private val images = mutableStateListOf<ImageLoadsInfo>()
+    private val favoriteImages = mutableStateListOf<ImageLoadsInfo>()
     private val selectedImageUrls = mutableStateListOf<String>()
 
     private var dataInfo: MainThemeSelectInfo? = null
@@ -60,6 +61,7 @@ class Meizi5Fragment : ComposeBaseFragment() {
     private var isLoadingMoreState by mutableStateOf(false)
     private var isSelectionMode by mutableStateOf(false)
     private var isDownloading by mutableStateOf(false)
+    private var showFavoritesOnly by mutableStateOf(false)
     private var activeRequest: Job? = null
     private var downloadJob: Job? = null
     private var requestVersion = 0
@@ -67,30 +69,52 @@ class Meizi5Fragment : ComposeBaseFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         dataInfo = readThemeInfo()
+        refreshFavorites()
     }
 
     @Composable
     override fun FragmentContent() {
+        val displayImages = if (showFavoritesOnly) {
+            favoriteImages
+        } else {
+            images
+        }
         ImageLoadsTheme {
             XiuRenListScreen(
-                title = dataInfo?.title.orEmpty(),
-                images = images,
-                isRefreshing = isRefreshing,
-                isLoadingMore = isLoadingMoreState,
-                onBack = { activity?.finish() },
+                title = if (showFavoritesOnly) "Meizi5 收藏" else dataInfo?.title.orEmpty(),
+                images = displayImages,
+                isRefreshing = !showFavoritesOnly && isRefreshing,
+                isLoadingMore = !showFavoritesOnly && isLoadingMoreState,
+                onBack = {
+                    if (showFavoritesOnly) {
+                        exitFavoriteList()
+                    } else {
+                        activity?.finish()
+                    }
+                },
                 onOpenWeb = { openUrl(HOME_URL) },
-                onLoadMore = ::loadMoreData,
+                onLoadMore = {
+                    if (!showFavoritesOnly) {
+                        loadMoreData()
+                    }
+                },
                 onImageClick = ::handleImageClick,
                 showWebAction = false,
                 imageModelProvider = { it.url.toMeizi5ImageModel() },
                 imageRatioProvider = { it.meizi5DisplayRatio() },
                 showActionMenu = true,
+                showFavoriteMenuAction = true,
+                favoriteMenuText = if (showFavoritesOnly) "全部图片" else "收藏",
                 isSelectionMode = isSelectionMode,
                 selectedImageKeys = selectedImageUrls.toSet(),
                 isDownloadActionEnabled = !isDownloading,
                 selectionDownloadText = "下载",
+                showFavoriteAction = true,
+                favoriteImageKeys = favoriteImages.map { it.url }.toSet(),
                 imageKeyProvider = { it.url },
                 onImageDownloadModeClick = ::enterSelectionMode,
+                onFavoriteMenuClick = ::toggleFavoriteList,
+                onFavoriteClick = ::toggleFavorite,
                 onCancelSelection = ::cancelSelectionMode,
                 onDownloadSelected = ::downloadSelectedCovers,
             )
@@ -226,8 +250,48 @@ class Meizi5Fragment : ComposeBaseFragment() {
         if (isSelectionMode) {
             toggleCoverSelection(url = imageInfo.url)
         } else {
-            openUrl(imageInfo.href)
+            if (imageInfo.href.isBlank()) {
+                showToast("缺少详情地址")
+            } else {
+                Meizi5DetailActivity.start(
+                    context = requireContext(),
+                    info = imageInfo,
+                    dataUseFrom = dataInfo?.dataUseFrom,
+                )
+            }
         }
+    }
+
+    private fun toggleFavoriteList() {
+        if (showFavoritesOnly) {
+            exitFavoriteList()
+        } else {
+            enterFavoriteList()
+        }
+    }
+
+    private fun enterFavoriteList() {
+        refreshFavorites()
+        selectedImageUrls.clear()
+        isSelectionMode = false
+        showFavoritesOnly = true
+    }
+
+    private fun exitFavoriteList() {
+        selectedImageUrls.clear()
+        isSelectionMode = false
+        showFavoritesOnly = false
+    }
+
+    private fun toggleFavorite(imageInfo: ImageLoadsInfo) {
+        val isFavorite = Meizi5FavoriteStore.toggleFavorite(imageInfo)
+        refreshFavorites()
+        showToast(if (isFavorite) "已收藏" else "已取消收藏")
+    }
+
+    private fun refreshFavorites() {
+        favoriteImages.clear()
+        favoriteImages.addAll(Meizi5FavoriteStore.getFavorites())
     }
 
     private fun enterSelectionMode() {

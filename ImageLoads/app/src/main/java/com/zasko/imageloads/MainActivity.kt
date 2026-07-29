@@ -16,7 +16,7 @@ import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.TestActivity
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
-import com.zasko.imageloads.ui.meizi5.Meizi5HasDownloadActivity
+import com.zasko.imageloads.ui.meizi5.Meizi5DetailHasDownloadActivity
 import com.zasko.imageloads.ui.xiuren.XiuRenHasDownloadActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
@@ -58,7 +58,7 @@ class MainActivity : BaseComposeActivity() {
         )
 
         HomeScreen(
-            themes = listOf(xiuRenTheme, meizi5Theme),
+            themes = listOf(meizi5Theme, xiuRenTheme),
             onOpenTheme = { info ->
                 openTheme(info = info)
             },
@@ -96,7 +96,7 @@ class MainActivity : BaseComposeActivity() {
     private fun openDownloads(info: MainThemeSelectInfo) {
         when (info.theme) {
             Constants.THEME_TYPE_XIUREN -> XiuRenHasDownloadActivity.start(context = this)
-            Constants.THEME_TYPE_MEIZI5 -> Meizi5HasDownloadActivity.start(context = this)
+            Constants.THEME_TYPE_MEIZI5 -> Meizi5DetailHasDownloadActivity.start(context = this)
         }
     }
 

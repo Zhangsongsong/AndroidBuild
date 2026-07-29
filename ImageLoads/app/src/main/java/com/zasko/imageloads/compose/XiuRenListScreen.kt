@@ -63,12 +63,18 @@ fun XiuRenListScreen(
     imageModelProvider: (ImageLoadsInfo) -> Any? = { it.url },
     imageRatioProvider: (ImageLoadsInfo) -> Float = { it.defaultDisplayRatio() },
     showActionMenu: Boolean = false,
+    showFavoriteMenuAction: Boolean = false,
+    favoriteMenuText: String = "收藏",
     isSelectionMode: Boolean = false,
     selectedImageKeys: Set<String> = emptySet(),
     isDownloadActionEnabled: Boolean = true,
     selectionDownloadText: String? = null,
+    showFavoriteAction: Boolean = false,
+    favoriteImageKeys: Set<String> = emptySet(),
     imageKeyProvider: (ImageLoadsInfo) -> String = { it.url },
     onImageDownloadModeClick: () -> Unit = {},
+    onFavoriteMenuClick: () -> Unit = {},
+    onFavoriteClick: (ImageLoadsInfo) -> Unit = {},
     onCancelSelection: () -> Unit = {},
     onDownloadSelected: () -> Unit = {},
 ) {
@@ -123,6 +129,9 @@ fun XiuRenListScreen(
                         ImageListActionMenu(
                             onOpenWeb = onOpenWeb,
                             onImageDownloadModeClick = onImageDownloadModeClick,
+                            showFavoriteMenuAction = showFavoriteMenuAction,
+                            favoriteMenuText = favoriteMenuText,
+                            onFavoriteMenuClick = onFavoriteMenuClick,
                         )
                     } else if (showWebAction) {
                         IconButton(onClick = onOpenWeb) {
@@ -161,7 +170,10 @@ fun XiuRenListScreen(
                             ratio = imageRatioProvider(imageInfo),
                             isSelectionMode = isSelectionMode,
                             isSelected = selectedImageKeys.contains(imageKey),
+                            showFavoriteAction = showFavoriteAction && !isSelectionMode,
+                            isFavorite = favoriteImageKeys.contains(imageKey),
                             onClick = onImageClick,
+                            onFavoriteClick = onFavoriteClick,
                         )
                     }
                     item(span = StaggeredGridItemSpan.FullLine) {
@@ -185,6 +197,9 @@ fun XiuRenListScreen(
 private fun ImageListActionMenu(
     onOpenWeb: () -> Unit,
     onImageDownloadModeClick: () -> Unit,
+    showFavoriteMenuAction: Boolean,
+    favoriteMenuText: String,
+    onFavoriteMenuClick: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -225,6 +240,21 @@ private fun ImageListActionMenu(
                     onImageDownloadModeClick()
                 },
             )
+            if (showFavoriteMenuAction) {
+                DropdownMenuItem(
+                    text = { Text(text = favoriteMenuText) },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_favorite_24),
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onFavoriteMenuClick()
+                    },
+                )
+            }
         }
     }
 }
@@ -236,7 +266,10 @@ private fun ImageLoadTile(
     ratio: Float,
     isSelectionMode: Boolean,
     isSelected: Boolean,
+    showFavoriteAction: Boolean,
+    isFavorite: Boolean,
     onClick: (ImageLoadsInfo) -> Unit,
+    onFavoriteClick: (ImageLoadsInfo) -> Unit,
 ) {
     val displayRatio = remember(ratio) { ratio.coerceIn(0.2f, 5f) }
 
@@ -268,6 +301,43 @@ private fun ImageLoadTile(
                     .padding(8.dp),
             )
         }
+        if (showFavoriteAction) {
+            FavoriteIndicator(
+                isFavorite = isFavorite,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp),
+                onClick = { onFavoriteClick(info) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun FavoriteIndicator(
+    isFavorite: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        modifier = modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color(0xB3FFFFFF)),
+        onClick = onClick,
+    ) {
+        Icon(
+            painter = painterResource(
+                id = if (isFavorite) {
+                    R.drawable.baseline_favorite_24
+                } else {
+                    R.drawable.baseline_favorite_border_24
+                },
+            ),
+            contentDescription = null,
+            tint = if (isFavorite) Color(0xFFE91E63) else Color(0xFF5F6368),
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
