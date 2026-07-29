@@ -38,7 +38,8 @@ object PermissionUtil {
         } else {
             ActivityCompat.requestPermissions(
                 context, mutableListOf(
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE/*, android.Manifest.permission.WRITE_EXTERNAL_STORAGE*/
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 ).filter {
                     ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_DENIED
                 }.toTypedArray(), 101

@@ -333,11 +333,11 @@ class Meizi5Fragment : ComposeBaseFragment() {
             return
         }
         val hostActivity = activity ?: return
-        FileUtil.createExternalDir()
         if (requestExternalStoragePermissionIfNeeded()) {
             showToast("需要存储权限后再下载")
             return
         }
+        FileUtil.createExternalDir()
 
         val context = hostActivity.applicationContext
         val scope = composeRequestScope ?: return

@@ -140,11 +140,11 @@ class Meizi5DetailActivity : BaseComposeActivity() {
         if (isDownloading || detailInfo.pictures.isEmpty()) {
             return
         }
-        FileUtil.createExternalDir()
         if (requestExternalStoragePermissionIfNeeded()) {
             showToast("需要存储权限后再下载")
             return
         }
+        FileUtil.createExternalDir()
         if (hasDownloaded) {
             showOverwriteDialog = true
         } else {

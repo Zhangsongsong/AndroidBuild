@@ -88,17 +88,21 @@ object FileUtil {
     }
 
     fun createExternalDir() {
-        val rootFile = Environment.getExternalStorageDirectory()
-        val appFile = File(rootFile, APP_CACHE_NAME)
-        LogComponent.printD(
-            tag = TAG, message = "createExternalDir appFile:${appFile.exists()} permission:${appFile.absolutePath}"
-        )
-        if (!appFile.exists()) {
-            appFile.mkdirs()
-        }
-        val downloadFile = File(appFile, APP_DOWNLOAD)
-        if (!downloadFile.exists()) {
-            downloadFile.mkdirs()
+        runCatching {
+            val rootFile = Environment.getExternalStorageDirectory()
+            val appFile = File(rootFile, APP_CACHE_NAME)
+            LogComponent.printD(
+                tag = TAG, message = "createExternalDir appFile:${appFile.exists()} permission:${appFile.absolutePath}"
+            )
+            if (!appFile.exists()) {
+                appFile.mkdirs()
+            }
+            val downloadFile = File(appFile, APP_DOWNLOAD)
+            if (!downloadFile.exists()) {
+                downloadFile.mkdirs()
+            }
+        }.onFailure { throwable ->
+            LogComponent.printE(tag = TAG, message = "createExternalDir failed:${throwable}")
         }
     }
 
