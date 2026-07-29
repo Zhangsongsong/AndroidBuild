@@ -18,6 +18,8 @@ import com.zasko.imageloads.compose.XiuRenListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
+import com.zasko.imageloads.ui.common.SourceImageDetailActivity
+import com.zasko.imageloads.utils.Constants
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -225,8 +227,9 @@ class TaoTuFragment : ComposeBaseFragment() {
             showToast("缺少详情地址")
             return
         }
-        TaoTuDetailActivity.start(
+        SourceImageDetailActivity.start(
             context = requireContext(),
+            sourceType = Constants.THEME_TYPE_TAOTU,
             info = imageInfo,
             dataUseFrom = dataInfo?.dataUseFrom,
         )

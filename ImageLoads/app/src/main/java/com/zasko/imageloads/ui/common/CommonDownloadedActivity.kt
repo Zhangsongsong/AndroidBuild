@@ -1,4 +1,4 @@
-package com.zasko.imageloads.ui.meizi5
+package com.zasko.imageloads.ui.common
 
 import android.content.Context
 import android.content.Intent
@@ -8,11 +8,15 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.zasko.imageloads.base.BaseActivity
 
-class Meizi5DetailHasDownloadActivity : BaseActivity() {
+class CommonDownloadedActivity : BaseActivity() {
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, Meizi5DetailHasDownloadActivity::class.java))
+        private const val KEY_PARENT_PATH = "key_parent_path"
+
+        fun start(context: Context, parentPath: String) {
+            context.startActivity(Intent(context, CommonDownloadedActivity::class.java).apply {
+                putExtra(KEY_PARENT_PATH, parentPath)
+            })
         }
     }
 
@@ -35,7 +39,10 @@ class Meizi5DetailHasDownloadActivity : BaseActivity() {
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
-                .replace(containerId, Meizi5DetailHasDownloadFragment.newInstance())
+                .replace(
+                    containerId,
+                    CommonDownloadedGroupsFragment.newInstance(parentPath = readParentPath()),
+                )
                 .commit()
         }
     }
@@ -43,8 +50,12 @@ class Meizi5DetailHasDownloadActivity : BaseActivity() {
     fun showDownloadedImages(name: String, path: String) {
         supportFragmentManager
             .beginTransaction()
-            .replace(containerId, Meizi5DownloadedImagesFragment.newInstance(name = name, path = path))
+            .replace(containerId, CommonDownloadedImagesFragment.newInstance(name = name, path = path))
             .addToBackStack(null)
             .commit()
+    }
+
+    private fun readParentPath(): String {
+        return intent.getStringExtra(KEY_PARENT_PATH).orEmpty()
     }
 }

@@ -1,4 +1,4 @@
-package com.zasko.imageloads.ui.meizi5
+package com.zasko.imageloads.ui.common
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -9,17 +9,22 @@ import com.zasko.imageloads.compose.HasDownloadScreen
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.HasDownloadInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
-import com.zasko.imageloads.utils.FileUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class Meizi5DetailHasDownloadFragment : ComposeBaseFragment() {
+class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
 
     companion object {
-        fun newInstance(): Meizi5DetailHasDownloadFragment {
-            return Meizi5DetailHasDownloadFragment()
+        private const val KEY_PARENT_PATH = "key_parent_path"
+
+        fun newInstance(parentPath: String): CommonDownloadedGroupsFragment {
+            return CommonDownloadedGroupsFragment().apply {
+                arguments = android.os.Bundle().apply {
+                    putString(KEY_PARENT_PATH, parentPath)
+                }
+            }
         }
     }
 
@@ -34,7 +39,7 @@ class Meizi5DetailHasDownloadFragment : ComposeBaseFragment() {
                 isLoading = isLoading,
                 onBack = { activity?.finish() },
                 onItemClick = { info ->
-                    (activity as? Meizi5DetailHasDownloadActivity)?.showDownloadedImages(
+                    (activity as? CommonDownloadedActivity)?.showDownloadedImages(
                         name = info.name,
                         path = info.path,
                     )
@@ -62,9 +67,7 @@ class Meizi5DetailHasDownloadFragment : ComposeBaseFragment() {
     }
 
     private fun readDownloads(): List<HasDownloadInfo> {
-        val parentFile = File(
-            "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_MEIZI5}/${FileUtil.PICTURE_MEIZI5_DETAIL}",
-        )
+        val parentFile = File(readParentPath())
         if (!parentFile.exists() || !parentFile.isDirectory) {
             return emptyList()
         }
@@ -73,7 +76,7 @@ class Meizi5DetailHasDownloadFragment : ComposeBaseFragment() {
             ?.sortedByDescending { it.lastModified() }
             ?.map { file ->
                 val imageList = file.listFiles()
-                    ?.filter { it.isFile && it.isMeizi5ImageFile() }
+                    ?.filter { it.isFile && it.isDownloadedImageFile() }
                     ?.sortedBy { it.name }
                     ?.map { it.absolutePath }
                     ?.take(3)
@@ -82,12 +85,8 @@ class Meizi5DetailHasDownloadFragment : ComposeBaseFragment() {
             }
             ?: emptyList()
     }
-}
 
-internal fun File.isMeizi5ImageFile(): Boolean {
-    val fileName = name.lowercase()
-    return fileName.endsWith(".jpg") ||
-        fileName.endsWith(".jpeg") ||
-        fileName.endsWith(".png") ||
-        fileName.endsWith(".webp")
+    private fun readParentPath(): String {
+        return arguments?.getString(KEY_PARENT_PATH).orEmpty()
+    }
 }

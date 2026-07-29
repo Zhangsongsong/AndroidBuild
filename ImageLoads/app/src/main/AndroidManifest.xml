@@ -37,13 +37,10 @@
 
         <activity android:name=".ui.xiuren.activity.XiuRenActivity" />
         <activity android:name=".ui.xiuren.activity.XiuRenWebViewActivity" />
-        <activity android:name=".ui.xiuren.XiuRenHasDownloadActivity" />
+        <activity android:name=".ui.common.CommonDownloadedActivity" />
+        <activity android:name=".ui.common.SourceImageDetailActivity" />
         <activity android:name=".ui.meizi5.Meizi5Activity" />
-        <activity android:name=".ui.meizi5.Meizi5DetailActivity" />
-        <activity android:name=".ui.meizi5.Meizi5DetailHasDownloadActivity" />
-        <activity android:name=".ui.meizi5.Meizi5HasDownloadActivity" />
         <activity android:name=".ui.taotu.TaoTuActivity" />
-        <activity android:name=".ui.taotu.TaoTuDetailActivity" />
 
         <activity android:name=".ui.TestActivity" />
 

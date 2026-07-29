@@ -15,12 +15,12 @@ import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.TestActivity
+import com.zasko.imageloads.ui.common.CommonDownloadedActivity
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
-import com.zasko.imageloads.ui.meizi5.Meizi5DetailHasDownloadActivity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
-import com.zasko.imageloads.ui.xiuren.XiuRenHasDownloadActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
+import com.zasko.imageloads.utils.FileUtil
 
 class MainActivity : BaseComposeActivity() {
 
@@ -109,10 +109,20 @@ class MainActivity : BaseComposeActivity() {
     }
 
     private fun openDownloads(info: MainThemeSelectInfo) {
-        when (info.theme) {
-            Constants.THEME_TYPE_XIUREN -> XiuRenHasDownloadActivity.start(context = this)
-            Constants.THEME_TYPE_MEIZI5 -> Meizi5DetailHasDownloadActivity.start(context = this)
-            Constants.THEME_TYPE_TAOTU -> Unit
+        val parentPath = when (info.theme) {
+            Constants.THEME_TYPE_XIUREN -> "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_XIUREN}"
+            Constants.THEME_TYPE_MEIZI5 -> {
+                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_MEIZI5}/${FileUtil.PICTURE_MEIZI5_DETAIL}"
+            }
+
+            Constants.THEME_TYPE_TAOTU -> {
+                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}"
+            }
+
+            else -> ""
+        }
+        if (parentPath.isNotBlank()) {
+            CommonDownloadedActivity.start(context = this, parentPath = parentPath)
         }
     }
 

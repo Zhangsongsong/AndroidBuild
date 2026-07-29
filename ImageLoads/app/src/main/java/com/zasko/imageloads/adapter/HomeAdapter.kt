@@ -9,7 +9,6 @@ import com.zasko.imageloads.activity.PersonListActivity
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.databinding.ItemMainThemeSelectBinding
-import com.zasko.imageloads.ui.xiuren.XiuRenHasDownloadActivity
 import com.zasko.imageloads.utils.loadImage
 import com.zasko.imageloads.utils.onClick
 

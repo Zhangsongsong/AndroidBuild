@@ -1,7 +1,6 @@
-package com.zasko.imageloads.ui.taotu
+package com.zasko.imageloads.ui.common
 
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -10,41 +9,52 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.bumptech.glide.Glide
 import com.zasko.imageloads.R
-import com.zasko.imageloads.base.BaseComposeActivity
+import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.compose.EmptyContent
 import com.zasko.imageloads.compose.GlideImage
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.fragment.ImagePreviewFragment
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
-import com.bumptech.glide.Glide
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,24 +63,26 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.io.copyTo
 
-class TaoTuDetailActivity : BaseComposeActivity() {
+object CommonImageDetailExtras {
+    const val KEY_INFO = "common_key_info"
+    const val KEY_DATA_USE_FROM = "common_key_data_use_from"
+    const val KEY_SOURCE_TYPE = "common_key_source_type"
+}
 
-    companion object {
-        private const val TAG = "TaoTuDetailActivity"
-        private const val KEY_INFO = "key_info"
-        private const val KEY_DATA_USE_FROM = "key_data_use_from"
+data class CommonImageDetailInfo(
+    val url: String = "",
+    val title: String = "",
+    val subtitles: List<String> = emptyList(),
+    val pictures: List<ImageLoadsInfo> = emptyList(),
+)
 
-        fun start(context: Context, info: ImageLoadsInfo, dataUseFrom: Int?) {
-            context.startActivity(Intent(context, TaoTuDetailActivity::class.java).apply {
-                putExtra(KEY_INFO, info)
-                if (dataUseFrom != null) {
-                    putExtra(KEY_DATA_USE_FROM, dataUseFrom)
-                }
-            })
-        }
-    }
+abstract class CommonImageDetailActivity : BaseActivity() {
 
-    private var detailInfo by mutableStateOf(TaoTuDetailInfo())
+    protected abstract val logTag: String
+    protected abstract val defaultTitle: String
+    protected abstract val referer: String
+
+    private var detailInfo by mutableStateOf(CommonImageDetailInfo())
     private var isLoading by mutableStateOf(false)
     private var isDownloading by mutableStateOf(false)
     private var downloadFinishedCount by mutableStateOf(0)
@@ -90,16 +102,20 @@ class TaoTuDetailActivity : BaseComposeActivity() {
             },
         )
         val coverInfo = readCoverInfo()
-        detailInfo = TaoTuDetailInfo(url = coverInfo.href, title = coverInfo.href)
+        detailInfo = CommonImageDetailInfo(url = coverInfo.href, title = coverInfo.href)
         setContent {
             ImageLoadsTheme {
-                TaoTuDetailScreen(
+                CommonImageDetailScreen(
                     detailInfo = detailInfo,
+                    defaultTitle = defaultTitle,
                     isLoading = isLoading,
+                    isLoadingMore = false,
+                    isLoadMoreEnabled = false,
                     isDownloading = isDownloading,
                     downloadText = getDownloadText(),
                     showOverwriteDialog = showOverwriteDialog,
                     errorMessage = errorMessage,
+                    imageModelProvider = { imageModel(imageInfo = it) },
                     onBack = ::handleBack,
                     onDownload = ::handleDownloadClick,
                     onConfirmOverwrite = {
@@ -109,11 +125,19 @@ class TaoTuDetailActivity : BaseComposeActivity() {
                     onDismissOverwrite = {
                         showOverwriteDialog = false
                     },
+                    onLoadMore = {},
+                    onImageClick = ::openImagePreview,
                 )
             }
         }
         loadDetail(coverInfo = coverInfo)
     }
+
+    protected abstract suspend fun requestDetail(dataUseFrom: Int?, url: String): CommonImageDetailInfo
+
+    protected abstract fun imageModel(imageInfo: ImageLoadsInfo): Any?
+
+    protected abstract fun getDownloadParentDir(): File
 
     private fun loadDetail(coverInfo: ImageLoadsInfo) {
         val detailUrl = coverInfo.href.trim()
@@ -124,19 +148,18 @@ class TaoTuDetailActivity : BaseComposeActivity() {
         isLoading = true
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
-                detailInfo = TaoTuRepository.getDetail(
-                    dataUseFrom = readDataUseFrom(),
-                    url = detailUrl,
-                )
+                detailInfo = requestDetail(dataUseFrom = readDataUseFrom(), url = detailUrl)
                 if (detailInfo.pictures.isEmpty()) {
                     errorMessage = "暂无详情图片"
+                } else {
+                    errorMessage = ""
                 }
                 updateHasDownloadState()
             } catch (e: CancellationException) {
                 throw e
             } catch (throwable: Throwable) {
                 errorMessage = throwable.message ?: throwable.toString()
-                LogComponent.printE(tag = TAG, message = throwable.toString())
+                LogComponent.printE(tag = logTag, message = throwable.toString())
             } finally {
                 isLoading = false
             }
@@ -182,7 +205,7 @@ class TaoTuDetailActivity : BaseComposeActivity() {
             } catch (e: CancellationException) {
                 throw e
             } catch (throwable: Throwable) {
-                LogComponent.printE(tag = TAG, message = "download detail failed:$throwable")
+                LogComponent.printE(tag = logTag, message = "download detail failed:$throwable")
                 showToast("下载失败")
             } finally {
                 isDownloading = false
@@ -192,7 +215,7 @@ class TaoTuDetailActivity : BaseComposeActivity() {
 
     private suspend fun downloadDetailImages(
         context: Context,
-        detailInfo: TaoTuDetailInfo,
+        detailInfo: CommonImageDetailInfo,
         parentDir: File,
     ): Int {
         if (!parentDir.exists()) {
@@ -204,7 +227,7 @@ class TaoTuDetailActivity : BaseComposeActivity() {
             runCatching {
                 val futureTarget = Glide.with(context)
                     .asFile()
-                    .load(imageInfo.url.toTaoTuImageModel())
+                    .load(imageModel(imageInfo = imageInfo))
                     .submit()
                 try {
                     futureTarget.get().copyTo(destFile, overwrite = true)
@@ -213,9 +236,9 @@ class TaoTuDetailActivity : BaseComposeActivity() {
                 }
             }.onSuccess {
                 savedCount += 1
-                LogComponent.printD(tag = TAG, message = "download detail success:${destFile.absolutePath}")
+                LogComponent.printD(tag = logTag, message = "download detail success:${destFile.absolutePath}")
             }.onFailure { throwable ->
-                LogComponent.printE(tag = TAG, message = "download detail failed:${imageInfo.url} $throwable")
+                LogComponent.printE(tag = logTag, message = "download detail failed:${imageInfo.url} $throwable")
             }
             withContext(Dispatchers.Main.immediate) {
                 downloadFinishedCount = index + 1
@@ -247,15 +270,13 @@ class TaoTuDetailActivity : BaseComposeActivity() {
             ?: false
     }
 
-    private fun getDetailDownloadDir(detailInfo: TaoTuDetailInfo): File {
-        return File(
-            "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}/${detailInfo.toDownloadFolderName()}",
-        )
+    private fun getDetailDownloadDir(detailInfo: CommonImageDetailInfo): File {
+        return File(getDownloadParentDir(), detailInfo.toDownloadFolderName())
     }
 
-    private fun TaoTuDetailInfo.toDownloadFolderName(): String {
+    private fun CommonImageDetailInfo.toDownloadFolderName(): String {
         return title.ifBlank { url.trimEnd('/').substringAfterLast('/').substringBefore('?') }
-            .ifBlank { "taotu_detail" }
+            .ifBlank { "image_detail" }
             .replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
 
@@ -279,10 +300,18 @@ class TaoTuDetailActivity : BaseComposeActivity() {
 
     private fun getDownloadText(): String {
         return if (isDownloading) {
-            "${downloadFinishedCount}/${downloadTotalCount}"
+            "$downloadFinishedCount/$downloadTotalCount"
         } else {
             "下载"
         }
+    }
+
+    private fun openImagePreview(imageInfo: ImageLoadsInfo) {
+        ImagePreviewFragment.show(
+            fragmentManager = supportFragmentManager,
+            imageUrl = imageInfo.url,
+            referer = referer,
+        )
     }
 
     private fun showToast(message: String) {
@@ -291,16 +320,16 @@ class TaoTuDetailActivity : BaseComposeActivity() {
 
     private fun readCoverInfo(): ImageLoadsInfo {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getSerializableExtra(KEY_INFO, ImageLoadsInfo::class.java)
+            intent.getSerializableExtra(CommonImageDetailExtras.KEY_INFO, ImageLoadsInfo::class.java)
         } else {
             @Suppress("DEPRECATION")
-            intent.getSerializableExtra(KEY_INFO) as? ImageLoadsInfo
+            intent.getSerializableExtra(CommonImageDetailExtras.KEY_INFO) as? ImageLoadsInfo
         } ?: ImageLoadsInfo()
     }
 
     private fun readDataUseFrom(): Int? {
-        return if (intent.hasExtra(KEY_DATA_USE_FROM)) {
-            intent.getIntExtra(KEY_DATA_USE_FROM, -1)
+        return if (intent.hasExtra(CommonImageDetailExtras.KEY_DATA_USE_FROM)) {
+            intent.getIntExtra(CommonImageDetailExtras.KEY_DATA_USE_FROM, -1)
         } else {
             null
         }
@@ -308,23 +337,29 @@ class TaoTuDetailActivity : BaseComposeActivity() {
 }
 
 @Composable
-private fun TaoTuDetailScreen(
-    detailInfo: TaoTuDetailInfo,
+fun CommonImageDetailScreen(
+    detailInfo: CommonImageDetailInfo,
+    defaultTitle: String,
     isLoading: Boolean,
+    isLoadingMore: Boolean,
+    isLoadMoreEnabled: Boolean,
     isDownloading: Boolean,
     downloadText: String,
     showOverwriteDialog: Boolean,
     errorMessage: String,
+    imageModelProvider: (ImageLoadsInfo) -> Any?,
     onBack: () -> Unit,
     onDownload: () -> Unit,
     onConfirmOverwrite: () -> Unit,
     onDismissOverwrite: () -> Unit,
+    onLoadMore: () -> Unit,
+    onImageClick: (ImageLoadsInfo) -> Unit,
 ) {
     Scaffold(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = detailInfo.title.ifBlank { "TaoTu详情" },
+                title = detailInfo.title.ifBlank { defaultTitle },
                 onBack = onBack,
                 actions = {
                     TextButton(
@@ -351,7 +386,15 @@ private fun TaoTuDetailScreen(
 
                 detailInfo.pictures.isEmpty() -> EmptyContent(text = errorMessage.ifBlank { "暂无详情图片" })
 
-                else -> TaoTuDetailContent(detailInfo = detailInfo)
+                else -> CommonDetailContent(
+                    detailInfo = detailInfo,
+                    defaultTitle = defaultTitle,
+                    isLoadingMore = isLoadingMore,
+                    isLoadMoreEnabled = isLoadMoreEnabled,
+                    imageModelProvider = imageModelProvider,
+                    onLoadMore = onLoadMore,
+                    onImageClick = onImageClick,
+                )
             }
             if (showOverwriteDialog) {
                 AlertDialog(
@@ -376,21 +419,87 @@ private fun TaoTuDetailScreen(
 }
 
 @Composable
-private fun TaoTuDetailContent(detailInfo: TaoTuDetailInfo) {
+private fun CommonDetailContent(
+    detailInfo: CommonImageDetailInfo,
+    defaultTitle: String,
+    isLoadingMore: Boolean,
+    isLoadMoreEnabled: Boolean,
+    imageModelProvider: (ImageLoadsInfo) -> Any?,
+    onLoadMore: () -> Unit,
+    onImageClick: (ImageLoadsInfo) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember(listState, detailInfo.pictures.size, isLoadMoreEnabled) {
+        derivedStateOf {
+            if (!isLoadMoreEnabled || detailInfo.pictures.size <= 2) {
+                false
+            } else {
+                val lastVisible = listState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+                lastVisible >= detailInfo.pictures.size
+            }
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore, detailInfo.pictures.size) {
+        if (shouldLoadMore) {
+            onLoadMore()
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item {
+            CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
+        }
         items(detailInfo.pictures) { imageInfo ->
             GlideImage(
-                model = imageInfo.url.toTaoTuImageModel(),
+                model = imageModelProvider(imageInfo),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(imageInfo.displayRatio())
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFFF1F1F1)),
-                scaleType = ImageView.ScaleType.CENTER_CROP,
+                    .background(Color(0xFFF1F1F1))
+                    .clickable { onImageClick(imageInfo) },
+                scaleType = ImageView.ScaleType.FIT_CENTER,
             )
+        }
+        item {
+            if (isLoadingMore) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommonDetailHeader(
+    detailInfo: CommonImageDetailInfo,
+    defaultTitle: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = detailInfo.title.ifBlank { defaultTitle },
+            color = colorResource(id = R.color.color_h1),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        detailInfo.subtitles.forEach { text ->
+            if (text.isNotBlank()) {
+                Text(
+                    text = text,
+                    color = colorResource(id = R.color.color_h2),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

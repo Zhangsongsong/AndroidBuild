@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -13,7 +14,6 @@ import androidx.lifecycle.ViewModelProvider
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
-import com.zasko.imageloads.compose.XiuRenDetailScreen
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageDetailInfo
 import com.zasko.imageloads.data.ImageInfo
@@ -21,8 +21,11 @@ import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.dialog.CenterDefaultDialog
 import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.dialog.WarningDialog
+import com.zasko.imageloads.fragment.ImagePreviewFragment
 import com.zasko.imageloads.listener.DownloadListenerAbs
 import com.zasko.imageloads.listener.GettingImageListener
+import com.zasko.imageloads.ui.common.CommonImageDetailInfo
+import com.zasko.imageloads.ui.common.CommonImageDetailScreen
 import com.zasko.imageloads.ui.xiuren.XiuRenViewDetailModel
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.switchThread
@@ -67,17 +70,23 @@ class PersonDetailActivity : BaseComposeActivity() {
 
         setContent {
             ImageLoadsTheme {
-                XiuRenDetailScreen(
-                    coverUrl = imageLoadsInfo.url,
-                    detailInfo = detailInfo,
-                    pictures = pictures,
-                    isInitialLoading = isInitialLoading,
+                CommonImageDetailScreen(
+                    detailInfo = buildCommonDetailInfo(),
+                    defaultTitle = "详情",
+                    isLoading = isInitialLoading,
                     isLoadingMore = isLoadingMoreState,
-                    isDownloaded = isDownloadedState,
+                    isLoadMoreEnabled = !isLoadEndState,
                     isDownloading = isDownloadingState,
-                    onBack = ::finish,
+                    downloadText = getDownloadText(),
+                    showOverwriteDialog = false,
+                    errorMessage = "",
+                    imageModelProvider = { it.url },
+                    onBack = ::handleBack,
                     onDownload = ::handleClickDownload,
+                    onConfirmOverwrite = {},
+                    onDismissOverwrite = {},
                     onLoadMore = ::loadMoreData,
+                    onImageClick = ::openImagePreview,
                 )
             }
         }
@@ -133,6 +142,54 @@ class PersonDetailActivity : BaseComposeActivity() {
 
     private fun updateHasDownloadView() {
         isDownloadedState = viewModel.checkHasDownload()
+    }
+
+    private fun buildCommonDetailInfo(): CommonImageDetailInfo {
+        val subtitles = mutableListOf<String>()
+        if (detailInfo.time.isNotBlank()) {
+            subtitles.add(detailInfo.time)
+        }
+        if (detailInfo.desc.isNotBlank()) {
+            subtitles.add(detailInfo.desc)
+        }
+        return CommonImageDetailInfo(
+            url = imageLoadsInfo.href,
+            title = detailInfo.name,
+            subtitles = subtitles,
+            pictures = pictures.map { it.toImageLoadsInfo() },
+        )
+    }
+
+    private fun ImageInfo.toImageLoadsInfo(): ImageLoadsInfo {
+        return ImageLoadsInfo(
+            url = url,
+            width = width,
+            height = height,
+        )
+    }
+
+    private fun getDownloadText(): String {
+        return when {
+            isDownloadingState -> "下载中"
+            isDownloadedState -> "已下载"
+            else -> "下载"
+        }
+    }
+
+    private fun handleBack() {
+        if (isDownloadingState) {
+            Toast.makeText(this, "正在下载中", Toast.LENGTH_SHORT).show()
+            return
+        }
+        finish()
+    }
+
+    private fun openImagePreview(imageInfo: ImageLoadsInfo) {
+        ImagePreviewFragment.show(
+            fragmentManager = supportFragmentManager,
+            imageUrl = imageInfo.url,
+            referer = "",
+        )
     }
 
     private fun handleClickDownload() {

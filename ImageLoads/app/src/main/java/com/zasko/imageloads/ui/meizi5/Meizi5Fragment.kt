@@ -20,6 +20,8 @@ import com.zasko.imageloads.compose.XiuRenListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
+import com.zasko.imageloads.ui.common.SourceImageDetailActivity
+import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
 import kotlinx.coroutines.CancellationException
@@ -253,8 +255,9 @@ class Meizi5Fragment : ComposeBaseFragment() {
             if (imageInfo.href.isBlank()) {
                 showToast("缺少详情地址")
             } else {
-                Meizi5DetailActivity.start(
+                SourceImageDetailActivity.start(
                     context = requireContext(),
+                    sourceType = Constants.THEME_TYPE_MEIZI5,
                     info = imageInfo,
                     dataUseFrom = dataInfo?.dataUseFrom,
                 )

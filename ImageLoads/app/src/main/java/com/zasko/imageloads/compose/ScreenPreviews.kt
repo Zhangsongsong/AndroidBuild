@@ -3,9 +3,9 @@ package com.zasko.imageloads.compose
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.zasko.imageloads.data.HasDownloadInfo
-import com.zasko.imageloads.data.ImageDetailInfo
-import com.zasko.imageloads.data.ImageInfo
 import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.ui.common.CommonImageDetailInfo
+import com.zasko.imageloads.ui.common.CommonImageDetailScreen
 
 private val previewImages = listOf(
     ImageLoadsInfo(url = "preview://image-1", width = 1024, height = 1536),
@@ -16,13 +16,13 @@ private val previewImages = listOf(
     ImageLoadsInfo(url = "preview://image-6", width = 960, height = 1300),
 )
 
-private val previewDetail = ImageDetailInfo(
-    name = "[XiuRen秀人网] 第10261期 写真合集",
-    desc = "白色丝袜主题写真，包含多组室内与棚拍样张。这里使用预览数据展示详情头部、下载按钮和图片网格排版。",
-    time = "2025.05.09",
-    pictures = previewImages.mapIndexed { index, _ ->
-        ImageInfo(url = "preview://detail-$index", width = 1024, height = 1536)
-    },
+private val previewDetail = CommonImageDetailInfo(
+    title = "[XiuRen秀人网] 第10261期 写真合集",
+    subtitles = listOf(
+        "2025.05.09",
+        "白色丝袜主题写真，包含多组室内与棚拍样张。",
+    ),
+    pictures = previewImages,
 )
 
 private val previewDownloads = listOf(
@@ -55,21 +55,27 @@ private fun XiuRenListScreenPreview() {
     }
 }
 
-@Preview(name = "XiuRen Detail", showBackground = true, widthDp = 360, heightDp = 760)
+@Preview(name = "Common Detail", showBackground = true, widthDp = 360, heightDp = 760)
 @Composable
-private fun XiuRenDetailScreenPreview() {
+private fun CommonDetailScreenPreview() {
     ImageLoadsTheme {
-        XiuRenDetailScreen(
-            coverUrl = "preview://cover",
+        CommonImageDetailScreen(
             detailInfo = previewDetail,
-            pictures = previewDetail.pictures.orEmpty(),
-            isInitialLoading = false,
+            defaultTitle = "详情",
+            isLoading = false,
             isLoadingMore = true,
-            isDownloaded = true,
             isDownloading = false,
+            isLoadMoreEnabled = true,
+            downloadText = "已下载",
+            showOverwriteDialog = false,
+            errorMessage = "",
+            imageModelProvider = { it.url },
             onBack = {},
             onDownload = {},
+            onConfirmOverwrite = {},
+            onDismissOverwrite = {},
             onLoadMore = {},
+            onImageClick = {},
         )
     }
 }

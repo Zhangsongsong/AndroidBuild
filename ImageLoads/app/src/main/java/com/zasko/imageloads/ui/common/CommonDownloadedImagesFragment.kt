@@ -1,4 +1,4 @@
-package com.zasko.imageloads.ui.meizi5
+package com.zasko.imageloads.ui.common
 
 import android.graphics.BitmapFactory
 import android.os.Bundle
@@ -11,19 +11,20 @@ import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.XiuRenListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
+import com.zasko.imageloads.fragment.ImagePreviewFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class Meizi5DownloadedImagesFragment : ComposeBaseFragment() {
+class CommonDownloadedImagesFragment : ComposeBaseFragment() {
 
     companion object {
         private const val KEY_NAME = "key_name"
         private const val KEY_PATH = "key_path"
 
-        fun newInstance(name: String, path: String): Meizi5DownloadedImagesFragment {
-            return Meizi5DownloadedImagesFragment().apply {
+        fun newInstance(name: String, path: String): CommonDownloadedImagesFragment {
+            return CommonDownloadedImagesFragment().apply {
                 arguments = Bundle().apply {
                     putString(KEY_NAME, name)
                     putString(KEY_PATH, path)
@@ -56,7 +57,7 @@ class Meizi5DownloadedImagesFragment : ComposeBaseFragment() {
                 },
                 onOpenWeb = {},
                 onLoadMore = {},
-                onImageClick = {},
+                onImageClick = ::openImagePreview,
                 showWebAction = false,
             )
         }
@@ -86,7 +87,7 @@ class Meizi5DownloadedImagesFragment : ComposeBaseFragment() {
             return emptyList()
         }
         return parentFile.listFiles()
-            ?.filter { it.isFile && it.isMeizi5ImageFile() }
+            ?.filter { it.isFile && it.isDownloadedImageFile() }
             ?.sortedBy { it.name }
             ?.map { file ->
                 val size = file.readImageSize()
@@ -97,6 +98,14 @@ class Meizi5DownloadedImagesFragment : ComposeBaseFragment() {
                 )
             }
             ?: emptyList()
+    }
+
+    private fun openImagePreview(imageInfo: ImageLoadsInfo) {
+        ImagePreviewFragment.show(
+            fragmentManager = parentFragmentManager,
+            imageUrl = imageInfo.url,
+            referer = "",
+        )
     }
 
     private fun File.readImageSize(): Pair<Int, Int> {

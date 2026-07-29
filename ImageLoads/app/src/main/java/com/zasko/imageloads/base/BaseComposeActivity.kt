@@ -1,10 +1,10 @@
 package com.zasko.imageloads.base
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 
-open class BaseComposeActivity : ComponentActivity(), BindLife by BindLife() {
+open class BaseComposeActivity : FragmentActivity(), BindLife by BindLife() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
