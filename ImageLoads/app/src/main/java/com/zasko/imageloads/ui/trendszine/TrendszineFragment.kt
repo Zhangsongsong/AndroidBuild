@@ -256,6 +256,7 @@ class TrendszineFragment : ComposeBaseFragment() {
     private fun selectCategory(category: TrendszineCategory) {
         selectedCategory = category
         images.clear()
+        pageLabels.clear()
         nextPage = 1
         isLoadEnd.set(false)
         requestImages(mode = LoadMode.Refresh)

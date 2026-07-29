@@ -162,29 +162,11 @@ private interface ComposeImageLoadsServices {
     suspend fun getXiuRenDetail(@Url url: String = ""): String
 
     @GET
-    @Headers(
-        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8",
-        "Referer: https://meizi5.com/",
-    )
     suspend fun getMeizi5(@Url url: String = "https://meizi5.com/"): String
 
     @GET
-    @Headers(
-        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8",
-        "Referer: https://taotu.org/",
-    )
     suspend fun getTaoTu(@Url url: String = "https://taotu.org/"): String
 
     @GET
-    @Headers(
-        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8",
-        "Referer: https://trendszine.com/",
-    )
     suspend fun getTrendszine(@Url url: String = "https://trendszine.com/"): String
 }

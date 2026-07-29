@@ -36,6 +36,7 @@ import androidx.fragment.app.FragmentManager
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.load.model.LazyHeaders
 import com.zasko.imageloads.R
+import com.zasko.imageloads.components.HttpHeaderConfigStore
 import com.zasko.imageloads.compose.GlideImage
 import com.zasko.imageloads.compose.ImageLoadsTheme
 
@@ -168,16 +169,23 @@ private fun String.toPreviewImageModel(referer: String): Any {
     if (imageUrl.startsWith("/") || imageUrl.startsWith("file:") || imageUrl.startsWith("content:")) {
         return imageUrl
     }
+    val configuredHeaders = HttpHeaderConfigStore.getHeadersForUrl(url = imageUrl)
     val builder = LazyHeaders.Builder()
-        .addHeader(
+    if (configuredHeaders.isNotEmpty()) {
+        configuredHeaders.forEach { header ->
+            builder.addHeader(header.name, header.value)
+        }
+    } else {
+        builder.addHeader(
             "User-Agent",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
         )
-        .addHeader("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-        .addHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-    if (referer.isNotBlank()) {
-        builder.addHeader("Referer", referer)
+            .addHeader("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+            .addHeader("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+        if (referer.isNotBlank()) {
+            builder.addHeader("Referer", referer)
+        }
     }
     return GlideUrl(imageUrl, builder.build())
 }

@@ -2,12 +2,26 @@ package com.zasko.imageloads
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.activity.PersonListActivity
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.HomeScreen
@@ -17,11 +31,13 @@ import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.TestActivity
 import com.zasko.imageloads.ui.common.CommonDownloadedActivity
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
+import com.zasko.imageloads.ui.settings.HttpHeadersSettingsActivity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
 import com.zasko.imageloads.ui.trendszine.TrendszineActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
+import kotlinx.coroutines.launch
 
 class MainActivity : BaseComposeActivity() {
 
@@ -80,27 +96,104 @@ class MainActivity : BaseComposeActivity() {
             },
             theme = Constants.THEME_TYPE_TRENDSZINE,
         )
+        val themes = listOf(trendszineTheme, meizi5Theme, taoTuTheme, xiuRenTheme)
+        val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+        val coroutineScope = rememberCoroutineScope()
 
-        HomeScreen(
-            themes = listOf(trendszineTheme, meizi5Theme, taoTuTheme, xiuRenTheme),
-            onOpenTheme = { info ->
-                openTheme(info = info)
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                MainDrawerContent(
+                    themes = themes,
+                    onHomeClick = {
+                        coroutineScope.launch { drawerState.close() }
+                    },
+                    onThemeClick = { info ->
+                        coroutineScope.launch { drawerState.close() }
+                        openTheme(info = info)
+                    },
+                    onHeaderSettingsClick = {
+                        HttpHeadersSettingsActivity.start(context = this@MainActivity)
+                    },
+                )
             },
-            onOpenFavorites = { info ->
-                openFavoriteTheme(info = info)
-            },
-            onOpenDownloads = { info ->
-                openDownloads(info = info)
-            },
-            onUseLocalChanged = { info, checked ->
-                when (info.theme) {
-                    Constants.THEME_TYPE_XIUREN -> useXiuRenLocalData = checked
-                    Constants.THEME_TYPE_MEIZI5 -> useMeizi5LocalData = checked
-                    Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
-                    Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
+        ) {
+            HomeScreen(
+                themes = themes,
+                onOpenDrawer = {
+                    coroutineScope.launch { drawerState.open() }
+                },
+                onOpenTheme = { info ->
+                    openTheme(info = info)
+                },
+                onOpenFavorites = { info ->
+                    openFavoriteTheme(info = info)
+                },
+                onOpenDownloads = { info ->
+                    openDownloads(info = info)
+                },
+                onUseLocalChanged = { info, checked ->
+                    when (info.theme) {
+                        Constants.THEME_TYPE_XIUREN -> useXiuRenLocalData = checked
+                        Constants.THEME_TYPE_MEIZI5 -> useMeizi5LocalData = checked
+                        Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
+                        Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
+                    }
+                },
+            )
+        }
+    }
+
+    @Composable
+    private fun MainDrawerContent(
+        themes: List<MainThemeSelectInfo>,
+        onHomeClick: () -> Unit,
+        onThemeClick: (MainThemeSelectInfo) -> Unit,
+        onHeaderSettingsClick: () -> Unit,
+    ) {
+        ModalDrawerSheet {
+            Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = stringResource(id = R.string.app_name),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = "首页") },
+                    selected = true,
+                    onClick = onHomeClick,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "来源",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                themes.forEach { theme ->
+                    NavigationDrawerItem(
+                        label = { Text(text = theme.title) },
+                        selected = false,
+                        onClick = { onThemeClick(theme) },
+                    )
                 }
-            },
-        )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "设置",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = "HTTP Headers 设置") },
+                    selected = false,
+                    onClick = onHeaderSettingsClick,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
     }
 
     private fun openFavoriteTheme(info: MainThemeSelectInfo) {

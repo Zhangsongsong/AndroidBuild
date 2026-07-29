@@ -26,6 +26,7 @@ object HttpComponent {
     fun init(application: Application) {
 
         val httpClient = OkHttpClient.Builder()
+            .addInterceptor(HttpHeaderConfigStore.createInterceptor())
             .addInterceptor(HttpLoggingInterceptor(logger = {
                 LogComponent.printD(tag = "HttpLoggingInterceptor", message = it)
             }).setLevel(HttpLoggingInterceptor.Level.BODY))
