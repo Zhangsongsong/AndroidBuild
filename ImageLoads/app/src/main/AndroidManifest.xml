@@ -42,6 +42,8 @@
         <activity android:name=".ui.meizi5.Meizi5DetailActivity" />
         <activity android:name=".ui.meizi5.Meizi5DetailHasDownloadActivity" />
         <activity android:name=".ui.meizi5.Meizi5HasDownloadActivity" />
+        <activity android:name=".ui.taotu.TaoTuActivity" />
+        <activity android:name=".ui.taotu.TaoTuDetailActivity" />
 
         <activity android:name=".ui.TestActivity" />
 

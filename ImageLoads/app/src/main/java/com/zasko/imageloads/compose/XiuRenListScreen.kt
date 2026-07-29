@@ -62,7 +62,9 @@ fun XiuRenListScreen(
     showWebAction: Boolean = true,
     imageModelProvider: (ImageLoadsInfo) -> Any? = { it.url },
     imageRatioProvider: (ImageLoadsInfo) -> Float = { it.defaultDisplayRatio() },
+    imageScaleType: ImageView.ScaleType = ImageView.ScaleType.CENTER_INSIDE,
     showActionMenu: Boolean = false,
+    showDownloadMenuAction: Boolean = true,
     showFavoriteMenuAction: Boolean = false,
     favoriteMenuText: String = "收藏",
     isSelectionMode: Boolean = false,
@@ -129,6 +131,7 @@ fun XiuRenListScreen(
                         ImageListActionMenu(
                             onOpenWeb = onOpenWeb,
                             onImageDownloadModeClick = onImageDownloadModeClick,
+                            showDownloadMenuAction = showDownloadMenuAction,
                             showFavoriteMenuAction = showFavoriteMenuAction,
                             favoriteMenuText = favoriteMenuText,
                             onFavoriteMenuClick = onFavoriteMenuClick,
@@ -168,6 +171,7 @@ fun XiuRenListScreen(
                             info = imageInfo,
                             model = imageModelProvider(imageInfo),
                             ratio = imageRatioProvider(imageInfo),
+                            scaleType = imageScaleType,
                             isSelectionMode = isSelectionMode,
                             isSelected = selectedImageKeys.contains(imageKey),
                             showFavoriteAction = showFavoriteAction && !isSelectionMode,
@@ -197,6 +201,7 @@ fun XiuRenListScreen(
 private fun ImageListActionMenu(
     onOpenWeb: () -> Unit,
     onImageDownloadModeClick: () -> Unit,
+    showDownloadMenuAction: Boolean,
     showFavoriteMenuAction: Boolean,
     favoriteMenuText: String,
     onFavoriteMenuClick: () -> Unit,
@@ -227,19 +232,21 @@ private fun ImageListActionMenu(
                     onOpenWeb()
                 },
             )
-            DropdownMenuItem(
-                text = { Text(text = "图片下载") },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(id = R.drawable.baseline_cloud_download_24),
-                        contentDescription = null,
-                    )
-                },
-                onClick = {
-                    expanded = false
-                    onImageDownloadModeClick()
-                },
-            )
+            if (showDownloadMenuAction) {
+                DropdownMenuItem(
+                    text = { Text(text = "图片下载") },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_cloud_download_24),
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onImageDownloadModeClick()
+                    },
+                )
+            }
             if (showFavoriteMenuAction) {
                 DropdownMenuItem(
                     text = { Text(text = favoriteMenuText) },
@@ -264,6 +271,7 @@ private fun ImageLoadTile(
     info: ImageLoadsInfo,
     model: Any?,
     ratio: Float,
+    scaleType: ImageView.ScaleType,
     isSelectionMode: Boolean,
     isSelected: Boolean,
     showFavoriteAction: Boolean,
@@ -284,7 +292,7 @@ private fun ImageLoadTile(
         GlideImage(
             model = model,
             modifier = Modifier.fillMaxSize(),
-            scaleType = ImageView.ScaleType.CENTER_INSIDE,
+            scaleType = scaleType,
         )
         if (isSelectionMode) {
             if (isSelected) {

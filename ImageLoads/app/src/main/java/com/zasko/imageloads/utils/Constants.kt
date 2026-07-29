@@ -9,5 +9,6 @@ object Constants {
 
     const val THEME_TYPE_XIUREN = 1
     const val THEME_TYPE_MEIZI5 = 2
+    const val THEME_TYPE_TAOTU = 3
 
 }

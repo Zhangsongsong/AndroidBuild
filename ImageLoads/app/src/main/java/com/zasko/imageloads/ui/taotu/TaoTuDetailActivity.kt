@@ -1,18 +1,16 @@
-package com.zasko.imageloads.ui.meizi5
+package com.zasko.imageloads.ui.taotu
 
 import android.content.Context
 import android.content.Intent
-import android.os.Environment
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
+import android.os.Environment
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,9 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseComposeActivity
@@ -48,24 +44,24 @@ import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
+import com.bumptech.glide.Glide
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.bumptech.glide.Glide
 import java.io.File
 import kotlin.io.copyTo
 
-class Meizi5DetailActivity : BaseComposeActivity() {
+class TaoTuDetailActivity : BaseComposeActivity() {
 
     companion object {
-        private const val TAG = "Meizi5DetailActivity"
+        private const val TAG = "TaoTuDetailActivity"
         private const val KEY_INFO = "key_info"
         private const val KEY_DATA_USE_FROM = "key_data_use_from"
 
         fun start(context: Context, info: ImageLoadsInfo, dataUseFrom: Int?) {
-            context.startActivity(Intent(context, Meizi5DetailActivity::class.java).apply {
+            context.startActivity(Intent(context, TaoTuDetailActivity::class.java).apply {
                 putExtra(KEY_INFO, info)
                 if (dataUseFrom != null) {
                     putExtra(KEY_DATA_USE_FROM, dataUseFrom)
@@ -74,12 +70,13 @@ class Meizi5DetailActivity : BaseComposeActivity() {
         }
     }
 
-    private var detailInfo by mutableStateOf(Meizi5DetailInfo())
+    private var detailInfo by mutableStateOf(TaoTuDetailInfo())
     private var isLoading by mutableStateOf(false)
     private var isDownloading by mutableStateOf(false)
     private var downloadFinishedCount by mutableStateOf(0)
     private var downloadTotalCount by mutableStateOf(0)
     private var showOverwriteDialog by mutableStateOf(false)
+    private var hasDownloaded by mutableStateOf(false)
     private var errorMessage by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,10 +90,10 @@ class Meizi5DetailActivity : BaseComposeActivity() {
             },
         )
         val coverInfo = readCoverInfo()
-        detailInfo = Meizi5DetailInfo(url = coverInfo.href, title = coverInfo.href)
+        detailInfo = TaoTuDetailInfo(url = coverInfo.href, title = coverInfo.href)
         setContent {
             ImageLoadsTheme {
-                Meizi5DetailScreen(
+                TaoTuDetailScreen(
                     detailInfo = detailInfo,
                     isLoading = isLoading,
                     isDownloading = isDownloading,
@@ -127,7 +124,7 @@ class Meizi5DetailActivity : BaseComposeActivity() {
         isLoading = true
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
-                detailInfo = Meizi5Repository.getDetail(
+                detailInfo = TaoTuRepository.getDetail(
                     dataUseFrom = readDataUseFrom(),
                     url = detailUrl,
                 )
@@ -145,8 +142,6 @@ class Meizi5DetailActivity : BaseComposeActivity() {
             }
         }.let(::addJobBindLife)
     }
-
-    private var hasDownloaded by mutableStateOf(false)
 
     private fun handleDownloadClick() {
         if (isDownloading || detailInfo.pictures.isEmpty()) {
@@ -197,7 +192,7 @@ class Meizi5DetailActivity : BaseComposeActivity() {
 
     private suspend fun downloadDetailImages(
         context: Context,
-        detailInfo: Meizi5DetailInfo,
+        detailInfo: TaoTuDetailInfo,
         parentDir: File,
     ): Int {
         if (!parentDir.exists()) {
@@ -209,7 +204,7 @@ class Meizi5DetailActivity : BaseComposeActivity() {
             runCatching {
                 val futureTarget = Glide.with(context)
                     .asFile()
-                    .load(imageInfo.url.toMeizi5ImageModel())
+                    .load(imageInfo.url.toTaoTuImageModel())
                     .submit()
                 try {
                     futureTarget.get().copyTo(destFile, overwrite = true)
@@ -252,15 +247,15 @@ class Meizi5DetailActivity : BaseComposeActivity() {
             ?: false
     }
 
-    private fun getDetailDownloadDir(detailInfo: Meizi5DetailInfo): File {
+    private fun getDetailDownloadDir(detailInfo: TaoTuDetailInfo): File {
         return File(
-            "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_MEIZI5}/${FileUtil.PICTURE_MEIZI5_DETAIL}/${detailInfo.toDownloadFolderName()}",
+            "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}/${detailInfo.toDownloadFolderName()}",
         )
     }
 
-    private fun Meizi5DetailInfo.toDownloadFolderName(): String {
-        return title.ifBlank { url.substringAfterLast('/').substringBefore('?') }
-            .ifBlank { "meizi5_detail" }
+    private fun TaoTuDetailInfo.toDownloadFolderName(): String {
+        return title.ifBlank { url.trimEnd('/').substringAfterLast('/').substringBefore('?') }
+            .ifBlank { "taotu_detail" }
             .replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
 
@@ -313,8 +308,8 @@ class Meizi5DetailActivity : BaseComposeActivity() {
 }
 
 @Composable
-private fun Meizi5DetailScreen(
-    detailInfo: Meizi5DetailInfo,
+private fun TaoTuDetailScreen(
+    detailInfo: TaoTuDetailInfo,
     isLoading: Boolean,
     isDownloading: Boolean,
     downloadText: String,
@@ -329,7 +324,7 @@ private fun Meizi5DetailScreen(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = detailInfo.title.ifBlank { "Meizi5详情" },
+                title = detailInfo.title.ifBlank { "TaoTu详情" },
                 onBack = onBack,
                 actions = {
                     TextButton(
@@ -356,7 +351,7 @@ private fun Meizi5DetailScreen(
 
                 detailInfo.pictures.isEmpty() -> EmptyContent(text = errorMessage.ifBlank { "暂无详情图片" })
 
-                else -> DetailContent(detailInfo = detailInfo)
+                else -> TaoTuDetailContent(detailInfo = detailInfo)
             }
             if (showOverwriteDialog) {
                 AlertDialog(
@@ -381,55 +376,20 @@ private fun Meizi5DetailScreen(
 }
 
 @Composable
-private fun DetailContent(detailInfo: Meizi5DetailInfo) {
+private fun TaoTuDetailContent(detailInfo: TaoTuDetailInfo) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
-            DetailHeader(detailInfo = detailInfo)
-        }
         items(detailInfo.pictures) { imageInfo ->
             GlideImage(
-                model = imageInfo.url.toMeizi5ImageModel(),
+                model = imageInfo.url.toTaoTuImageModel(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(imageInfo.displayRatio())
                     .clip(RoundedCornerShape(4.dp))
                     .background(Color(0xFFF1F1F1)),
                 scaleType = ImageView.ScaleType.CENTER_CROP,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DetailHeader(detailInfo: Meizi5DetailInfo) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 6.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = detailInfo.title.ifBlank { "Meizi5详情" },
-            color = colorResource(id = R.color.color_h1),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        if (detailInfo.date.isNotBlank()) {
-            Text(
-                text = detailInfo.date,
-                color = colorResource(id = R.color.color_h2),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        if (detailInfo.tags.isNotEmpty()) {
-            Text(
-                text = "标签: ${detailInfo.tags.joinToString(" / ")}",
-                color = colorResource(id = R.color.color_h2),
-                style = MaterialTheme.typography.bodySmall,
             )
         }
     }

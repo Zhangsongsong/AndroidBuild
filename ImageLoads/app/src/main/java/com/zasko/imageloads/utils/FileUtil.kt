@@ -25,18 +25,47 @@ object FileUtil {
     const val PICTURE_MEIZI5 = "meizi5"
     const val PICTURE_MEIZI5_COVERS = "covers"
     const val PICTURE_MEIZI5_DETAIL = "detail"
+    const val PICTURE_TAOTU = "taotu"
+    const val PICTURE_TAOTU_DETAIL = "detail"
     const val NAME_XIUREN = "xiuren"
     const val NAME_MEIZI5 = "meizi5"
+    const val NAME_TAOTU = "taotu"
 
     /**
-     *               --xiuren
-     *                       --others
-     *                       --01.img
-     *                       --02.img
-     *               --heisi
+     * Local storage layout currently used by the app:
      *
+     * Private app external files:
+     * /storage/emulated/0/Android/data/com.zasko.imageloads/files/
+     *   html/
+     *     xiuren/
+     *       {page}
+     *     meizi5/
+     *       {page}
+     *       detail/
+     *         {detail-html-file}
+     *     taotu/
+     *       home
+     *       {page}
+     *       detail/
+     *         {detail-html-file}
      *
-     *
+     * Public download files:
+     * /storage/emulated/0/ImageLoads/
+     *   download/
+     *     xiuren/
+     *       {album-name}/
+     *         0000000.jpg
+     *         0000001.jpg
+     *     meizi5/
+     *       covers/
+     *         {cover-file-name}
+     *       detail/
+     *         {detail-title}/
+     *           {image-file-name}
+     *     taotu/
+     *       detail/
+     *         {detail-title}/
+     *           {image-file-name}
      */
 
 
