@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
-import com.zasko.imageloads.compose.XiuRenListScreen
+import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -52,7 +52,7 @@ class PersonListActivity : BaseComposeActivity() {
 
         setContent {
             ImageLoadsTheme {
-                XiuRenListScreen(
+                ImageListScreen(
                     title = dataInfo.title,
                     images = images,
                     isRefreshing = isRefreshing,

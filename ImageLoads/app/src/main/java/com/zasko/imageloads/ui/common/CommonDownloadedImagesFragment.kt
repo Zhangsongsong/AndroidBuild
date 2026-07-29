@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.zasko.imageloads.compose.ImageLoadsTheme
-import com.zasko.imageloads.compose.XiuRenListScreen
+import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
 import com.zasko.imageloads.fragment.ImagePreviewFragment
@@ -47,7 +47,7 @@ class CommonDownloadedImagesFragment : ComposeBaseFragment() {
     @Composable
     override fun FragmentContent() {
         ImageLoadsTheme {
-            XiuRenListScreen(
+            ImageListScreen(
                 title = title.ifBlank { "已下载图片" },
                 images = images,
                 isRefreshing = isLoading,

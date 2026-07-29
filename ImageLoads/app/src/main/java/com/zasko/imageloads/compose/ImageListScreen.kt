@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -50,7 +51,7 @@ import kotlin.math.max
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun XiuRenListScreen(
+fun ImageListScreen(
     title: String,
     images: List<ImageLoadsInfo>,
     isRefreshing: Boolean,
@@ -59,6 +60,8 @@ fun XiuRenListScreen(
     onOpenWeb: () -> Unit,
     onLoadMore: () -> Unit,
     onImageClick: (ImageLoadsInfo) -> Unit,
+    titleContent: (@Composable () -> Unit)? = null,
+    topContent: (@Composable () -> Unit)? = null,
     showWebAction: Boolean = true,
     imageModelProvider: (ImageLoadsInfo) -> Any? = { it.url },
     imageRatioProvider: (ImageLoadsInfo) -> Float = { it.defaultDisplayRatio() },
@@ -99,6 +102,7 @@ fun XiuRenListScreen(
         topBar = {
             ImageLoadsTopBar(
                 title = if (isSelectionMode) "已选择 ${selectedImageKeys.size} 张" else title,
+                titleContent = if (isSelectionMode) null else titleContent,
                 onBack = {
                     if (isSelectionMode) {
                         onCancelSelection()
@@ -154,7 +158,7 @@ fun XiuRenListScreen(
                 .fillMaxSize()
                 .background(Color.White),
         ) {
-            if (images.isEmpty() && !isRefreshing) {
+            if (images.isEmpty() && !isRefreshing && topContent == null) {
                 EmptyContent(text = "暂无图片")
             } else {
                 LazyVerticalStaggeredGrid(
@@ -165,6 +169,21 @@ fun XiuRenListScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalItemSpacing = 4.dp,
                 ) {
+                    topContent?.let { content ->
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            content()
+                        }
+                    }
+                    if (images.isEmpty() && !isRefreshing) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            EmptyContent(
+                                text = "暂无图片",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(240.dp),
+                            )
+                        }
+                    }
                     itemsIndexed(images) { _, imageInfo ->
                         val imageKey = imageKeyProvider(imageInfo)
                         ImageLoadTile(

@@ -9,6 +9,9 @@ import com.zasko.imageloads.ui.meizi5.toMeizi5ImageModel
 import com.zasko.imageloads.ui.taotu.TaoTuDetailInfo
 import com.zasko.imageloads.ui.taotu.TaoTuRepository
 import com.zasko.imageloads.ui.taotu.toTaoTuImageModel
+import com.zasko.imageloads.ui.trendszine.TrendszineDetailInfo
+import com.zasko.imageloads.ui.trendszine.TrendszineRepository
+import com.zasko.imageloads.ui.trendszine.toTrendszineImageModel
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
 import java.io.File
@@ -35,6 +38,7 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
         get() = when (sourceType) {
             Constants.THEME_TYPE_MEIZI5 -> "Meizi5Detail"
             Constants.THEME_TYPE_TAOTU -> "TaoTuDetail"
+            Constants.THEME_TYPE_TRENDSZINE -> "TrendszineDetail"
             else -> "SourceImageDetailActivity"
         }
 
@@ -42,6 +46,7 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
         get() = when (sourceType) {
             Constants.THEME_TYPE_MEIZI5 -> "Meizi5详情"
             Constants.THEME_TYPE_TAOTU -> "TaoTu详情"
+            Constants.THEME_TYPE_TRENDSZINE -> "Trendszine详情"
             else -> "详情"
         }
 
@@ -49,6 +54,7 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
         get() = when (sourceType) {
             Constants.THEME_TYPE_MEIZI5 -> "https://meizi5.com/"
             Constants.THEME_TYPE_TAOTU -> "https://taotu.org/"
+            Constants.THEME_TYPE_TRENDSZINE -> "https://trendszine.com/"
             else -> ""
         }
 
@@ -62,6 +68,10 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
                 TaoTuRepository.getDetail(dataUseFrom = dataUseFrom, url = url).toCommonDetailInfo()
             }
 
+            Constants.THEME_TYPE_TRENDSZINE -> {
+                TrendszineRepository.getDetail(dataUseFrom = dataUseFrom, url = url).toCommonDetailInfo()
+            }
+
             else -> CommonImageDetailInfo(url = url)
         }
     }
@@ -70,6 +80,7 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
         return when (sourceType) {
             Constants.THEME_TYPE_MEIZI5 -> imageInfo.url.toMeizi5ImageModel()
             Constants.THEME_TYPE_TAOTU -> imageInfo.url.toTaoTuImageModel()
+            Constants.THEME_TYPE_TRENDSZINE -> imageInfo.url.toTrendszineImageModel()
             else -> imageInfo.url
         }
     }
@@ -82,6 +93,10 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
 
             Constants.THEME_TYPE_TAOTU -> File(
                 "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}",
+            )
+
+            Constants.THEME_TYPE_TRENDSZINE -> File(
+                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TRENDSZINE}/${FileUtil.PICTURE_TRENDSZINE_DETAIL}",
             )
 
             else -> File(FileUtil.getDownloadPath())
@@ -110,6 +125,22 @@ private fun TaoTuDetailInfo.toCommonDetailInfo(): CommonImageDetailInfo {
         emptyList()
     } else {
         listOf("标签: ${tags.joinToString(" / ")}")
+    }
+    return CommonImageDetailInfo(
+        url = url,
+        title = title,
+        subtitles = subtitles,
+        pictures = pictures,
+    )
+}
+
+private fun TrendszineDetailInfo.toCommonDetailInfo(): CommonImageDetailInfo {
+    val subtitles = mutableListOf<String>()
+    if (date.isNotBlank()) {
+        subtitles.add(date)
+    }
+    if (tags.isNotEmpty()) {
+        subtitles.add("标签: ${tags.joinToString(" / ")}")
     }
     return CommonImageDetailInfo(
         url = url,

@@ -18,6 +18,7 @@ import com.zasko.imageloads.ui.TestActivity
 import com.zasko.imageloads.ui.common.CommonDownloadedActivity
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
+import com.zasko.imageloads.ui.trendszine.TrendszineActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
@@ -38,6 +39,7 @@ class MainActivity : BaseComposeActivity() {
         var useXiuRenLocalData by rememberSaveable { mutableStateOf(true) }
         var useMeizi5LocalData by rememberSaveable { mutableStateOf(true) }
         var useTaoTuLocalData by rememberSaveable { mutableStateOf(false) }
+        var useTrendszineLocalData by rememberSaveable { mutableStateOf(false) }
         val xiuRenTheme = MainThemeSelectInfo(
             cover = XIUREN_COVER,
             title = stringResource(id = R.string.xiuren),
@@ -68,9 +70,19 @@ class MainActivity : BaseComposeActivity() {
             },
             theme = Constants.THEME_TYPE_TAOTU,
         )
+        val trendszineTheme = MainThemeSelectInfo(
+            cover = TRENDSZINE_COVER,
+            title = "Trendszine",
+            dataUseFrom = if (useTrendszineLocalData) {
+                DataUseFrom.PRIVATE_FILE.value
+            } else {
+                DataUseFrom.NETWORK.value
+            },
+            theme = Constants.THEME_TYPE_TRENDSZINE,
+        )
 
         HomeScreen(
-            themes = listOf(meizi5Theme, taoTuTheme, xiuRenTheme),
+            themes = listOf(trendszineTheme, meizi5Theme, taoTuTheme, xiuRenTheme),
             onOpenTheme = { info ->
                 openTheme(info = info)
             },
@@ -85,6 +97,7 @@ class MainActivity : BaseComposeActivity() {
                     Constants.THEME_TYPE_XIUREN -> useXiuRenLocalData = checked
                     Constants.THEME_TYPE_MEIZI5 -> useMeizi5LocalData = checked
                     Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
+                    Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
                 }
             },
         )
@@ -95,6 +108,7 @@ class MainActivity : BaseComposeActivity() {
             Constants.THEME_TYPE_XIUREN -> XiuRenActivity.startRandom(context = this, data = info)
             Constants.THEME_TYPE_MEIZI5 -> Unit
             Constants.THEME_TYPE_TAOTU -> Unit
+            Constants.THEME_TYPE_TRENDSZINE -> Unit
             else -> PersonListActivity.start(context = this, data = info)
         }
     }
@@ -104,6 +118,7 @@ class MainActivity : BaseComposeActivity() {
             Constants.THEME_TYPE_XIUREN -> XiuRenActivity.start(context = this, data = info)
             Constants.THEME_TYPE_MEIZI5 -> Meizi5Activity.start(context = this, data = info)
             Constants.THEME_TYPE_TAOTU -> TaoTuActivity.start(context = this, data = info)
+            Constants.THEME_TYPE_TRENDSZINE -> TrendszineActivity.start(context = this, data = info)
             else -> PersonListActivity.start(context = this, data = info)
         }
     }
@@ -119,6 +134,10 @@ class MainActivity : BaseComposeActivity() {
                 "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}"
             }
 
+            Constants.THEME_TYPE_TRENDSZINE -> {
+                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TRENDSZINE}/${FileUtil.PICTURE_TRENDSZINE_DETAIL}"
+            }
+
             else -> ""
         }
         if (parentPath.isNotBlank()) {
@@ -130,5 +149,6 @@ class MainActivity : BaseComposeActivity() {
         const val XIUREN_COVER = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg"
         const val MEIZI5_COVER = "https://meizi5.com/wp-content/uploads/2026/04/VOL_350_face.jpg"
         const val TAOTU_COVER = "https://res.taotu.org/hot-girls/%e5%b0%8f%e8%94%a1%e5%a4%b4%e5%96%b5%e5%96%b5%e5%96%b5/00069-%e9%bb%91%e4%b8%9d%e8%be%85%e5%af%bc%e5%91%98-29p/thumbnail/0020.jpg"
+        const val TRENDSZINE_COVER = "https://trendszine.com/wp-content/uploads/2026/07/33603291310201.webp.webp"
     }
 }

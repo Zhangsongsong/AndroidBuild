@@ -1,11 +1,10 @@
-package com.zasko.imageloads.ui.meizi5
+package com.zasko.imageloads.ui.trendszine
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -13,34 +12,27 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
-import com.bumptech.glide.Glide
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageListScreen
+import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
 import com.zasko.imageloads.ui.common.SourceImageDetailActivity
 import com.zasko.imageloads.utils.Constants
-import com.zasko.imageloads.utils.FileUtil
-import com.zasko.imageloads.utils.PermissionUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import kotlin.io.copyTo
 
-class Meizi5Fragment : ComposeBaseFragment() {
+class TrendszineFragment : ComposeBaseFragment() {
 
     companion object {
-        private const val TAG = "Meizi5Fragment"
-        private const val HOME_URL = "https://meizi5.com/"
+        private const val TAG = "TrendszineFragment"
+        private const val HOME_URL = "https://trendszine.com/"
 
-        fun newInstance(data: MainThemeSelectInfo): Meizi5Fragment {
-            return Meizi5Fragment().apply {
+        fun newInstance(data: MainThemeSelectInfo): TrendszineFragment {
+            return TrendszineFragment().apply {
                 arguments = Bundle().apply {
                     putSerializable(KEY_DATA, data)
                 }
@@ -55,17 +47,16 @@ class Meizi5Fragment : ComposeBaseFragment() {
 
     private val images = mutableStateListOf<ImageLoadsInfo>()
     private val favoriteImages = mutableStateListOf<ImageLoadsInfo>()
-    private val selectedImageUrls = mutableStateListOf<String>()
+    private val categories = mutableStateListOf(TrendszineRepository.allCategory)
 
     private var dataInfo: MainThemeSelectInfo? = null
+    private var selectedParentCategory by mutableStateOf(TrendszineRepository.allCategory)
+    private var selectedCategory by mutableStateOf(TrendszineRepository.allCategory)
     private var nextPage = 1
     private var isRefreshing by mutableStateOf(false)
     private var isLoadingMoreState by mutableStateOf(false)
-    private var isSelectionMode by mutableStateOf(false)
-    private var isDownloading by mutableStateOf(false)
     private var showFavoritesOnly by mutableStateOf(false)
     private var activeRequest: Job? = null
-    private var downloadJob: Job? = null
     private var requestVersion = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,7 +74,7 @@ class Meizi5Fragment : ComposeBaseFragment() {
         }
         ImageLoadsTheme {
             ImageListScreen(
-                title = if (showFavoritesOnly) "Meizi5 收藏" else dataInfo?.title.orEmpty(),
+                title = screenTitle(),
                 images = displayImages,
                 isRefreshing = !showFavoritesOnly && isRefreshing,
                 isLoadingMore = !showFavoritesOnly && isLoadingMoreState,
@@ -94,31 +85,38 @@ class Meizi5Fragment : ComposeBaseFragment() {
                         activity?.finish()
                     }
                 },
-                onOpenWeb = { openUrl(HOME_URL) },
+                onOpenWeb = { openUrl(if (showFavoritesOnly) HOME_URL else selectedCategory.url) },
                 onLoadMore = {
                     if (!showFavoritesOnly) {
                         loadMoreData()
                     }
                 },
-                onImageClick = ::handleImageClick,
-                showWebAction = false,
-                imageModelProvider = { it.url.toMeizi5ImageModel() },
-                imageRatioProvider = { it.meizi5DisplayRatio() },
+                onImageClick = ::openDetail,
+                titleContent = if (showFavoritesOnly) {
+                    null
+                } else {
+                    {
+                        TrendszineTitleCategorySelector(
+                            categories = categories,
+                            selectedParentCategory = selectedParentCategory,
+                            selectedCategory = selectedCategory,
+                            onParentCategorySelected = ::selectParentCategory,
+                            onChildCategorySelected = ::selectChildCategory,
+                        )
+                    }
+                },
+                imageModelProvider = { it.url.toTrendszineImageModel() },
+                imageRatioProvider = { it.trendszineDisplayRatio() },
+                imageScaleType = ImageView.ScaleType.CENTER_CROP,
                 showActionMenu = true,
+                showDownloadMenuAction = false,
                 showFavoriteMenuAction = true,
                 favoriteMenuText = if (showFavoritesOnly) "全部图片" else "收藏",
-                isSelectionMode = isSelectionMode,
-                selectedImageKeys = selectedImageUrls.toSet(),
-                isDownloadActionEnabled = !isDownloading,
-                selectionDownloadText = "下载",
                 showFavoriteAction = true,
                 favoriteImageKeys = favoriteImages.map { it.url }.toSet(),
                 imageKeyProvider = { it.url },
-                onImageDownloadModeClick = ::enterSelectionMode,
                 onFavoriteMenuClick = ::toggleFavoriteList,
                 onFavoriteClick = ::toggleFavorite,
-                onCancelSelection = ::cancelSelectionMode,
-                onDownloadSelected = ::downloadSelectedCovers,
             )
         }
     }
@@ -132,25 +130,62 @@ class Meizi5Fragment : ComposeBaseFragment() {
         clearViewRequests()
     }
 
+    private fun screenTitle(): String {
+        return when {
+            showFavoritesOnly -> "Trendszine 收藏"
+            selectedCategory == TrendszineRepository.allCategory -> dataInfo?.title.orEmpty()
+            else -> selectedCategory.title
+        }
+    }
+
     private fun loadNewData() {
         if (isLoadingMore.get()) {
             isRefreshing = false
             return
         }
-
-        requestImages(LoadMode.Refresh)
+        requestImages(mode = LoadMode.Refresh)
     }
 
     private fun loadMoreData() {
         if (!canLoadMore()) {
             return
         }
-
-        requestImages(LoadMode.More)
+        requestImages(mode = LoadMode.More)
     }
 
     private fun canLoadMore(): Boolean {
         return !isRefreshing && !isLoadingMore.get() && !isLoadEnd.get()
+    }
+
+    private fun selectParentCategory(category: TrendszineCategory) {
+        if ((selectedParentCategory == category && selectedCategory == category) || isRefreshing || isLoadingMore.get()) {
+            return
+        }
+        selectedParentCategory = category
+        selectCategory(category = category)
+    }
+
+    private fun selectChildCategory(category: TrendszineCategory) {
+        val parentCategory = findParentCategory(category = category)
+        if ((selectedParentCategory == parentCategory && selectedCategory == category) || isRefreshing || isLoadingMore.get()) {
+            return
+        }
+        selectedParentCategory = parentCategory
+        selectCategory(category = category)
+    }
+
+    private fun findParentCategory(category: TrendszineCategory): TrendszineCategory {
+        return categories.firstOrNull {
+            it.url == category.url || it.children.any { childCategory -> childCategory.url == category.url }
+        } ?: category
+    }
+
+    private fun selectCategory(category: TrendszineCategory) {
+        selectedCategory = category
+        images.clear()
+        nextPage = 1
+        isLoadEnd.set(false)
+        requestImages(mode = LoadMode.Refresh)
     }
 
     private fun requestImages(mode: LoadMode) {
@@ -165,12 +200,13 @@ class Meizi5Fragment : ComposeBaseFragment() {
         beginLoading(mode = mode)
         activeRequest = scope.launch {
             try {
-                val list = Meizi5Repository.getImages(
+                val result = TrendszineRepository.getImages(
                     dataUseFrom = dataInfo?.dataUseFrom,
+                    category = selectedCategory,
                     page = page,
                 )
                 if (isActiveRequest(requestId = requestId, scope = scope)) {
-                    applyLoadedImages(mode = mode, page = page, list = list)
+                    applyLoadedImages(mode = mode, result = result)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -202,28 +238,33 @@ class Meizi5Fragment : ComposeBaseFragment() {
         }
     }
 
-    private fun applyLoadedImages(
-        mode: LoadMode,
-        page: Int,
-        list: List<ImageLoadsInfo>,
-    ) {
+    private fun applyLoadedImages(mode: LoadMode, result: TrendszinePageResult) {
+        if (result.categories.isNotEmpty()) {
+            val selectedParentUrl = selectedParentCategory.url
+            val selectedCategoryUrl = selectedCategory.url
+            categories.clear()
+            categories.addAll(result.categories)
+            selectedParentCategory = categories.firstOrNull { it.url == selectedParentUrl }
+                ?: TrendszineRepository.allCategory
+            selectedCategory = if (selectedParentCategory.url == selectedCategoryUrl) {
+                selectedParentCategory
+            } else {
+                selectedParentCategory.children.firstOrNull { it.url == selectedCategoryUrl }
+                    ?: selectedParentCategory
+            }
+        }
         when (mode) {
             LoadMode.Refresh -> {
-                nextPage = page + 1
                 images.clear()
-                images.addAll(list)
-                isLoadEnd.set(list.isEmpty())
+                images.addAll(result.images)
             }
 
             LoadMode.More -> {
-                if (list.isEmpty()) {
-                    isLoadEnd.set(true)
-                } else {
-                    nextPage = page + 1
-                    images.addAll(list)
-                }
+                images.addAll(result.images)
             }
         }
+        nextPage = result.nextPage ?: nextPage
+        isLoadEnd.set(result.images.isEmpty() || result.nextPage == null)
     }
 
     private fun endLoading(mode: LoadMode) {
@@ -240,29 +281,22 @@ class Meizi5Fragment : ComposeBaseFragment() {
         requestVersion += 1
         activeRequest?.cancel()
         activeRequest = null
-        downloadJob?.cancel()
-        downloadJob = null
         isRefreshing = false
         isLoadingMore.set(false)
         isLoadingMoreState = false
-        isDownloading = false
     }
 
-    private fun handleImageClick(imageInfo: ImageLoadsInfo) {
-        if (isSelectionMode) {
-            toggleCoverSelection(url = imageInfo.url)
-        } else {
-            if (imageInfo.href.isBlank()) {
-                showToast("缺少详情地址")
-            } else {
-                SourceImageDetailActivity.start(
-                    context = requireContext(),
-                    sourceType = Constants.THEME_TYPE_MEIZI5,
-                    info = imageInfo,
-                    dataUseFrom = dataInfo?.dataUseFrom,
-                )
-            }
+    private fun openDetail(imageInfo: ImageLoadsInfo) {
+        if (imageInfo.href.isBlank()) {
+            showToast("缺少详情地址")
+            return
         }
+        SourceImageDetailActivity.start(
+            context = requireContext(),
+            sourceType = Constants.THEME_TYPE_TRENDSZINE,
+            info = imageInfo,
+            dataUseFrom = dataInfo?.dataUseFrom,
+        )
     }
 
     private fun toggleFavoriteList() {
@@ -275,167 +309,22 @@ class Meizi5Fragment : ComposeBaseFragment() {
 
     private fun enterFavoriteList() {
         refreshFavorites()
-        selectedImageUrls.clear()
-        isSelectionMode = false
         showFavoritesOnly = true
     }
 
     private fun exitFavoriteList() {
-        selectedImageUrls.clear()
-        isSelectionMode = false
         showFavoritesOnly = false
     }
 
     private fun toggleFavorite(imageInfo: ImageLoadsInfo) {
-        val isFavorite = Meizi5FavoriteStore.toggleFavorite(imageInfo)
+        val isFavorite = TrendszineFavoriteStore.toggleFavorite(imageInfo)
         refreshFavorites()
         showToast(if (isFavorite) "已收藏" else "已取消收藏")
     }
 
     private fun refreshFavorites() {
         favoriteImages.clear()
-        favoriteImages.addAll(Meizi5FavoriteStore.getFavorites())
-    }
-
-    private fun enterSelectionMode() {
-        if (isDownloading) {
-            return
-        }
-        selectedImageUrls.clear()
-        isSelectionMode = true
-    }
-
-    private fun cancelSelectionMode() {
-        if (isDownloading) {
-            return
-        }
-        isSelectionMode = false
-        selectedImageUrls.clear()
-    }
-
-    private fun toggleCoverSelection(url: String) {
-        if (url.isBlank() || isDownloading) {
-            return
-        }
-        if (selectedImageUrls.contains(url)) {
-            selectedImageUrls.remove(url)
-        } else {
-            selectedImageUrls.add(url)
-        }
-    }
-
-    private fun downloadSelectedCovers() {
-        if (isDownloading) {
-            return
-        }
-        val selectedUrls = selectedImageUrls
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .distinct()
-        if (selectedUrls.isEmpty()) {
-            return
-        }
-        val hostActivity = activity ?: return
-        if (requestExternalStoragePermissionIfNeeded()) {
-            showToast("需要存储权限后再下载")
-            return
-        }
-        FileUtil.createExternalDir()
-
-        val context = hostActivity.applicationContext
-        val scope = composeRequestScope ?: return
-        isDownloading = true
-        downloadJob = scope.launch {
-            val savedCount = withContext(Dispatchers.IO) {
-                downloadCoverImages(
-                    context = context,
-                    urls = selectedUrls,
-                    parentDir = getCoverDownloadDir(),
-                )
-            }
-            LogComponent.printD(tag = TAG, message = "downloadSelectedCovers count:$savedCount")
-            showToast("已下载 $savedCount/${selectedUrls.size} 张封面")
-            isDownloading = false
-            isSelectionMode = false
-            selectedImageUrls.clear()
-            downloadJob = null
-        }
-    }
-
-    private fun requestExternalStoragePermissionIfNeeded(): Boolean {
-        val hostActivity = activity ?: return true
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                PermissionUtil.getReadAndWriteExternal(hostActivity)
-                true
-            } else {
-                false
-            }
-        } else if (!PermissionUtil.checkWriteExternal(hostActivity)) {
-            PermissionUtil.getReadAndWriteExternal(hostActivity)
-            true
-        } else {
-            false
-        }
-    }
-
-    private fun downloadCoverImages(
-        context: Context,
-        urls: List<String>,
-        parentDir: File,
-    ): Int {
-        if (!parentDir.exists()) {
-            parentDir.mkdirs()
-        }
-        var savedCount = 0
-        urls.forEachIndexed { index, url ->
-            val fileName = url.toCoverFileName(index = index)
-            val destFile = File(parentDir, fileName)
-            runCatching {
-                downloadOneCover(
-                    context = context,
-                    url = url,
-                    destFile = destFile,
-                )
-            }.onSuccess {
-                savedCount += 1
-                LogComponent.printD(tag = TAG, message = "download cover success:${destFile.absolutePath}")
-            }.onFailure { throwable ->
-                LogComponent.printE(tag = TAG, message = "download cover failed:$url $throwable")
-            }
-        }
-        return savedCount
-    }
-
-    private fun downloadOneCover(
-        context: Context,
-        url: String,
-        destFile: File,
-    ) {
-        val futureTarget = Glide.with(context)
-            .asFile()
-            .load(url.toMeizi5ImageModel())
-            .submit()
-        try {
-            val cacheFile = futureTarget.get()
-            cacheFile.copyTo(destFile, overwrite = true)
-        } finally {
-            Glide.with(context).clear(futureTarget)
-        }
-    }
-
-    private fun getCoverDownloadDir(): File {
-        return File(
-            "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_MEIZI5}/${FileUtil.PICTURE_MEIZI5_COVERS}",
-        )
-    }
-
-    private fun String.toCoverFileName(index: Int): String {
-        val fallbackName = "cover_${index.toString().padStart(4, '0')}.jpg"
-        val rawName = runCatching { Uri.parse(this).lastPathSegment }.getOrNull()
-            ?.takeIf { it.isNotBlank() }
-            ?: fallbackName
-        return rawName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        favoriteImages.addAll(TrendszineFavoriteStore.getFavorites())
     }
 
     private fun nextRequestId(): Int {
@@ -476,7 +365,7 @@ class Meizi5Fragment : ComposeBaseFragment() {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun ImageLoadsInfo.meizi5DisplayRatio(): Float {
+    private fun ImageLoadsInfo.trendszineDisplayRatio(): Float {
         return if (width > 0 && height > 0) {
             width.toFloat() / height.toFloat()
         } else {
@@ -485,22 +374,22 @@ class Meizi5Fragment : ComposeBaseFragment() {
     }
 }
 
-@Preview(name = "Meizi5", showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(name = "Trendszine", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun Meizi5FragmentPreview() {
+private fun TrendszineFragmentPreview() {
     ImageLoadsTheme {
         ImageListScreen(
-            title = "Meizi5",
+            title = "Trendszine",
             images = listOf(
                 ImageLoadsInfo(
-                    url = "preview://meizi5-1",
+                    url = "preview://trendszine-1",
                     width = 400,
                     height = 600,
                 ),
                 ImageLoadsInfo(
-                    url = "preview://meizi5-2",
-                    width = 600,
-                    height = 900,
+                    url = "preview://trendszine-2",
+                    width = 400,
+                    height = 600,
                 ),
             ),
             isRefreshing = false,
@@ -509,6 +398,27 @@ private fun Meizi5FragmentPreview() {
             onOpenWeb = {},
             onLoadMore = {},
             onImageClick = {},
+            titleContent = {
+                TrendszineTitleCategorySelector(
+                    categories = listOf(
+                        TrendszineRepository.allCategory,
+                        TrendszineCategory(
+                            title = "Cosplay",
+                            url = "https://trendszine.com/category/cosplay",
+                            children = listOf(
+                                TrendszineCategory(
+                                    title = "精选 Coser",
+                                    url = "https://trendszine.com/category/cosplay/best-coser",
+                                ),
+                            ),
+                        ),
+                    ),
+                    selectedParentCategory = TrendszineRepository.allCategory,
+                    selectedCategory = TrendszineRepository.allCategory,
+                    onParentCategorySelected = {},
+                    onChildCategorySelected = {},
+                )
+            },
         )
     }
 }

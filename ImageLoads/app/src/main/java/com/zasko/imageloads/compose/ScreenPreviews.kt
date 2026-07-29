@@ -40,9 +40,9 @@ private val previewDownloads = listOf(
 
 @Preview(name = "XiuRen List", showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun XiuRenListScreenPreview() {
+private fun ImageListScreenPreview() {
     ImageLoadsTheme {
-        XiuRenListScreen(
+        ImageListScreen(
             title = "秀人网",
             images = previewImages,
             isRefreshing = false,

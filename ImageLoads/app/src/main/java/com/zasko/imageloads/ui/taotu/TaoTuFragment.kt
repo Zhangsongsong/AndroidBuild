@@ -14,7 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.compose.ImageLoadsTheme
-import com.zasko.imageloads.compose.XiuRenListScreen
+import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
@@ -70,7 +70,7 @@ class TaoTuFragment : ComposeBaseFragment() {
             images
         }
         ImageLoadsTheme {
-            XiuRenListScreen(
+            ImageListScreen(
                 title = if (showFavoritesOnly) "TaoTu 收藏" else dataInfo?.title.orEmpty(),
                 images = displayImages,
                 isRefreshing = !showFavoritesOnly && isRefreshing,
@@ -314,7 +314,7 @@ class TaoTuFragment : ComposeBaseFragment() {
 @Composable
 private fun TaoTuFragmentPreview() {
     ImageLoadsTheme {
-        XiuRenListScreen(
+        ImageListScreen(
             title = "TaoTu",
             images = listOf(
                 ImageLoadsInfo(

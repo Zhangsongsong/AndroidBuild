@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.zasko.imageloads.activity.PersonDetailActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
-import com.zasko.imageloads.compose.XiuRenListScreen
+import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -59,7 +59,7 @@ class XiuRenFragment : ComposeBaseFragment() {
     @Composable
     override fun FragmentContent() {
         ImageLoadsTheme {
-            XiuRenListScreen(
+            ImageListScreen(
                 title = dataInfo?.title.orEmpty(),
                 images = images,
                 isRefreshing = isRefreshing,
@@ -238,7 +238,7 @@ class XiuRenFragment : ComposeBaseFragment() {
 @Composable
 private fun XiuRenFragmentPreview() {
     ImageLoadsTheme {
-        XiuRenListScreen(
+        ImageListScreen(
             title = "秀人网",
             images = xiuRenPreviewImages,
             isRefreshing = false,

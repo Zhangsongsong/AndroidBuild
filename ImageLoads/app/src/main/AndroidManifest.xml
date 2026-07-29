@@ -41,6 +41,7 @@
         <activity android:name=".ui.common.SourceImageDetailActivity" />
         <activity android:name=".ui.meizi5.Meizi5Activity" />
         <activity android:name=".ui.taotu.TaoTuActivity" />
+        <activity android:name=".ui.trendszine.TrendszineActivity" />
 
         <activity android:name=".ui.TestActivity" />
 

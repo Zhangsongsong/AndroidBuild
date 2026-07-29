@@ -27,9 +27,12 @@ object FileUtil {
     const val PICTURE_MEIZI5_DETAIL = "detail"
     const val PICTURE_TAOTU = "taotu"
     const val PICTURE_TAOTU_DETAIL = "detail"
+    const val PICTURE_TRENDSZINE = "trendszine"
+    const val PICTURE_TRENDSZINE_DETAIL = "detail"
     const val NAME_XIUREN = "xiuren"
     const val NAME_MEIZI5 = "meizi5"
     const val NAME_TAOTU = "taotu"
+    const val NAME_TRENDSZINE = "trendszine"
 
     /**
      * Local storage layout currently used by the app:
@@ -63,6 +66,10 @@ object FileUtil {
      *         {detail-title}/
      *           {image-file-name}
      *     taotu/
+     *       detail/
+     *         {detail-title}/
+     *           {image-file-name}
+     *     trendszine/
      *       detail/
      *         {detail-title}/
      *           {image-file-name}
