@@ -56,6 +56,11 @@ object Meizi5Repository : HtmlParse {
                     width = img.attr("width").trim().toIntOrNull() ?: DEFAULT_IMAGE_WIDTH,
                     height = img.attr("height").trim().toIntOrNull() ?: DEFAULT_IMAGE_HEIGHT,
                     href = link.attr("href").toAbsoluteUrl(),
+                    title = article.selectFirst(".entry-title a, h2 a, h2.entry-title")
+                        ?.text()
+                        ?.trim()
+                        .orEmpty()
+                        .ifBlank { img.attr("alt").trim() },
                 ).apply {
                     LogComponent.printD(tag = TAG, message = "item:${this}")
                 },
@@ -92,9 +97,10 @@ object Meizi5Repository : HtmlParse {
     }
 
     private suspend fun getLocalImages(page: Int): List<ImageLoadsInfo> {
-        return withContext(Dispatchers.IO) {
+        val localImages = withContext(Dispatchers.IO) {
             getLocalDataFromCache(page = page)
         }
+        return localImages.takeIf { it.isNotEmpty() } ?: getNetworkImages(page = page)
     }
 
     private suspend fun getNetworkImages(page: Int): List<ImageLoadsInfo> {
@@ -105,14 +111,15 @@ object Meizi5Repository : HtmlParse {
     }
 
     private suspend fun getLocalDetail(url: String): Meizi5DetailInfo {
-        return withContext(Dispatchers.IO) {
+        val localDetail = withContext(Dispatchers.IO) {
             val file = File(getDetailHtmlDir(), url.toDetailCacheFileName())
             if (file.exists()) {
                 transformDetail(url = url, data = FileUtil.getFileToHtml(file)?.toString() ?: "")
             } else {
-                Meizi5DetailInfo(url = url)
+                null
             }
         }
+        return localDetail?.takeIf { it.pictures.isNotEmpty() } ?: getNetworkDetail(url = url)
     }
 
     private suspend fun getNetworkDetail(url: String): Meizi5DetailInfo {

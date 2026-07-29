@@ -14,10 +14,18 @@ class TaoTuActivity : BaseActivity() {
 
     companion object {
         private const val KEY_DATA = "key_data"
+        private const val KEY_SHOW_FAVORITES = "key_show_favorites"
 
         fun start(context: Context, data: MainThemeSelectInfo) {
             context.startActivity(Intent(context, TaoTuActivity::class.java).apply {
                 putExtra(KEY_DATA, data)
+            })
+        }
+
+        fun startFavorite(context: Context, data: MainThemeSelectInfo) {
+            context.startActivity(Intent(context, TaoTuActivity::class.java).apply {
+                putExtra(KEY_DATA, data)
+                putExtra(KEY_SHOW_FAVORITES, true)
             })
         }
     }
@@ -39,7 +47,13 @@ class TaoTuActivity : BaseActivity() {
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
-                .replace(containerId, TaoTuFragment.newInstance(data = readThemeInfo()))
+                .replace(
+                    containerId,
+                    TaoTuFragment.newInstance(
+                        data = readThemeInfo(),
+                        showFavoritesOnly = intent.getBooleanExtra(KEY_SHOW_FAVORITES, false),
+                    ),
+                )
                 .commit()
         }
     }

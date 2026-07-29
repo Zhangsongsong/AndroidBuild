@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,11 +28,13 @@ class XiuRenFragment : ComposeBaseFragment() {
     companion object {
         private const val TAG = "XiuRenFragment"
         private const val LOAD_MAX_SIZE = 20
+        private const val KEY_FAVORITE_MODE = "key_favorite_mode"
 
-        fun newInstance(data: MainThemeSelectInfo): XiuRenFragment {
+        fun newInstance(data: MainThemeSelectInfo, favoriteMode: Boolean = false): XiuRenFragment {
             return XiuRenFragment().apply {
                 arguments = Bundle().apply {
                     putSerializable(KEY_DATA, data)
+                    putBoolean(KEY_FAVORITE_MODE, favoriteMode)
                 }
             }
         }
@@ -43,38 +46,57 @@ class XiuRenFragment : ComposeBaseFragment() {
     }
 
     private val images = mutableStateListOf<ImageLoadsInfo>()
+    private val pageLabels = mutableStateMapOf<Int, Int>()
 
     private var dataInfo: MainThemeSelectInfo? = null
     private var loadStartIndex = 0
     private var isRefreshing by mutableStateOf(false)
     private var isLoadingMoreState by mutableStateOf(false)
+    private var favoriteMode by mutableStateOf(false)
     private var activeRequest: Job? = null
     private var requestVersion = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         dataInfo = readThemeInfo()
+        favoriteMode = arguments?.getBoolean(KEY_FAVORITE_MODE) == true
     }
 
     @Composable
     override fun FragmentContent() {
         ImageLoadsTheme {
             ImageListScreen(
-                title = dataInfo?.title.orEmpty(),
+                title = if (favoriteMode) "${dataInfo?.title.orEmpty()} 收藏" else dataInfo?.title.orEmpty(),
                 images = images,
-                isRefreshing = isRefreshing,
-                isLoadingMore = isLoadingMoreState,
+                isRefreshing = !favoriteMode && isRefreshing,
+                isLoadingMore = !favoriteMode && isLoadingMoreState,
                 onBack = { activity?.finish() },
                 onOpenWeb = ::openWebView,
-                onLoadMore = ::loadMoreData,
-                onImageClick = ::openDetail,
+                onLoadMore = {
+                    if (!favoriteMode) {
+                        loadMoreData()
+                    }
+                },
+                onImageClick = {
+                    if (!favoriteMode) {
+                        openDetail(it)
+                    }
+                },
+                pageLabelProvider = if (favoriteMode) {
+                    { _, _ -> null }
+                } else {
+                    ::pageLabelFor
+                },
+                showWebAction = !favoriteMode,
             )
         }
     }
 
     override fun initByResume() {
         super.initByResume()
-        loadNewData()
+        if (!favoriteMode) {
+            loadNewData()
+        }
     }
 
     private fun loadNewData() {
@@ -156,6 +178,10 @@ class XiuRenFragment : ComposeBaseFragment() {
         when (mode) {
             LoadMode.Refresh -> {
                 loadStartIndex = start + LOAD_MAX_SIZE
+                pageLabels.clear()
+                if (list.isNotEmpty()) {
+                    pageLabels[0] = start.toPageNumber()
+                }
                 images.clear()
                 images.addAll(list)
                 isLoadEnd.set(list.isEmpty())
@@ -165,11 +191,20 @@ class XiuRenFragment : ComposeBaseFragment() {
                 if (list.isEmpty()) {
                     isLoadEnd.set(true)
                 } else {
+                    pageLabels[images.size] = start.toPageNumber()
                     loadStartIndex = start + LOAD_MAX_SIZE
                     images.addAll(list)
                 }
             }
         }
+    }
+
+    private fun pageLabelFor(index: Int, imageInfo: ImageLoadsInfo): String? {
+        return pageLabels[index]?.let { "第 $it 页" }
+    }
+
+    private fun Int.toPageNumber(): Int {
+        return this / LOAD_MAX_SIZE + 1
     }
 
     private fun endLoading(mode: LoadMode) {

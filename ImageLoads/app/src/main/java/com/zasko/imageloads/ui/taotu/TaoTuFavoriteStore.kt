@@ -30,6 +30,7 @@ object TaoTuFavoriteStore {
                             href = item.optString("href"),
                             width = item.optInt("width", -1),
                             height = item.optInt("height", -1),
+                            title = item.optString("title"),
                         ),
                     )
                 }
@@ -63,7 +64,8 @@ object TaoTuFavoriteStore {
                     .put("url", info.url)
                     .put("href", info.href)
                     .put("width", info.width)
-                    .put("height", info.height),
+                    .put("height", info.height)
+                    .put("title", info.title),
             )
         }
         getPreferences()

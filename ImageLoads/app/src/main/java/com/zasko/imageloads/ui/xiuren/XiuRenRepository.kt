@@ -54,6 +54,7 @@ object XiuRenRepository : HtmlParse {
                             width = img.attr("width").toInt(),
                             height = img.attr("height").toInt(),
                             href = href,
+                            title = item.text().trim().ifBlank { img.attr("alt").trim() },
                         ).apply {
                             LogComponent.printD(tag = TAG, message = "getXiuRenData mainLoadInfo:${this}")
                         },

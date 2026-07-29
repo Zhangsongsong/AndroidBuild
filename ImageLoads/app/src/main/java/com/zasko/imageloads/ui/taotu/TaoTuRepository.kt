@@ -49,6 +49,9 @@ object TaoTuRepository {
                     width = img.attr("width").trim().toIntOrNull() ?: DEFAULT_IMAGE_WIDTH,
                     height = img.attr("height").trim().toIntOrNull() ?: DEFAULT_IMAGE_HEIGHT,
                     href = link.attr("href").toAbsoluteUrl(),
+                    title = link.attr("title").trim()
+                        .ifBlank { img.attr("alt").trim() }
+                        .ifBlank { link.text().trim() },
                 ).apply {
                     LogComponent.printD(tag = TAG, message = "item:${this}")
                 },
@@ -103,7 +106,7 @@ object TaoTuRepository {
     }
 
     private suspend fun getLocalImages(page: Int?): TaoTuPageResult {
-        return withContext(Dispatchers.IO) {
+        val localResult = withContext(Dispatchers.IO) {
             val file = File(getParentHtmlDir(), page.toCacheFileName())
             if (file.exists()) {
                 transformHome(data = FileUtil.getFileToHtml(file)?.toString() ?: "")
@@ -111,6 +114,7 @@ object TaoTuRepository {
                 TaoTuPageResult()
             }
         }
+        return localResult.takeIf { it.images.isNotEmpty() } ?: getNetworkImages(page = page)
     }
 
     private suspend fun getNetworkDetail(url: String): TaoTuDetailInfo {
@@ -122,14 +126,15 @@ object TaoTuRepository {
     }
 
     private suspend fun getLocalDetail(url: String): TaoTuDetailInfo {
-        return withContext(Dispatchers.IO) {
+        val localDetail = withContext(Dispatchers.IO) {
             val file = File(getDetailHtmlDir(), url.toDetailCacheFileName())
             if (file.exists()) {
                 transformDetail(url = url, data = FileUtil.getFileToHtml(file)?.toString() ?: "")
             } else {
-                TaoTuDetailInfo(url = url)
+                null
             }
         }
+        return localDetail?.takeIf { it.pictures.isNotEmpty() } ?: getNetworkDetail(url = url)
     }
 
     private fun saveHomeHtml(page: Int?, html: String) {

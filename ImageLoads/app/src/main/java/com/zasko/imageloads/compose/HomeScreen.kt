@@ -59,7 +59,7 @@ import com.bumptech.glide.integration.compose.placeholder
 fun HomeScreen(
     themes: List<MainThemeSelectInfo>,
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
-    onOpenRandom: (MainThemeSelectInfo) -> Unit,
+    onOpenFavorites: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
@@ -92,7 +92,7 @@ fun HomeScreen(
                 ThemeSelectCard(
                     info = theme,
                     onOpenTheme = onOpenTheme,
-                    onOpenRandom = onOpenRandom,
+                    onOpenFavorites = onOpenFavorites,
                     onOpenDownloads = onOpenDownloads,
                     onUseLocalChanged = onUseLocalChanged,
                 )
@@ -106,7 +106,7 @@ fun HomeScreen(
 private fun ThemeSelectCard(
     info: MainThemeSelectInfo,
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
-    onOpenRandom: (MainThemeSelectInfo) -> Unit,
+    onOpenFavorites: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
@@ -213,13 +213,13 @@ private fun ThemeSelectCard(
                     }
                     OutlinedIconButton(
                         modifier = Modifier.size(40.dp),
-                        onClick = { onOpenRandom(info) },
+                        onClick = { onOpenFavorites(info) },
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, outlineColor),
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.baseline_shuffle_24),
-                            contentDescription = "随机图片",
+                            painter = painterResource(id = R.drawable.baseline_favorite_24),
+                            contentDescription = "收藏",
                             modifier = Modifier.size(18.dp),
                             tint = Color(0xFF5F6368),
                         )
@@ -349,7 +349,7 @@ private fun HomeScreenPreview() {
                 ),
             ),
             onOpenTheme = {},
-            onOpenRandom = {},
+            onOpenFavorites = {},
             onOpenDownloads = {},
             onUseLocalChanged = { _, _ -> },
         )

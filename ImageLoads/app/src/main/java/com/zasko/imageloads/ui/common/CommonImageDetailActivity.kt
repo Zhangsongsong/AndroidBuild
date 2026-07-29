@@ -1,9 +1,7 @@
 package com.zasko.imageloads.ui.common
 
-import android.content.Context
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -24,6 +22,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -41,9 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bumptech.glide.Glide
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.components.LogComponent
@@ -54,7 +54,6 @@ import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.fragment.ImagePreviewFragment
 import com.zasko.imageloads.utils.FileUtil
-import com.zasko.imageloads.utils.PermissionUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,9 +73,14 @@ data class CommonImageDetailInfo(
     val title: String = "",
     val subtitles: List<String> = emptyList(),
     val pictures: List<ImageLoadsInfo> = emptyList(),
+    val nextPageUrl: String = "",
 )
 
 abstract class CommonImageDetailActivity : BaseActivity() {
+
+    private companion object {
+        const val MAX_DETAIL_PAGE_COUNT = 50
+    }
 
     protected abstract val logTag: String
     protected abstract val defaultTitle: String
@@ -84,12 +88,15 @@ abstract class CommonImageDetailActivity : BaseActivity() {
 
     private var detailInfo by mutableStateOf(CommonImageDetailInfo())
     private var isLoading by mutableStateOf(false)
+    private var isLoadingMore by mutableStateOf(false)
     private var isDownloading by mutableStateOf(false)
     private var downloadFinishedCount by mutableStateOf(0)
     private var downloadTotalCount by mutableStateOf(0)
     private var showOverwriteDialog by mutableStateOf(false)
     private var hasDownloaded by mutableStateOf(false)
+    private var isFavorite by mutableStateOf(false)
     private var errorMessage by mutableStateOf("")
+    private var coverInfo = ImageLoadsInfo()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,7 +108,8 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                 }
             },
         )
-        val coverInfo = readCoverInfo()
+        coverInfo = readCoverInfo()
+        isFavorite = isFavoriteEnabled && isImageFavorite(imageInfo = coverInfo)
         detailInfo = CommonImageDetailInfo(url = coverInfo.href, title = coverInfo.href)
         setContent {
             ImageLoadsTheme {
@@ -109,15 +117,21 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                     detailInfo = detailInfo,
                     defaultTitle = defaultTitle,
                     isLoading = isLoading,
-                    isLoadingMore = false,
-                    isLoadMoreEnabled = false,
+                    isLoadingMore = isLoadingMore,
+                    isLoadMoreEnabled = detailInfo.nextPageUrl.isNotBlank() &&
+                        !isLoading &&
+                        !isLoadingMore &&
+                        !isDownloading,
                     isDownloading = isDownloading,
                     downloadText = getDownloadText(),
+                    showFavoriteAction = isFavoriteEnabled,
+                    isFavorite = isFavorite,
                     showOverwriteDialog = showOverwriteDialog,
                     errorMessage = errorMessage,
                     imageModelProvider = { imageModel(imageInfo = it) },
                     onBack = ::handleBack,
                     onDownload = ::handleDownloadClick,
+                    onFavoriteClick = ::handleFavoriteClick,
                     onConfirmOverwrite = {
                         showOverwriteDialog = false
                         startDownload()
@@ -125,7 +139,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                     onDismissOverwrite = {
                         showOverwriteDialog = false
                     },
-                    onLoadMore = {},
+                    onLoadMore = ::loadMoreDetail,
                     onImageClick = ::openImagePreview,
                 )
             }
@@ -138,6 +152,13 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     protected abstract fun imageModel(imageInfo: ImageLoadsInfo): Any?
 
     protected abstract fun getDownloadParentDir(): File
+
+    protected open val isFavoriteEnabled: Boolean
+        get() = false
+
+    protected open fun isImageFavorite(imageInfo: ImageLoadsInfo): Boolean = false
+
+    protected open fun toggleFavorite(imageInfo: ImageLoadsInfo): Boolean = false
 
     private fun loadDetail(coverInfo: ImageLoadsInfo) {
         val detailUrl = coverInfo.href.trim()
@@ -166,8 +187,30 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         }.let(::addJobBindLife)
     }
 
+    private fun loadMoreDetail() {
+        val nextUrl = detailInfo.nextPageUrl.trim()
+        if (nextUrl.isBlank() || isLoading || isLoadingMore || isDownloading) {
+            return
+        }
+        isLoadingMore = true
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            try {
+                val nextDetail = requestDetail(dataUseFrom = readDataUseFrom(), url = nextUrl)
+                detailInfo = detailInfo.mergePage(nextDetail)
+                updateHasDownloadState()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(tag = logTag, message = "load more detail failed:$throwable")
+                showToast("加载更多失败")
+            } finally {
+                isLoadingMore = false
+            }
+        }.let(::addJobBindLife)
+    }
+
     private fun handleDownloadClick() {
-        if (isDownloading || detailInfo.pictures.isEmpty()) {
+        if (isDownloading || isLoadingMore || detailInfo.pictures.isEmpty()) {
             return
         }
         if (requestExternalStoragePermissionIfNeeded()) {
@@ -182,22 +225,41 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         }
     }
 
+    private fun handleFavoriteClick() {
+        if (!isFavoriteEnabled) {
+            return
+        }
+        isFavorite = toggleFavorite(imageInfo = coverInfo)
+        showToast(if (isFavorite) "已收藏" else "已取消收藏")
+    }
+
     private fun startDownload() {
         if (isDownloading || detailInfo.pictures.isEmpty()) {
             return
         }
         val context = applicationContext
-        val currentDetail = detailInfo
+        var currentDetail = detailInfo
         downloadTotalCount = currentDetail.pictures.size
         downloadFinishedCount = 0
         isDownloading = true
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
+                currentDetail = loadRemainingDetailPages(currentDetail)
+                detailInfo = currentDetail
+                downloadTotalCount = currentDetail.pictures.size
                 val savedCount = withContext(Dispatchers.IO) {
-                    downloadDetailImages(
+                    SourceImageDownloadHelper.downloadDetailImages(
                         context = context,
                         detailInfo = currentDetail,
-                        parentDir = getDetailDownloadDir(detailInfo = currentDetail),
+                        parentDir = SourceImageDownloadHelper.getDetailDownloadDir(
+                            parentDir = getDownloadParentDir(),
+                            detailInfo = currentDetail,
+                        ),
+                        imageModelProvider = ::imageModel,
+                        logTag = logTag,
+                        onProgress = { progress ->
+                            downloadFinishedCount = progress
+                        },
                     )
                 }
                 hasDownloaded = savedCount > 0
@@ -213,77 +275,32 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         }.let(::addJobBindLife)
     }
 
-    private suspend fun downloadDetailImages(
-        context: Context,
-        detailInfo: CommonImageDetailInfo,
-        parentDir: File,
-    ): Int {
-        if (!parentDir.exists()) {
-            parentDir.mkdirs()
+    private suspend fun loadRemainingDetailPages(initialDetail: CommonImageDetailInfo): CommonImageDetailInfo {
+        var currentDetail = initialDetail
+        val visitedUrls = mutableSetOf<String>().apply {
+            currentDetail.url.trim().takeIf { it.isNotBlank() }?.let(::add)
         }
-        var savedCount = 0
-        detailInfo.pictures.forEachIndexed { index, imageInfo ->
-            val destFile = File(parentDir, imageInfo.url.toImageFileName(index = index))
-            runCatching {
-                val futureTarget = Glide.with(context)
-                    .asFile()
-                    .load(imageModel(imageInfo = imageInfo))
-                    .submit()
-                try {
-                    futureTarget.get().copyTo(destFile, overwrite = true)
-                } finally {
-                    Glide.with(context).clear(futureTarget)
-                }
-            }.onSuccess {
-                savedCount += 1
-                LogComponent.printD(tag = logTag, message = "download detail success:${destFile.absolutePath}")
-            }.onFailure { throwable ->
-                LogComponent.printE(tag = logTag, message = "download detail failed:${imageInfo.url} $throwable")
-            }
-            withContext(Dispatchers.Main.immediate) {
-                downloadFinishedCount = index + 1
-            }
+        var nextUrl = currentDetail.nextPageUrl.trim()
+        var loadCount = 0
+        while (nextUrl.isNotBlank() && loadCount < MAX_DETAIL_PAGE_COUNT && visitedUrls.add(nextUrl)) {
+            val nextDetail = requestDetail(dataUseFrom = readDataUseFrom(), url = nextUrl)
+            currentDetail = currentDetail.mergePage(nextDetail)
+            detailInfo = currentDetail
+            nextUrl = currentDetail.nextPageUrl.trim()
+            loadCount += 1
         }
-        return savedCount
+        return currentDetail
     }
 
     private fun requestExternalStoragePermissionIfNeeded(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                PermissionUtil.getReadAndWriteExternal(this)
-                true
-            } else {
-                false
-            }
-        } else if (!PermissionUtil.checkWriteExternal(this)) {
-            PermissionUtil.getReadAndWriteExternal(this)
-            true
-        } else {
-            false
-        }
+        return SourceImageDownloadHelper.requestExternalStoragePermissionIfNeeded(activity = this)
     }
 
     private fun updateHasDownloadState() {
-        hasDownloaded = getDetailDownloadDir(detailInfo = detailInfo)
-            .listFiles()
-            ?.any { it.isFile }
-            ?: false
-    }
-
-    private fun getDetailDownloadDir(detailInfo: CommonImageDetailInfo): File {
-        return File(getDownloadParentDir(), detailInfo.toDownloadFolderName())
-    }
-
-    private fun CommonImageDetailInfo.toDownloadFolderName(): String {
-        return title.ifBlank { url.trimEnd('/').substringAfterLast('/').substringBefore('?') }
-            .ifBlank { "image_detail" }
-            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
-    }
-
-    private fun String.toImageFileName(index: Int): String {
-        val fallbackName = "image_${index.toString().padStart(4, '0')}.jpg"
-        val rawName = substringAfterLast('/').substringBefore('?').takeIf { it.isNotBlank() } ?: fallbackName
-        return rawName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        hasDownloaded = SourceImageDownloadHelper.hasDownloaded(
+            parentDir = getDownloadParentDir(),
+            detailInfo = detailInfo,
+        )
     }
 
     private fun handleBack() {
@@ -301,6 +318,8 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     private fun getDownloadText(): String {
         return if (isDownloading) {
             "$downloadFinishedCount/$downloadTotalCount"
+        } else if (hasDownloaded) {
+            "已下载"
         } else {
             "下载"
         }
@@ -336,6 +355,15 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     }
 }
 
+private fun CommonImageDetailInfo.mergePage(pageInfo: CommonImageDetailInfo): CommonImageDetailInfo {
+    return copy(
+        title = title.ifBlank { pageInfo.title },
+        subtitles = if (subtitles.isEmpty()) pageInfo.subtitles else subtitles,
+        pictures = (pictures + pageInfo.pictures).distinctBy { it.url },
+        nextPageUrl = pageInfo.nextPageUrl,
+    )
+}
+
 @Composable
 fun CommonImageDetailScreen(
     detailInfo: CommonImageDetailInfo,
@@ -345,23 +373,46 @@ fun CommonImageDetailScreen(
     isLoadMoreEnabled: Boolean,
     isDownloading: Boolean,
     downloadText: String,
+    showFavoriteAction: Boolean = false,
+    isFavorite: Boolean = false,
     showOverwriteDialog: Boolean,
     errorMessage: String,
     imageModelProvider: (ImageLoadsInfo) -> Any?,
     onBack: () -> Unit,
     onDownload: () -> Unit,
+    onFavoriteClick: () -> Unit = {},
     onConfirmOverwrite: () -> Unit,
     onDismissOverwrite: () -> Unit,
     onLoadMore: () -> Unit,
     onImageClick: (ImageLoadsInfo) -> Unit,
 ) {
+    var currentImageIndex by remember { mutableStateOf(0) }
+    val detailTitle = remember(detailInfo.pictures.size, currentImageIndex) {
+        detailInfo.toIndexTitle(currentImageIndex = currentImageIndex)
+    }
+
     Scaffold(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = detailInfo.title.ifBlank { defaultTitle },
+                title = detailTitle,
                 onBack = onBack,
                 actions = {
+                    if (showFavoriteAction) {
+                        IconButton(onClick = onFavoriteClick) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isFavorite) {
+                                        R.drawable.baseline_favorite_24
+                                    } else {
+                                        R.drawable.baseline_favorite_border_24
+                                    },
+                                ),
+                                contentDescription = null,
+                                tint = if (isFavorite) Color(0xFFE91E63) else Color(0xFF5F6368),
+                            )
+                        }
+                    }
                     TextButton(
                         enabled = detailInfo.pictures.isNotEmpty() && !isDownloading,
                         onClick = onDownload,
@@ -393,29 +444,41 @@ fun CommonImageDetailScreen(
                     isLoadMoreEnabled = isLoadMoreEnabled,
                     imageModelProvider = imageModelProvider,
                     onLoadMore = onLoadMore,
+                    onCurrentImageIndexChanged = { currentImageIndex = it },
                     onImageClick = onImageClick,
                 )
             }
             if (showOverwriteDialog) {
-                AlertDialog(
-                    onDismissRequest = onDismissOverwrite,
-                    text = {
-                        Text(text = "已下载过，是否覆盖下载？")
-                    },
-                    confirmButton = {
-                        TextButton(onClick = onConfirmOverwrite) {
-                            Text(text = "是")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = onDismissOverwrite) {
-                            Text(text = "否")
-                        }
-                    },
+                DownloadOverwriteDialog(
+                    onConfirm = onConfirmOverwrite,
+                    onDismiss = onDismissOverwrite,
                 )
             }
         }
     }
+}
+
+@Composable
+fun DownloadOverwriteDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Text(text = "已下载过，是否覆盖下载？")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = "是")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "否")
+            }
+        },
+    )
 }
 
 @Composable
@@ -426,6 +489,7 @@ private fun CommonDetailContent(
     isLoadMoreEnabled: Boolean,
     imageModelProvider: (ImageLoadsInfo) -> Any?,
     onLoadMore: () -> Unit,
+    onCurrentImageIndexChanged: (Int) -> Unit,
     onImageClick: (ImageLoadsInfo) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -439,11 +503,30 @@ private fun CommonDetailContent(
             }
         }
     }
+    val currentImageIndex by remember(listState, detailInfo.pictures.size) {
+        derivedStateOf {
+            val imageCount = detailInfo.pictures.size
+            if (imageCount == 0) {
+                0
+            } else {
+                listState.layoutInfo.visibleItemsInfo
+                    .asSequence()
+                    .map { it.index }
+                    .filter { it in 1..imageCount }
+                    .minOrNull()
+                    ?.coerceIn(1, imageCount)
+                    ?: 1
+            }
+        }
+    }
 
     LaunchedEffect(shouldLoadMore, detailInfo.pictures.size) {
         if (shouldLoadMore) {
             onLoadMore()
         }
+    }
+    LaunchedEffect(currentImageIndex) {
+        onCurrentImageIndexChanged(currentImageIndex)
     }
 
     LazyColumn(
@@ -509,5 +592,14 @@ private fun ImageLoadsInfo.displayRatio(): Float {
         (width.toFloat() / height.toFloat()).coerceIn(0.3f, 2.5f)
     } else {
         2f / 3f
+    }
+}
+
+private fun CommonImageDetailInfo.toIndexTitle(currentImageIndex: Int): String {
+    val totalCount = pictures.size
+    return if (totalCount > 0) {
+        "${currentImageIndex.coerceIn(1, totalCount)}/$totalCount"
+    } else {
+        "0/0"
     }
 }

@@ -1,40 +1,56 @@
 package com.zasko.imageloads.ui.trendszine
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
+import com.bumptech.glide.Glide
 import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
+import com.zasko.imageloads.ui.common.DownloadOverwriteDialog
+import com.zasko.imageloads.ui.common.PreparedFavoriteItemDownload
 import com.zasko.imageloads.ui.common.SourceImageDetailActivity
+import com.zasko.imageloads.ui.common.SourceImageDownloadHelper
 import com.zasko.imageloads.utils.Constants
+import com.zasko.imageloads.utils.FileUtil
+import com.zasko.imageloads.utils.PermissionUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.io.copyTo
 
 class TrendszineFragment : ComposeBaseFragment() {
 
     companion object {
         private const val TAG = "TrendszineFragment"
         private const val HOME_URL = "https://trendszine.com/"
+        private const val KEY_SHOW_FAVORITES = "key_show_favorites"
 
-        fun newInstance(data: MainThemeSelectInfo): TrendszineFragment {
+        fun newInstance(data: MainThemeSelectInfo, showFavoritesOnly: Boolean = false): TrendszineFragment {
             return TrendszineFragment().apply {
                 arguments = Bundle().apply {
                     putSerializable(KEY_DATA, data)
+                    putBoolean(KEY_SHOW_FAVORITES, showFavoritesOnly)
                 }
             }
         }
@@ -48,6 +64,11 @@ class TrendszineFragment : ComposeBaseFragment() {
     private val images = mutableStateListOf<ImageLoadsInfo>()
     private val favoriteImages = mutableStateListOf<ImageLoadsInfo>()
     private val categories = mutableStateListOf(TrendszineRepository.allCategory)
+    private val selectedImageUrls = mutableStateListOf<String>()
+    private val pageLabels = mutableStateMapOf<Int, Int>()
+    private val favoriteDownloadProgress = mutableStateMapOf<String, String>()
+    private val favoriteDownloadJobs = mutableMapOf<String, Job>()
+    private val downloadedFavoriteImageUrls = mutableStateListOf<String>()
 
     private var dataInfo: MainThemeSelectInfo? = null
     private var selectedParentCategory by mutableStateOf(TrendszineRepository.allCategory)
@@ -55,13 +76,33 @@ class TrendszineFragment : ComposeBaseFragment() {
     private var nextPage = 1
     private var isRefreshing by mutableStateOf(false)
     private var isLoadingMoreState by mutableStateOf(false)
+    private var isSelectionMode by mutableStateOf(false)
+    private var isDownloading by mutableStateOf(false)
     private var showFavoritesOnly by mutableStateOf(false)
+    private var openedFavoritesOnly = false
     private var activeRequest: Job? = null
+    private var downloadJob: Job? = null
+    private var pendingOverwriteDownload by mutableStateOf<PreparedFavoriteItemDownload?>(null)
     private var requestVersion = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         dataInfo = readThemeInfo()
+        showFavoritesOnly = arguments?.getBoolean(KEY_SHOW_FAVORITES) == true
+        openedFavoritesOnly = showFavoritesOnly
+        refreshFavorites()
+        requireActivity().onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    handleBack()
+                }
+            },
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
         refreshFavorites()
     }
 
@@ -78,20 +119,19 @@ class TrendszineFragment : ComposeBaseFragment() {
                 images = displayImages,
                 isRefreshing = !showFavoritesOnly && isRefreshing,
                 isLoadingMore = !showFavoritesOnly && isLoadingMoreState,
-                onBack = {
-                    if (showFavoritesOnly) {
-                        exitFavoriteList()
-                    } else {
-                        activity?.finish()
-                    }
-                },
+                onBack = ::handleBack,
                 onOpenWeb = { openUrl(if (showFavoritesOnly) HOME_URL else selectedCategory.url) },
                 onLoadMore = {
                     if (!showFavoritesOnly) {
                         loadMoreData()
                     }
                 },
-                onImageClick = ::openDetail,
+                onImageClick = ::handleImageClick,
+                pageLabelProvider = if (showFavoritesOnly) {
+                    { _, _ -> null }
+                } else {
+                    ::pageLabelFor
+                },
                 titleContent = if (showFavoritesOnly) {
                     null
                 } else {
@@ -108,22 +148,55 @@ class TrendszineFragment : ComposeBaseFragment() {
                 imageModelProvider = { it.url.toTrendszineImageModel() },
                 imageRatioProvider = { it.trendszineDisplayRatio() },
                 imageScaleType = ImageView.ScaleType.CENTER_CROP,
-                showActionMenu = true,
-                showDownloadMenuAction = false,
-                showFavoriteMenuAction = true,
-                favoriteMenuText = if (showFavoritesOnly) "全部图片" else "收藏",
+                showWebAction = !showFavoritesOnly,
+                showActionMenu = !showFavoritesOnly,
+                showDownloadMenuAction = !showFavoritesOnly,
+                showPageJumpMenuAction = true,
+                pageJumpInitialPage = currentFirstPage(),
+                showFavoriteMenuAction = !showFavoritesOnly,
+                favoriteMenuText = "收藏",
+                isSelectionMode = isSelectionMode,
+                selectedImageKeys = selectedImageUrls.toSet(),
+                isDownloadActionEnabled = !isDownloading,
+                selectionDownloadText = "下载",
                 showFavoriteAction = true,
                 favoriteImageKeys = favoriteImages.map { it.url }.toSet(),
+                showItemDownloadAction = showFavoritesOnly,
+                downloadingImageKeys = favoriteDownloadProgress.keys.toSet(),
+                downloadedImageKeys = downloadedFavoriteImageUrls.toSet(),
                 imageKeyProvider = { it.url },
+                itemDownloadProgressProvider = { favoriteDownloadProgress[it.url] },
+                onImageDownloadModeClick = ::enterSelectionMode,
+                onPageJump = ::jumpToPage,
                 onFavoriteMenuClick = ::toggleFavoriteList,
                 onFavoriteClick = ::toggleFavorite,
+                onItemDownloadClick = ::downloadFavoriteItem,
+                onCancelSelection = ::cancelSelectionMode,
+                onDownloadSelected = ::downloadSelectedCovers,
             )
+            pendingOverwriteDownload?.let { pendingDownload ->
+                DownloadOverwriteDialog(
+                    onConfirm = {
+                        pendingOverwriteDownload = null
+                        startFavoriteItemDownload(
+                            imageInfo = pendingDownload.imageInfo,
+                            preparedDownload = pendingDownload,
+                            forceOverwrite = true,
+                        )
+                    },
+                    onDismiss = {
+                        pendingOverwriteDownload = null
+                    },
+                )
+            }
         }
     }
 
     override fun initByResume() {
         super.initByResume()
-        loadNewData()
+        if (!showFavoritesOnly) {
+            loadNewData()
+        }
     }
 
     override fun onClearComposeView() {
@@ -188,16 +261,16 @@ class TrendszineFragment : ComposeBaseFragment() {
         requestImages(mode = LoadMode.Refresh)
     }
 
-    private fun requestImages(mode: LoadMode) {
+    private fun requestImages(mode: LoadMode, targetPage: Int? = null) {
         val scope = composeRequestScope ?: return
         val page = when (mode) {
-            LoadMode.Refresh -> 1
+            LoadMode.Refresh -> targetPage?.coerceAtLeast(1) ?: 1
             LoadMode.More -> nextPage
         }
         val requestId = nextRequestId()
 
         activeRequest?.cancel()
-        beginLoading(mode = mode)
+        beginLoading(mode = mode, page = page)
         activeRequest = scope.launch {
             try {
                 val result = TrendszineRepository.getImages(
@@ -206,7 +279,7 @@ class TrendszineFragment : ComposeBaseFragment() {
                     page = page,
                 )
                 if (isActiveRequest(requestId = requestId, scope = scope)) {
-                    applyLoadedImages(mode = mode, result = result)
+                    applyLoadedImages(mode = mode, page = page, result = result)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -223,10 +296,10 @@ class TrendszineFragment : ComposeBaseFragment() {
         }
     }
 
-    private fun beginLoading(mode: LoadMode) {
+    private fun beginLoading(mode: LoadMode, page: Int) {
         when (mode) {
             LoadMode.Refresh -> {
-                nextPage = 1
+                nextPage = page
                 isLoadEnd.set(false)
                 isRefreshing = true
             }
@@ -238,7 +311,7 @@ class TrendszineFragment : ComposeBaseFragment() {
         }
     }
 
-    private fun applyLoadedImages(mode: LoadMode, result: TrendszinePageResult) {
+    private fun applyLoadedImages(mode: LoadMode, page: Int, result: TrendszinePageResult) {
         if (result.categories.isNotEmpty()) {
             val selectedParentUrl = selectedParentCategory.url
             val selectedCategoryUrl = selectedCategory.url
@@ -255,16 +328,42 @@ class TrendszineFragment : ComposeBaseFragment() {
         }
         when (mode) {
             LoadMode.Refresh -> {
+                pageLabels.clear()
+                if (result.images.isNotEmpty()) {
+                    pageLabels[0] = page
+                }
                 images.clear()
                 images.addAll(result.images)
             }
 
             LoadMode.More -> {
+                if (result.images.isNotEmpty()) {
+                    pageLabels[images.size] = page
+                }
                 images.addAll(result.images)
             }
         }
         nextPage = result.nextPage ?: nextPage
         isLoadEnd.set(result.images.isEmpty() || result.nextPage == null)
+    }
+
+    private fun pageLabelFor(index: Int, imageInfo: ImageLoadsInfo): String? {
+        return pageLabels[index]?.let { "第 $it 页" }
+    }
+
+    private fun currentFirstPage(): Int {
+        return pageLabels[0] ?: maxOf(1, nextPage - 1)
+    }
+
+    private fun jumpToPage(page: Int) {
+        if (showFavoritesOnly || isRefreshing || isLoadingMore.get() || isDownloading) {
+            return
+        }
+        selectedImageUrls.clear()
+        isSelectionMode = false
+        images.clear()
+        pageLabels.clear()
+        requestImages(mode = LoadMode.Refresh, targetPage = page)
     }
 
     private fun endLoading(mode: LoadMode) {
@@ -281,9 +380,25 @@ class TrendszineFragment : ComposeBaseFragment() {
         requestVersion += 1
         activeRequest?.cancel()
         activeRequest = null
+        downloadJob?.cancel()
+        downloadJob = null
+        favoriteDownloadJobs.values.forEach { it.cancel() }
+        favoriteDownloadJobs.clear()
+        favoriteDownloadProgress.clear()
+        downloadedFavoriteImageUrls.clear()
+        pendingOverwriteDownload = null
         isRefreshing = false
         isLoadingMore.set(false)
         isLoadingMoreState = false
+        isDownloading = false
+    }
+
+    private fun handleImageClick(imageInfo: ImageLoadsInfo) {
+        if (isSelectionMode) {
+            toggleCoverSelection(url = imageInfo.url)
+        } else {
+            openDetail(imageInfo = imageInfo)
+        }
     }
 
     private fun openDetail(imageInfo: ImageLoadsInfo) {
@@ -299,6 +414,22 @@ class TrendszineFragment : ComposeBaseFragment() {
         )
     }
 
+    private fun handleBack() {
+        if (pendingOverwriteDownload != null) {
+            pendingOverwriteDownload = null
+            return
+        }
+        if (showFavoritesOnly) {
+            if (openedFavoritesOnly) {
+                activity?.finish()
+            } else {
+                exitFavoriteList()
+            }
+        } else {
+            activity?.finish()
+        }
+    }
+
     private fun toggleFavoriteList() {
         if (showFavoritesOnly) {
             exitFavoriteList()
@@ -309,10 +440,14 @@ class TrendszineFragment : ComposeBaseFragment() {
 
     private fun enterFavoriteList() {
         refreshFavorites()
+        selectedImageUrls.clear()
+        isSelectionMode = false
         showFavoritesOnly = true
     }
 
     private fun exitFavoriteList() {
+        selectedImageUrls.clear()
+        isSelectionMode = false
         showFavoritesOnly = false
     }
 
@@ -325,6 +460,201 @@ class TrendszineFragment : ComposeBaseFragment() {
     private fun refreshFavorites() {
         favoriteImages.clear()
         favoriteImages.addAll(TrendszineFavoriteStore.getFavorites())
+        refreshDownloadedFavoriteState()
+    }
+
+    private fun refreshDownloadedFavoriteState() {
+        downloadedFavoriteImageUrls.clear()
+        downloadedFavoriteImageUrls.addAll(
+            favoriteImages
+                .filter {
+                    SourceImageDownloadHelper.isDetailHrefDownloaded(
+                        sourceType = Constants.THEME_TYPE_TRENDSZINE,
+                        detailHref = it.href,
+                    )
+                }
+                .map { it.url },
+        )
+    }
+
+    private fun downloadFavoriteItem(imageInfo: ImageLoadsInfo) {
+        if (SourceImageDownloadHelper.isDetailHrefDownloaded(
+                sourceType = Constants.THEME_TYPE_TRENDSZINE,
+                detailHref = imageInfo.href,
+            )
+        ) {
+            pendingOverwriteDownload = PreparedFavoriteItemDownload(imageInfo = imageInfo)
+            return
+        }
+        startFavoriteItemDownload(imageInfo = imageInfo)
+    }
+
+    private fun startFavoriteItemDownload(
+        imageInfo: ImageLoadsInfo,
+        preparedDownload: PreparedFavoriteItemDownload? = null,
+        forceOverwrite: Boolean = false,
+    ) {
+        SourceImageDownloadHelper.startFavoriteItemDownload(
+            activity = activity,
+            scope = composeRequestScope,
+            sourceType = Constants.THEME_TYPE_TRENDSZINE,
+            dataUseFrom = dataInfo?.dataUseFrom,
+            imageInfo = imageInfo,
+            preparedDetailInfo = preparedDownload?.detailInfo,
+            forceOverwrite = forceOverwrite,
+            progressMap = favoriteDownloadProgress,
+            activeJobs = favoriteDownloadJobs,
+            showToast = ::showToast,
+            onAlreadyDownloaded = { pendingOverwriteDownload = it },
+            onDownloadFinished = { refreshDownloadedFavoriteState() },
+        )
+    }
+
+    private fun enterSelectionMode() {
+        if (isDownloading) {
+            return
+        }
+        selectedImageUrls.clear()
+        isSelectionMode = true
+    }
+
+    private fun cancelSelectionMode() {
+        if (isDownloading) {
+            return
+        }
+        selectedImageUrls.clear()
+        isSelectionMode = false
+    }
+
+    private fun toggleCoverSelection(url: String) {
+        if (url.isBlank() || isDownloading) {
+            return
+        }
+        if (selectedImageUrls.contains(url)) {
+            selectedImageUrls.remove(url)
+        } else {
+            selectedImageUrls.add(url)
+        }
+    }
+
+    private fun downloadSelectedCovers() {
+        if (isDownloading) {
+            return
+        }
+        val selectedUrls = selectedImageUrls
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (selectedUrls.isEmpty()) {
+            return
+        }
+        val hostActivity = activity ?: return
+        if (requestExternalStoragePermissionIfNeeded()) {
+            showToast("需要存储权限后再下载")
+            return
+        }
+        FileUtil.createExternalDir()
+
+        val context = hostActivity.applicationContext
+        val scope = composeRequestScope ?: return
+        isDownloading = true
+        downloadJob = scope.launch {
+            try {
+                val savedCount = withContext(Dispatchers.IO) {
+                    downloadCoverImages(
+                        context = context,
+                        urls = selectedUrls,
+                        parentDir = getCoverDownloadDir(),
+                    )
+                }
+                LogComponent.printD(tag = TAG, message = "downloadSelectedCovers count:$savedCount")
+                showToast("已下载 $savedCount/${selectedUrls.size} 张封面")
+                isSelectionMode = false
+                selectedImageUrls.clear()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(tag = TAG, message = "downloadSelectedCovers failed:$throwable")
+                showToast("下载失败")
+            } finally {
+                isDownloading = false
+                downloadJob = null
+            }
+        }
+    }
+
+    private fun requestExternalStoragePermissionIfNeeded(): Boolean {
+        val hostActivity = activity ?: return true
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                PermissionUtil.getReadAndWriteExternal(hostActivity)
+                true
+            } else {
+                false
+            }
+        } else if (!PermissionUtil.checkWriteExternal(hostActivity)) {
+            PermissionUtil.getReadAndWriteExternal(hostActivity)
+            true
+        } else {
+            false
+        }
+    }
+
+    private fun downloadCoverImages(
+        context: Context,
+        urls: List<String>,
+        parentDir: File,
+    ): Int {
+        if (!parentDir.exists()) {
+            parentDir.mkdirs()
+        }
+        var savedCount = 0
+        urls.forEachIndexed { index, url ->
+            val destFile = File(parentDir, url.toCoverFileName(index = index))
+            runCatching {
+                downloadOneCover(
+                    context = context,
+                    url = url,
+                    destFile = destFile,
+                )
+            }.onSuccess {
+                savedCount += 1
+                LogComponent.printD(tag = TAG, message = "download cover success:${destFile.absolutePath}")
+            }.onFailure { throwable ->
+                LogComponent.printE(tag = TAG, message = "download cover failed:$url $throwable")
+            }
+        }
+        return savedCount
+    }
+
+    private fun downloadOneCover(
+        context: Context,
+        url: String,
+        destFile: File,
+    ) {
+        val futureTarget = Glide.with(context)
+            .asFile()
+            .load(url.toTrendszineImageModel())
+            .submit()
+        try {
+            futureTarget.get().copyTo(destFile, overwrite = true)
+        } finally {
+            Glide.with(context).clear(futureTarget)
+        }
+    }
+
+    private fun getCoverDownloadDir(): File {
+        return File(
+            "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TRENDSZINE}/${FileUtil.PICTURE_TRENDSZINE_COVERS}",
+        )
+    }
+
+    private fun String.toCoverFileName(index: Int): String {
+        val fallbackName = "cover_${index.toString().padStart(4, '0')}.jpg"
+        val rawName = runCatching { Uri.parse(this).lastPathSegment }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: fallbackName
+        return rawName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
 
     private fun nextRequestId(): Int {

@@ -19,6 +19,7 @@ class XiuRenActivity : BaseActivity() {
         private const val KEY_MODE = "key_mode"
         private const val MODE_LIST = "mode_list"
         private const val MODE_RANDOM = "mode_random"
+        private const val MODE_FAVORITE = "mode_favorite"
 
         fun start(context: Context, data: MainThemeSelectInfo) {
             context.startActivity(Intent(context, XiuRenActivity::class.java).apply {
@@ -31,6 +32,13 @@ class XiuRenActivity : BaseActivity() {
             context.startActivity(Intent(context, XiuRenActivity::class.java).apply {
                 putExtra(KEY_DATA, data)
                 putExtra(KEY_MODE, MODE_RANDOM)
+            })
+        }
+
+        fun startFavorite(context: Context, data: MainThemeSelectInfo) {
+            context.startActivity(Intent(context, XiuRenActivity::class.java).apply {
+                putExtra(KEY_DATA, data)
+                putExtra(KEY_MODE, MODE_FAVORITE)
             })
         }
     }
@@ -60,6 +68,7 @@ class XiuRenActivity : BaseActivity() {
 
     private fun createFragment(data: MainThemeSelectInfo) = when (intent.getStringExtra(KEY_MODE)) {
         MODE_RANDOM -> XiuRenRandomFragment.newInstance(data = data)
+        MODE_FAVORITE -> XiuRenFragment.newInstance(data = data, favoriteMode = true)
         else -> XiuRenFragment.newInstance(data = data)
     }
 

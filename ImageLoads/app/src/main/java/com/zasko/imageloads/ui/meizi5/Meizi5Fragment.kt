@@ -7,9 +7,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
@@ -20,7 +22,10 @@ import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
+import com.zasko.imageloads.ui.common.DownloadOverwriteDialog
+import com.zasko.imageloads.ui.common.PreparedFavoriteItemDownload
 import com.zasko.imageloads.ui.common.SourceImageDetailActivity
+import com.zasko.imageloads.ui.common.SourceImageDownloadHelper
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
@@ -38,11 +43,13 @@ class Meizi5Fragment : ComposeBaseFragment() {
     companion object {
         private const val TAG = "Meizi5Fragment"
         private const val HOME_URL = "https://meizi5.com/"
+        private const val KEY_SHOW_FAVORITES = "key_show_favorites"
 
-        fun newInstance(data: MainThemeSelectInfo): Meizi5Fragment {
+        fun newInstance(data: MainThemeSelectInfo, showFavoritesOnly: Boolean = false): Meizi5Fragment {
             return Meizi5Fragment().apply {
                 arguments = Bundle().apply {
                     putSerializable(KEY_DATA, data)
+                    putBoolean(KEY_SHOW_FAVORITES, showFavoritesOnly)
                 }
             }
         }
@@ -56,6 +63,10 @@ class Meizi5Fragment : ComposeBaseFragment() {
     private val images = mutableStateListOf<ImageLoadsInfo>()
     private val favoriteImages = mutableStateListOf<ImageLoadsInfo>()
     private val selectedImageUrls = mutableStateListOf<String>()
+    private val pageLabels = mutableStateMapOf<Int, Int>()
+    private val favoriteDownloadProgress = mutableStateMapOf<String, String>()
+    private val favoriteDownloadJobs = mutableMapOf<String, Job>()
+    private val downloadedFavoriteImageUrls = mutableStateListOf<String>()
 
     private var dataInfo: MainThemeSelectInfo? = null
     private var nextPage = 1
@@ -64,13 +75,30 @@ class Meizi5Fragment : ComposeBaseFragment() {
     private var isSelectionMode by mutableStateOf(false)
     private var isDownloading by mutableStateOf(false)
     private var showFavoritesOnly by mutableStateOf(false)
+    private var openedFavoritesOnly = false
     private var activeRequest: Job? = null
     private var downloadJob: Job? = null
+    private var pendingOverwriteDownload by mutableStateOf<PreparedFavoriteItemDownload?>(null)
     private var requestVersion = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         dataInfo = readThemeInfo()
+        showFavoritesOnly = arguments?.getBoolean(KEY_SHOW_FAVORITES) == true
+        openedFavoritesOnly = showFavoritesOnly
+        refreshFavorites()
+        requireActivity().onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    handleBack()
+                }
+            },
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
         refreshFavorites()
     }
 
@@ -87,13 +115,7 @@ class Meizi5Fragment : ComposeBaseFragment() {
                 images = displayImages,
                 isRefreshing = !showFavoritesOnly && isRefreshing,
                 isLoadingMore = !showFavoritesOnly && isLoadingMoreState,
-                onBack = {
-                    if (showFavoritesOnly) {
-                        exitFavoriteList()
-                    } else {
-                        activity?.finish()
-                    }
-                },
+                onBack = ::handleBack,
                 onOpenWeb = { openUrl(HOME_URL) },
                 onLoadMore = {
                     if (!showFavoritesOnly) {
@@ -101,31 +123,61 @@ class Meizi5Fragment : ComposeBaseFragment() {
                     }
                 },
                 onImageClick = ::handleImageClick,
+                pageLabelProvider = if (showFavoritesOnly) {
+                    { _, _ -> null }
+                } else {
+                    ::pageLabelFor
+                },
                 showWebAction = false,
                 imageModelProvider = { it.url.toMeizi5ImageModel() },
                 imageRatioProvider = { it.meizi5DisplayRatio() },
-                showActionMenu = true,
+                showActionMenu = !showFavoritesOnly,
                 showFavoriteMenuAction = true,
-                favoriteMenuText = if (showFavoritesOnly) "全部图片" else "收藏",
+                showPageJumpMenuAction = true,
+                pageJumpInitialPage = currentFirstPage(),
+                favoriteMenuText = "收藏",
                 isSelectionMode = isSelectionMode,
                 selectedImageKeys = selectedImageUrls.toSet(),
                 isDownloadActionEnabled = !isDownloading,
                 selectionDownloadText = "下载",
                 showFavoriteAction = true,
                 favoriteImageKeys = favoriteImages.map { it.url }.toSet(),
+                showItemDownloadAction = showFavoritesOnly,
+                downloadingImageKeys = favoriteDownloadProgress.keys.toSet(),
+                downloadedImageKeys = downloadedFavoriteImageUrls.toSet(),
                 imageKeyProvider = { it.url },
+                itemDownloadProgressProvider = { favoriteDownloadProgress[it.url] },
                 onImageDownloadModeClick = ::enterSelectionMode,
+                onPageJump = ::jumpToPage,
                 onFavoriteMenuClick = ::toggleFavoriteList,
                 onFavoriteClick = ::toggleFavorite,
+                onItemDownloadClick = ::downloadFavoriteItem,
                 onCancelSelection = ::cancelSelectionMode,
                 onDownloadSelected = ::downloadSelectedCovers,
             )
+            pendingOverwriteDownload?.let { pendingDownload ->
+                DownloadOverwriteDialog(
+                    onConfirm = {
+                        pendingOverwriteDownload = null
+                        startFavoriteItemDownload(
+                            imageInfo = pendingDownload.imageInfo,
+                            preparedDownload = pendingDownload,
+                            forceOverwrite = true,
+                        )
+                    },
+                    onDismiss = {
+                        pendingOverwriteDownload = null
+                    },
+                )
+            }
         }
     }
 
     override fun initByResume() {
         super.initByResume()
-        loadNewData()
+        if (!showFavoritesOnly) {
+            loadNewData()
+        }
     }
 
     override fun onClearComposeView() {
@@ -153,16 +205,16 @@ class Meizi5Fragment : ComposeBaseFragment() {
         return !isRefreshing && !isLoadingMore.get() && !isLoadEnd.get()
     }
 
-    private fun requestImages(mode: LoadMode) {
+    private fun requestImages(mode: LoadMode, targetPage: Int? = null) {
         val scope = composeRequestScope ?: return
         val page = when (mode) {
-            LoadMode.Refresh -> 1
+            LoadMode.Refresh -> targetPage?.coerceAtLeast(1) ?: 1
             LoadMode.More -> nextPage
         }
         val requestId = nextRequestId()
 
         activeRequest?.cancel()
-        beginLoading(mode = mode)
+        beginLoading(mode = mode, page = page)
         activeRequest = scope.launch {
             try {
                 val list = Meizi5Repository.getImages(
@@ -187,10 +239,10 @@ class Meizi5Fragment : ComposeBaseFragment() {
         }
     }
 
-    private fun beginLoading(mode: LoadMode) {
+    private fun beginLoading(mode: LoadMode, page: Int) {
         when (mode) {
             LoadMode.Refresh -> {
-                nextPage = 1
+                nextPage = page
                 isLoadEnd.set(false)
                 isRefreshing = true
             }
@@ -210,6 +262,10 @@ class Meizi5Fragment : ComposeBaseFragment() {
         when (mode) {
             LoadMode.Refresh -> {
                 nextPage = page + 1
+                pageLabels.clear()
+                if (list.isNotEmpty()) {
+                    pageLabels[0] = page
+                }
                 images.clear()
                 images.addAll(list)
                 isLoadEnd.set(list.isEmpty())
@@ -219,11 +275,31 @@ class Meizi5Fragment : ComposeBaseFragment() {
                 if (list.isEmpty()) {
                     isLoadEnd.set(true)
                 } else {
+                    pageLabels[images.size] = page
                     nextPage = page + 1
                     images.addAll(list)
                 }
             }
         }
+    }
+
+    private fun pageLabelFor(index: Int, imageInfo: ImageLoadsInfo): String? {
+        return pageLabels[index]?.let { "第 $it 页" }
+    }
+
+    private fun currentFirstPage(): Int {
+        return pageLabels[0] ?: maxOf(1, nextPage - 1)
+    }
+
+    private fun jumpToPage(page: Int) {
+        if (showFavoritesOnly || isRefreshing || isLoadingMore.get() || isDownloading) {
+            return
+        }
+        selectedImageUrls.clear()
+        isSelectionMode = false
+        images.clear()
+        pageLabels.clear()
+        requestImages(mode = LoadMode.Refresh, targetPage = page)
     }
 
     private fun endLoading(mode: LoadMode) {
@@ -242,6 +318,11 @@ class Meizi5Fragment : ComposeBaseFragment() {
         activeRequest = null
         downloadJob?.cancel()
         downloadJob = null
+        favoriteDownloadJobs.values.forEach { it.cancel() }
+        favoriteDownloadJobs.clear()
+        favoriteDownloadProgress.clear()
+        downloadedFavoriteImageUrls.clear()
+        pendingOverwriteDownload = null
         isRefreshing = false
         isLoadingMore.set(false)
         isLoadingMoreState = false
@@ -262,6 +343,22 @@ class Meizi5Fragment : ComposeBaseFragment() {
                     dataUseFrom = dataInfo?.dataUseFrom,
                 )
             }
+        }
+    }
+
+    private fun handleBack() {
+        if (pendingOverwriteDownload != null) {
+            pendingOverwriteDownload = null
+            return
+        }
+        if (showFavoritesOnly) {
+            if (openedFavoritesOnly) {
+                activity?.finish()
+            } else {
+                exitFavoriteList()
+            }
+        } else {
+            activity?.finish()
         }
     }
 
@@ -295,6 +392,54 @@ class Meizi5Fragment : ComposeBaseFragment() {
     private fun refreshFavorites() {
         favoriteImages.clear()
         favoriteImages.addAll(Meizi5FavoriteStore.getFavorites())
+        refreshDownloadedFavoriteState()
+    }
+
+    private fun refreshDownloadedFavoriteState() {
+        downloadedFavoriteImageUrls.clear()
+        downloadedFavoriteImageUrls.addAll(
+            favoriteImages
+                .filter {
+                    SourceImageDownloadHelper.isDetailHrefDownloaded(
+                        sourceType = Constants.THEME_TYPE_MEIZI5,
+                        detailHref = it.href,
+                    )
+                }
+                .map { it.url },
+        )
+    }
+
+    private fun downloadFavoriteItem(imageInfo: ImageLoadsInfo) {
+        if (SourceImageDownloadHelper.isDetailHrefDownloaded(
+                sourceType = Constants.THEME_TYPE_MEIZI5,
+                detailHref = imageInfo.href,
+            )
+        ) {
+            pendingOverwriteDownload = PreparedFavoriteItemDownload(imageInfo = imageInfo)
+            return
+        }
+        startFavoriteItemDownload(imageInfo = imageInfo)
+    }
+
+    private fun startFavoriteItemDownload(
+        imageInfo: ImageLoadsInfo,
+        preparedDownload: PreparedFavoriteItemDownload? = null,
+        forceOverwrite: Boolean = false,
+    ) {
+        SourceImageDownloadHelper.startFavoriteItemDownload(
+            activity = activity,
+            scope = composeRequestScope,
+            sourceType = Constants.THEME_TYPE_MEIZI5,
+            dataUseFrom = dataInfo?.dataUseFrom,
+            imageInfo = imageInfo,
+            preparedDetailInfo = preparedDownload?.detailInfo,
+            forceOverwrite = forceOverwrite,
+            progressMap = favoriteDownloadProgress,
+            activeJobs = favoriteDownloadJobs,
+            showToast = ::showToast,
+            onAlreadyDownloaded = { pendingOverwriteDownload = it },
+            onDownloadFinished = { refreshDownloadedFavoriteState() },
+        )
     }
 
     private fun enterSelectionMode() {

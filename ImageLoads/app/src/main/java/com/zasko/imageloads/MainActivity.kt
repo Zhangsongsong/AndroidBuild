@@ -38,8 +38,8 @@ class MainActivity : BaseComposeActivity() {
     private fun MainRoute() {
         var useXiuRenLocalData by rememberSaveable { mutableStateOf(true) }
         var useMeizi5LocalData by rememberSaveable { mutableStateOf(true) }
-        var useTaoTuLocalData by rememberSaveable { mutableStateOf(false) }
-        var useTrendszineLocalData by rememberSaveable { mutableStateOf(false) }
+        var useTaoTuLocalData by rememberSaveable { mutableStateOf(true) }
+        var useTrendszineLocalData by rememberSaveable { mutableStateOf(true) }
         val xiuRenTheme = MainThemeSelectInfo(
             cover = XIUREN_COVER,
             title = stringResource(id = R.string.xiuren),
@@ -86,8 +86,8 @@ class MainActivity : BaseComposeActivity() {
             onOpenTheme = { info ->
                 openTheme(info = info)
             },
-            onOpenRandom = { info ->
-                openRandomTheme(info = info)
+            onOpenFavorites = { info ->
+                openFavoriteTheme(info = info)
             },
             onOpenDownloads = { info ->
                 openDownloads(info = info)
@@ -103,13 +103,12 @@ class MainActivity : BaseComposeActivity() {
         )
     }
 
-    private fun openRandomTheme(info: MainThemeSelectInfo) {
+    private fun openFavoriteTheme(info: MainThemeSelectInfo) {
         when (info.theme) {
-            Constants.THEME_TYPE_XIUREN -> XiuRenActivity.startRandom(context = this, data = info)
-            Constants.THEME_TYPE_MEIZI5 -> Unit
-            Constants.THEME_TYPE_TAOTU -> Unit
-            Constants.THEME_TYPE_TRENDSZINE -> Unit
-            else -> PersonListActivity.start(context = this, data = info)
+            Constants.THEME_TYPE_XIUREN -> XiuRenActivity.startFavorite(context = this, data = info)
+            Constants.THEME_TYPE_MEIZI5 -> Meizi5Activity.startFavorite(context = this, data = info)
+            Constants.THEME_TYPE_TAOTU -> TaoTuActivity.startFavorite(context = this, data = info)
+            Constants.THEME_TYPE_TRENDSZINE -> TrendszineActivity.startFavorite(context = this, data = info)
         }
     }
 
@@ -148,7 +147,8 @@ class MainActivity : BaseComposeActivity() {
     private companion object {
         const val XIUREN_COVER = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg"
         const val MEIZI5_COVER = "https://meizi5.com/wp-content/uploads/2026/04/VOL_350_face.jpg"
-        const val TAOTU_COVER = "https://res.taotu.org/hot-girls/%e5%b0%8f%e8%94%a1%e5%a4%b4%e5%96%b5%e5%96%b5%e5%96%b5/00069-%e9%bb%91%e4%b8%9d%e8%be%85%e5%af%bc%e5%91%98-29p/thumbnail/0020.jpg"
+        const val TAOTU_COVER =
+            "https://res.taotu.org/hot-girls/%e5%b0%8f%e8%94%a1%e5%a4%b4%e5%96%b5%e5%96%b5%e5%96%b5/00069-%e9%bb%91%e4%b8%9d%e8%be%85%e5%af%bc%e5%91%98-29p/thumbnail/0020.jpg"
         const val TRENDSZINE_COVER = "https://trendszine.com/wp-content/uploads/2026/07/33603291310201.webp.webp"
     }
 }

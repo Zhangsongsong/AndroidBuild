@@ -55,6 +55,11 @@ object TrendszineRepository {
                     width = img.attr("width").trim().toIntOrNull() ?: DEFAULT_IMAGE_WIDTH,
                     height = img.attr("height").trim().toIntOrNull() ?: DEFAULT_IMAGE_HEIGHT,
                     href = link.attr("href").toAbsoluteUrl(),
+                    title = article.selectFirst("h2.entry-title a, .entry-title a, .entry-title")
+                        ?.text()
+                        ?.trim()
+                        .orEmpty()
+                        .ifBlank { img.attr("alt").trim() },
                 ).apply {
                     LogComponent.printD(tag = TAG, message = "item:${this}")
                 },
@@ -116,6 +121,7 @@ object TrendszineRepository {
             date = date,
             tags = tags,
             pictures = pictures,
+            nextPageUrl = findNextDetailPageUrl(doc = doc, currentUrl = url),
         )
     }
 
@@ -128,7 +134,7 @@ object TrendszineRepository {
     }
 
     private suspend fun getLocalImages(category: TrendszineCategory, page: Int): TrendszinePageResult {
-        return withContext(Dispatchers.IO) {
+        val localResult = withContext(Dispatchers.IO) {
             val file = File(getParentHtmlDir(), category.toCacheDirName()).let { dir ->
                 File(dir, page.toString())
             }
@@ -138,6 +144,7 @@ object TrendszineRepository {
                 TrendszinePageResult(categories = listOf(allCategory))
             }
         }
+        return localResult.takeIf { it.images.isNotEmpty() } ?: getNetworkImages(category = category, page = page)
     }
 
     private suspend fun getNetworkDetail(url: String): TrendszineDetailInfo {
@@ -149,14 +156,15 @@ object TrendszineRepository {
     }
 
     private suspend fun getLocalDetail(url: String): TrendszineDetailInfo {
-        return withContext(Dispatchers.IO) {
+        val localDetail = withContext(Dispatchers.IO) {
             val file = File(getDetailHtmlDir(), url.toDetailCacheFileName())
             if (file.exists()) {
                 transformDetail(url = url, data = FileUtil.getFileToHtml(file)?.toString() ?: "")
             } else {
-                TrendszineDetailInfo(url = url)
+                null
             }
         }
+        return localDetail?.takeIf { it.pictures.isNotEmpty() } ?: getNetworkDetail(url = url)
     }
 
     private fun savePageHtml(category: TrendszineCategory, page: Int, html: String) {
@@ -210,6 +218,44 @@ object TrendszineRepository {
         return doc.selectFirst("a.next.page-numbers[href], #nav-below .nav-previous a[href]") != null
     }
 
+    private fun findNextDetailPageUrl(doc: org.jsoup.nodes.Document, currentUrl: String): String {
+        val pageLinks = doc.selectFirst("div.page-links") ?: return ""
+        val currentPage = currentUrl.trimEnd('/').substringAfterLast('/').toIntOrNull() ?: 1
+        val nextLink = pageLinks.select("a[href]")
+            .mapNotNull { link ->
+                val page = link.text().trim().toIntOrNull()
+                    ?: link.attr("href").trimEnd('/').substringAfterLast('/').toIntOrNull()
+                val href = link.attr("href").toAbsoluteUrl()
+                if (page != null && page > currentPage && href.isNotBlank()) {
+                    page to href
+                } else {
+                    null
+                }
+            }
+            .minByOrNull { it.first }
+            ?.second
+        if (nextLink != null) {
+            return nextLink
+        }
+
+        val linkCount = pageLinks.select("a[href]").size
+        return if (linkCount > 0 && currentPage <= linkCount) {
+            buildDetailPageUrl(currentUrl = currentUrl, nextPage = currentPage + 1)
+        } else {
+            ""
+        }
+    }
+
+    private fun buildDetailPageUrl(currentUrl: String, nextPage: Int): String {
+        val trimmedUrl = currentUrl.trimEnd('/')
+        val currentSegment = trimmedUrl.substringAfterLast('/')
+        return if (currentSegment.toIntOrNull() != null) {
+            trimmedUrl.substringBeforeLast('/') + "/$nextPage"
+        } else {
+            "$trimmedUrl/$nextPage"
+        }
+    }
+
     private fun Element.imageSrc(): String {
         return attr("src").ifBlank { attr("data-src") }.ifBlank { attr("data-lazy-src") }
     }
@@ -241,9 +287,10 @@ object TrendszineRepository {
 
     private fun String.toDetailCacheFileName(): String {
         val name = trim()
-            .trimEnd('/')
-            .substringAfterLast('/')
             .substringBefore('?')
+            .trimEnd('/')
+            .substringAfter(HOME_URL, missingDelimiterValue = trim().substringBefore('?').trimEnd('/'))
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
             .trim()
         return name.ifBlank { hashCode().absoluteValue.toString() }
     }
@@ -278,4 +325,5 @@ data class TrendszineDetailInfo(
     val date: String = "",
     val tags: List<String> = emptyList(),
     val pictures: List<ImageLoadsInfo> = emptyList(),
+    val nextPageUrl: String = "",
 )
