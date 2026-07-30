@@ -2,6 +2,7 @@ package com.zasko.imageloads.components
 
 import android.content.Context
 import com.zasko.imageloads.MApplication
+import com.zasko.imageloads.utils.Constants
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import org.json.JSONArray
@@ -27,6 +28,7 @@ object HttpHeaderConfigStore {
     private const val TAG = "HttpHeaderConfigStore"
     private const val PREF_NAME = "http_header_config_store"
     private const val KEY_PREFIX = "headers_"
+    private const val KEY_USE_COMMON_HEADERS = "use_common_headers"
 
     val targets = listOf(
         HttpHeaderTarget(id = TARGET_COMMON, title = "公共"),
@@ -73,6 +75,28 @@ object HttpHeaderConfigStore {
             .apply()
     }
 
+    fun isCommonHeadersEnabled(): Boolean {
+        return getPreferences().getBoolean(KEY_USE_COMMON_HEADERS, true)
+    }
+
+    fun setCommonHeadersEnabled(enabled: Boolean) {
+        getPreferences()
+            .edit()
+            .putBoolean(KEY_USE_COMMON_HEADERS, enabled)
+            .apply()
+    }
+
+    fun isCommonHeadersEnabled(sourceType: Int): Boolean {
+        return isCommonHeadersEnabled(targetId = sourceType.toHeaderTargetPreferenceId())
+    }
+
+    fun setCommonHeadersEnabled(sourceType: Int, enabled: Boolean) {
+        setCommonHeadersEnabled(
+            targetId = sourceType.toHeaderTargetPreferenceId(),
+            enabled = enabled,
+        )
+    }
+
     fun createInterceptor(): Interceptor {
         return Interceptor { chain ->
             val request = chain.request()
@@ -99,7 +123,11 @@ object HttpHeaderConfigStore {
     private fun getHeadersForHost(host: String): List<HttpHeaderItem> {
         val sourceTarget = host.toSourceTargetId() ?: return emptyList()
         return mergeHeaders(
-            commonHeaders = getHeaders(targetId = TARGET_COMMON),
+            commonHeaders = if (isCommonHeadersEnabled(targetId = sourceTarget)) {
+                getHeaders(targetId = TARGET_COMMON)
+            } else {
+                emptyList()
+            },
             sourceHeaders = getHeaders(targetId = sourceTarget),
         )
     }
@@ -197,6 +225,36 @@ object HttpHeaderConfigStore {
 
     private fun String.toPreferenceKey(): String {
         return KEY_PREFIX + this
+    }
+
+    private fun isCommonHeadersEnabled(targetId: String): Boolean {
+        val preferences = getPreferences()
+        val key = targetId.toCommonHeadersEnabledPreferenceKey()
+        return if (preferences.contains(key)) {
+            preferences.getBoolean(key, true)
+        } else {
+            preferences.getBoolean(KEY_USE_COMMON_HEADERS, true)
+        }
+    }
+
+    private fun setCommonHeadersEnabled(targetId: String, enabled: Boolean) {
+        getPreferences()
+            .edit()
+            .putBoolean(targetId.toCommonHeadersEnabledPreferenceKey(), enabled)
+            .apply()
+    }
+
+    private fun Int.toHeaderTargetPreferenceId(): String {
+        return when (this) {
+            Constants.THEME_TYPE_TRENDSZINE -> TARGET_TRENDSZINE
+            Constants.THEME_TYPE_MEIZI5 -> TARGET_MEIZI5
+            Constants.THEME_TYPE_TAOTU -> TARGET_TAOTU
+            else -> "theme_$this"
+        }
+    }
+
+    private fun String.toCommonHeadersEnabledPreferenceKey(): String {
+        return "${KEY_USE_COMMON_HEADERS}_$this"
     }
 
     private fun getPreferences() = MApplication.application.getSharedPreferences(

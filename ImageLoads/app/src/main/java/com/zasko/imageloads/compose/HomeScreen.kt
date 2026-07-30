@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -59,11 +60,13 @@ import com.bumptech.glide.integration.compose.placeholder
 @Composable
 fun HomeScreen(
     themes: List<MainThemeSelectInfo>,
+    commonHeadersEnabledProvider: (MainThemeSelectInfo) -> Boolean = { true },
     onOpenDrawer: () -> Unit = {},
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
     onOpenFavorites: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
+    onUseCommonHeadersChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
     Scaffold(
         containerColor = Color(0xFFF8FAFD),
@@ -101,10 +104,12 @@ fun HomeScreen(
             items(themes) { theme ->
                 ThemeSelectCard(
                     info = theme,
+                    useCommonHeaders = commonHeadersEnabledProvider(theme),
                     onOpenTheme = onOpenTheme,
                     onOpenFavorites = onOpenFavorites,
                     onOpenDownloads = onOpenDownloads,
                     onUseLocalChanged = onUseLocalChanged,
+                    onUseCommonHeadersChanged = onUseCommonHeadersChanged,
                 )
             }
         }
@@ -115,10 +120,12 @@ fun HomeScreen(
 @Composable
 private fun ThemeSelectCard(
     info: MainThemeSelectInfo,
+    useCommonHeaders: Boolean,
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
     onOpenFavorites: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
+    onUseCommonHeadersChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
     val useLocalData = info.dataUseFrom == DataUseFrom.PRIVATE_FILE.value
     val isAvailable = info.isAvailable()
@@ -195,6 +202,13 @@ private fun ThemeSelectCard(
                     useLocalData = useLocalData,
                     onUseLocalChanged = { checked ->
                         onUseLocalChanged(info, checked)
+                    },
+                )
+
+                CommonHeaderSelector(
+                    useCommonHeaders = useCommonHeaders,
+                    onUseCommonHeadersChanged = { checked ->
+                        onUseCommonHeadersChanged(info, checked)
                     },
                 )
 
@@ -303,6 +317,44 @@ private fun DataSourceSelector(
 }
 
 @Composable
+private fun CommonHeaderSelector(
+    useCommonHeaders: Boolean,
+    onUseCommonHeadersChanged: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(
+                text = "公共 Header",
+                color = colorResource(id = R.color.color_h1),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (useCommonHeaders) "已启用" else "已关闭",
+                color = colorResource(id = R.color.color_h2),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+            )
+        }
+        Switch(
+            checked = useCommonHeaders,
+            onCheckedChange = onUseCommonHeadersChanged,
+        )
+    }
+}
+
+@Composable
 private fun DataSourceOption(
     text: String,
     selected: Boolean,
@@ -358,10 +410,12 @@ private fun HomeScreenPreview() {
                     theme = Constants.THEME_TYPE_XIUREN,
                 ),
             ),
+            commonHeadersEnabledProvider = { true },
             onOpenTheme = {},
             onOpenFavorites = {},
             onOpenDownloads = {},
             onUseLocalChanged = { _, _ -> },
+            onUseCommonHeadersChanged = { _, _ -> },
         )
     }
 }

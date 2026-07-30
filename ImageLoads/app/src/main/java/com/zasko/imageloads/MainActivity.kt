@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -24,14 +25,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.activity.PersonListActivity
 import com.zasko.imageloads.base.BaseComposeActivity
+import com.zasko.imageloads.components.HttpHeaderConfigStore
 import com.zasko.imageloads.compose.HomeScreen
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
-import com.zasko.imageloads.ui.TestActivity
 import com.zasko.imageloads.ui.common.CommonDownloadedActivity
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
-import com.zasko.imageloads.ui.settings.HttpHeadersSettingsActivity
+import com.zasko.imageloads.ui.settings.FavoriteExportActivity
+import com.zasko.imageloads.ui.settings.FavoriteImportActivity
+import com.zasko.imageloads.ui.settings.LabActivity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
 import com.zasko.imageloads.ui.trendszine.TrendszineActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
@@ -56,6 +59,18 @@ class MainActivity : BaseComposeActivity() {
         var useMeizi5LocalData by rememberSaveable { mutableStateOf(true) }
         var useTaoTuLocalData by rememberSaveable { mutableStateOf(true) }
         var useTrendszineLocalData by rememberSaveable { mutableStateOf(true) }
+        var useXiuRenCommonHeaders by rememberSaveable {
+            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_XIUREN))
+        }
+        var useMeizi5CommonHeaders by rememberSaveable {
+            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_MEIZI5))
+        }
+        var useTaoTuCommonHeaders by rememberSaveable {
+            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_TAOTU))
+        }
+        var useTrendszineCommonHeaders by rememberSaveable {
+            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_TRENDSZINE))
+        }
         val xiuRenTheme = MainThemeSelectInfo(
             cover = XIUREN_COVER,
             title = stringResource(id = R.string.xiuren),
@@ -112,14 +127,29 @@ class MainActivity : BaseComposeActivity() {
                         coroutineScope.launch { drawerState.close() }
                         openTheme(info = info)
                     },
-                    onHeaderSettingsClick = {
-                        HttpHeadersSettingsActivity.start(context = this@MainActivity)
+                    onLabClick = {
+                        LabActivity.start(context = this@MainActivity)
+                    },
+                    onExportFavoritesClick = {
+                        FavoriteExportActivity.start(context = this@MainActivity)
+                    },
+                    onImportFavoritesClick = {
+                        FavoriteImportActivity.start(context = this@MainActivity)
                     },
                 )
             },
         ) {
             HomeScreen(
                 themes = themes,
+                commonHeadersEnabledProvider = { info ->
+                    when (info.theme) {
+                        Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders
+                        Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders
+                        Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders
+                        Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders
+                        else -> true
+                    }
+                },
                 onOpenDrawer = {
                     coroutineScope.launch { drawerState.open() }
                 },
@@ -140,6 +170,18 @@ class MainActivity : BaseComposeActivity() {
                         Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
                     }
                 },
+                onUseCommonHeadersChanged = { info, checked ->
+                    when (info.theme) {
+                        Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders = checked
+                        Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders = checked
+                        Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders = checked
+                        Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders = checked
+                    }
+                    HttpHeaderConfigStore.setCommonHeadersEnabled(
+                        sourceType = info.theme,
+                        enabled = checked,
+                    )
+                },
             )
         }
     }
@@ -149,47 +191,28 @@ class MainActivity : BaseComposeActivity() {
         themes: List<MainThemeSelectInfo>,
         onHomeClick: () -> Unit,
         onThemeClick: (MainThemeSelectInfo) -> Unit,
-        onHeaderSettingsClick: () -> Unit,
+        onLabClick: () -> Unit,
+        onExportFavoritesClick: () -> Unit,
+        onImportFavoritesClick: () -> Unit,
     ) {
         ModalDrawerSheet {
             Column(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = stringResource(id = R.string.app_name),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleMedium,
-                )
                 NavigationDrawerItem(
-                    label = { Text(text = "首页") },
-                    selected = true,
-                    onClick = onHomeClick,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "来源",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                themes.forEach { theme ->
-                    NavigationDrawerItem(
-                        label = { Text(text = theme.title) },
-                        selected = false,
-                        onClick = { onThemeClick(theme) },
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "设置",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                NavigationDrawerItem(
-                    label = { Text(text = "HTTP Headers 设置") },
+                    label = { Text(text = "实验室") },
                     selected = false,
-                    onClick = onHeaderSettingsClick,
+                    onClick = onLabClick,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                NavigationDrawerItem(
+                    label = { Text(text = "导出收藏") },
+                    selected = false,
+                    onClick = onExportFavoritesClick,
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = "导入收藏") },
+                    selected = false,
+                    onClick = onImportFavoritesClick,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }

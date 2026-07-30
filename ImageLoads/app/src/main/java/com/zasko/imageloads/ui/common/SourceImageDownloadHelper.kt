@@ -24,6 +24,21 @@ data class PreparedFavoriteItemDownload(
     val detailInfo: CommonImageDetailInfo? = null,
 )
 
+data class FavoriteBulkDownloadPlan(
+    val totalCount: Int = 0,
+    val alreadyDownloadedCount: Int = 0,
+    val pendingItems: List<ImageLoadsInfo> = emptyList(),
+) {
+    val pendingCount: Int
+        get() = pendingItems.size
+}
+
+data class FavoriteBulkDownloadResult(
+    val successItemCount: Int,
+    val failedItemCount: Int,
+    val savedImageCount: Int,
+)
+
 object SourceImageDownloadHelper {
 
     private const val DOWNLOAD_RECORD_ROOT = "download_records"
@@ -59,6 +74,23 @@ object SourceImageDownloadHelper {
         return isDetailHrefDownloaded(
             parentDir = SourceImageDetailDelegate.getDownloadParentDir(sourceType = sourceType),
             detailHref = detailHref,
+        )
+    }
+
+    fun createFavoriteBulkDownloadPlan(
+        sourceType: Int,
+        favorites: List<ImageLoadsInfo>,
+    ): FavoriteBulkDownloadPlan {
+        val uniqueFavorites = favorites.distinctBy { it.url.trim() }
+        val alreadyDownloadedCount = uniqueFavorites.count {
+            isDetailHrefDownloaded(sourceType = sourceType, detailHref = it.href)
+        }
+        return FavoriteBulkDownloadPlan(
+            totalCount = uniqueFavorites.size,
+            alreadyDownloadedCount = alreadyDownloadedCount,
+            pendingItems = uniqueFavorites.filterNot {
+                isDetailHrefDownloaded(sourceType = sourceType, detailHref = it.href)
+            },
         )
     }
 
@@ -168,6 +200,93 @@ object SourceImageDownloadHelper {
             }
         }
         activeJobs[imageKey] = job
+    }
+
+    suspend fun downloadFavoriteItemsSequentially(
+        context: Context,
+        sourceType: Int,
+        dataUseFrom: Int?,
+        imageInfos: List<ImageLoadsInfo>,
+        onItemStarted: suspend (Int, ImageLoadsInfo) -> Unit = { _, _ -> },
+        onImageProgress: suspend (Int, Int, Int) -> Unit = { _, _, _ -> },
+        onItemFinished: suspend (Int, ImageLoadsInfo, Boolean) -> Unit = { _, _, _ -> },
+    ): FavoriteBulkDownloadResult {
+        val logTag = SourceImageDetailDelegate.logTag(sourceType = sourceType)
+        val downloadParentDir = SourceImageDetailDelegate.getDownloadParentDir(sourceType = sourceType)
+        var successItemCount = 0
+        var failedItemCount = 0
+        var savedImageCount = 0
+
+        imageInfos.forEachIndexed { index, imageInfo ->
+            val itemIndex = index + 1
+            onItemStarted(itemIndex, imageInfo)
+            val success = try {
+                val detailUrl = imageInfo.href.trim()
+                if (detailUrl.isBlank()) {
+                    LogComponent.printE(tag = logTag, message = "download favorite bulk failed: missing detail url")
+                    false
+                } else if (isDetailHrefDownloaded(sourceType = sourceType, detailHref = detailUrl)) {
+                    true
+                } else {
+                    val detailInfo = SourceImageDetailDelegate.requestDetail(
+                        sourceType = sourceType,
+                        dataUseFrom = dataUseFrom,
+                        url = detailUrl,
+                    )
+                    if (detailInfo.pictures.isEmpty()) {
+                        LogComponent.printE(tag = logTag, message = "download favorite bulk failed: empty detail $detailUrl")
+                        false
+                    } else {
+                        val completeDetailInfo = SourceImageDetailDelegate.requestRemainingDetailPages(
+                            sourceType = sourceType,
+                            dataUseFrom = dataUseFrom,
+                            detailInfo = detailInfo,
+                        )
+                        onImageProgress(itemIndex, 0, completeDetailInfo.pictures.size)
+                        val savedCount = withContext(Dispatchers.IO) {
+                            downloadDetailImages(
+                                context = context,
+                                detailInfo = completeDetailInfo,
+                                parentDir = getDetailDownloadDir(
+                                    parentDir = downloadParentDir,
+                                    detailInfo = completeDetailInfo,
+                                ),
+                                imageModelProvider = { sourceImage ->
+                                    SourceImageDetailDelegate.imageModel(
+                                        sourceType = sourceType,
+                                        imageInfo = sourceImage,
+                                    )
+                                },
+                                logTag = logTag,
+                                onProgress = { progress ->
+                                    onImageProgress(itemIndex, progress, completeDetailInfo.pictures.size)
+                                },
+                            )
+                        }
+                        savedImageCount += savedCount
+                        savedCount > 0
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(tag = logTag, message = "download favorite bulk failed:$throwable")
+                false
+            }
+
+            if (success) {
+                successItemCount += 1
+            } else {
+                failedItemCount += 1
+            }
+            onItemFinished(itemIndex, imageInfo, success)
+        }
+
+        return FavoriteBulkDownloadResult(
+            successItemCount = successItemCount,
+            failedItemCount = failedItemCount,
+            savedImageCount = savedImageCount,
+        )
     }
 
     suspend fun downloadDetailImages(

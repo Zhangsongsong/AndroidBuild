@@ -24,6 +24,9 @@ import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.fragment.ComposeBaseFragment
 import com.zasko.imageloads.ui.common.DownloadOverwriteDialog
+import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialog
+import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialogState
+import com.zasko.imageloads.ui.common.FavoriteBulkDownloadPlan
 import com.zasko.imageloads.ui.common.PreparedFavoriteItemDownload
 import com.zasko.imageloads.ui.common.SourceImageDetailActivity
 import com.zasko.imageloads.ui.common.SourceImageDownloadHelper
@@ -82,8 +85,14 @@ class TrendszineFragment : ComposeBaseFragment() {
     private var openedFavoritesOnly = false
     private var activeRequest: Job? = null
     private var downloadJob: Job? = null
+    private var favoriteBulkDownloadJob: Job? = null
     private var pendingOverwriteDownload by mutableStateOf<PreparedFavoriteItemDownload?>(null)
+    private var showBulkDownloadDialog by mutableStateOf(false)
+    private var favoriteBulkDownloadPlan by mutableStateOf(FavoriteBulkDownloadPlan())
+    private var favoriteBulkDownloadState by mutableStateOf(FavoriteBulkDownloadDialogState())
     private var requestVersion = 0
+    private val isFavoriteBulkDownloading: Boolean
+        get() = favoriteBulkDownloadState.isDownloading
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,6 +160,8 @@ class TrendszineFragment : ComposeBaseFragment() {
                 showWebAction = !showFavoritesOnly,
                 showActionMenu = !showFavoritesOnly,
                 showDownloadMenuAction = !showFavoritesOnly,
+                showDownloadAllAction = showFavoritesOnly,
+                isDownloadAllActionEnabled = !isFavoriteBulkDownloading && favoriteImages.isNotEmpty(),
                 showPageJumpMenuAction = true,
                 pageJumpInitialPage = currentFirstPage(),
                 showFavoriteMenuAction = !showFavoritesOnly,
@@ -161,12 +172,13 @@ class TrendszineFragment : ComposeBaseFragment() {
                 selectionDownloadText = "下载",
                 showFavoriteAction = true,
                 favoriteImageKeys = favoriteImages.map { it.url }.toSet(),
-                showItemDownloadAction = showFavoritesOnly,
+                showItemDownloadAction = showFavoritesOnly && !isFavoriteBulkDownloading,
                 downloadingImageKeys = favoriteDownloadProgress.keys.toSet(),
                 downloadedImageKeys = downloadedFavoriteImageUrls.toSet(),
                 imageKeyProvider = { it.url },
                 itemDownloadProgressProvider = { favoriteDownloadProgress[it.url] },
                 onImageDownloadModeClick = ::enterSelectionMode,
+                onDownloadAllClick = ::showFavoriteBulkDownloadDialog,
                 onPageJump = ::jumpToPage,
                 onFavoriteMenuClick = ::toggleFavoriteList,
                 onFavoriteClick = ::toggleFavorite,
@@ -186,6 +198,17 @@ class TrendszineFragment : ComposeBaseFragment() {
                     },
                     onDismiss = {
                         pendingOverwriteDownload = null
+                    },
+                )
+            }
+            if (showBulkDownloadDialog) {
+                FavoriteBulkDownloadDialog(
+                    state = favoriteBulkDownloadState,
+                    onConfirm = ::startFavoriteBulkDownload,
+                    onDismiss = {
+                        if (!isFavoriteBulkDownloading) {
+                            showBulkDownloadDialog = false
+                        }
                     },
                 )
             }
@@ -383,11 +406,16 @@ class TrendszineFragment : ComposeBaseFragment() {
         activeRequest = null
         downloadJob?.cancel()
         downloadJob = null
+        favoriteBulkDownloadJob?.cancel()
+        favoriteBulkDownloadJob = null
         favoriteDownloadJobs.values.forEach { it.cancel() }
         favoriteDownloadJobs.clear()
         favoriteDownloadProgress.clear()
         downloadedFavoriteImageUrls.clear()
         pendingOverwriteDownload = null
+        showBulkDownloadDialog = false
+        favoriteBulkDownloadPlan = FavoriteBulkDownloadPlan()
+        favoriteBulkDownloadState = FavoriteBulkDownloadDialogState()
         isRefreshing = false
         isLoadingMore.set(false)
         isLoadingMoreState = false
@@ -416,6 +444,14 @@ class TrendszineFragment : ComposeBaseFragment() {
     }
 
     private fun handleBack() {
+        if (isFavoriteBulkDownloading) {
+            showToast("正在下载中")
+            return
+        }
+        if (showBulkDownloadDialog) {
+            showBulkDownloadDialog = false
+            return
+        }
         if (pendingOverwriteDownload != null) {
             pendingOverwriteDownload = null
             return
@@ -479,6 +515,10 @@ class TrendszineFragment : ComposeBaseFragment() {
     }
 
     private fun downloadFavoriteItem(imageInfo: ImageLoadsInfo) {
+        if (isFavoriteBulkDownloading) {
+            showToast("正在下载中")
+            return
+        }
         if (SourceImageDownloadHelper.isDetailHrefDownloaded(
                 sourceType = Constants.THEME_TYPE_TRENDSZINE,
                 detailHref = imageInfo.href,
@@ -495,6 +535,9 @@ class TrendszineFragment : ComposeBaseFragment() {
         preparedDownload: PreparedFavoriteItemDownload? = null,
         forceOverwrite: Boolean = false,
     ) {
+        if (isFavoriteBulkDownloading) {
+            return
+        }
         SourceImageDownloadHelper.startFavoriteItemDownload(
             activity = activity,
             scope = composeRequestScope,
@@ -509,6 +552,103 @@ class TrendszineFragment : ComposeBaseFragment() {
             onAlreadyDownloaded = { pendingOverwriteDownload = it },
             onDownloadFinished = { refreshDownloadedFavoriteState() },
         )
+    }
+
+    private fun showFavoriteBulkDownloadDialog() {
+        if (!showFavoritesOnly || isFavoriteBulkDownloading) {
+            return
+        }
+        favoriteBulkDownloadPlan = SourceImageDownloadHelper.createFavoriteBulkDownloadPlan(
+            sourceType = Constants.THEME_TYPE_TRENDSZINE,
+            favorites = favoriteImages,
+        )
+        favoriteBulkDownloadState = FavoriteBulkDownloadDialogState(
+            totalCount = favoriteBulkDownloadPlan.totalCount,
+            alreadyDownloadedCount = favoriteBulkDownloadPlan.alreadyDownloadedCount,
+            pendingCount = favoriteBulkDownloadPlan.pendingCount,
+        )
+        showBulkDownloadDialog = true
+    }
+
+    private fun startFavoriteBulkDownload() {
+        if (isFavoriteBulkDownloading || favoriteBulkDownloadPlan.pendingItems.isEmpty()) {
+            return
+        }
+        val hostActivity = activity ?: return
+        val scope = composeRequestScope ?: return
+        if (SourceImageDownloadHelper.requestExternalStoragePermissionIfNeeded(activity = hostActivity)) {
+            showToast("需要存储权限后再下载")
+            return
+        }
+        FileUtil.createExternalDir()
+
+        val context = hostActivity.applicationContext
+        val plan = favoriteBulkDownloadPlan
+        pendingOverwriteDownload = null
+        favoriteDownloadProgress.clear()
+        favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
+            finishedCount = 0,
+            failedCount = 0,
+            currentTitle = "",
+            currentImageProgress = "",
+            isDownloading = true,
+        )
+        favoriteBulkDownloadJob = scope.launch {
+            try {
+                val result = SourceImageDownloadHelper.downloadFavoriteItemsSequentially(
+                    context = context,
+                    sourceType = Constants.THEME_TYPE_TRENDSZINE,
+                    dataUseFrom = dataInfo?.dataUseFrom,
+                    imageInfos = plan.pendingItems,
+                    onItemStarted = { itemIndex, imageInfo ->
+                        favoriteDownloadProgress[imageInfo.url] = "获取中"
+                        favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
+                            currentTitle = "${itemIndex}/${plan.pendingCount} ${imageInfo.bulkTitle()}",
+                            currentImageProgress = "获取详情",
+                        )
+                    },
+                    onImageProgress = { itemIndex, progress, total ->
+                        val imageInfo = plan.pendingItems.getOrNull(itemIndex - 1)
+                        val progressText = "$progress/$total"
+                        if (imageInfo != null) {
+                            favoriteDownloadProgress[imageInfo.url] = progressText
+                        }
+                        favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
+                            currentImageProgress = "图片 $progressText",
+                        )
+                    },
+                    onItemFinished = { itemIndex, imageInfo, success ->
+                        favoriteDownloadProgress.remove(imageInfo.url)
+                        favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
+                            finishedCount = itemIndex,
+                            failedCount = favoriteBulkDownloadState.failedCount + if (success) 0 else 1,
+                            currentImageProgress = if (success) "当前完成" else "当前失败",
+                        )
+                        refreshDownloadedFavoriteState()
+                    },
+                )
+                refreshDownloadedFavoriteState()
+                favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
+                    isDownloading = false,
+                    currentImageProgress = "",
+                )
+                if (result.failedItemCount == 0) {
+                    showBulkDownloadDialog = false
+                    showToast("已下载 ${result.successItemCount}/${plan.pendingCount} 个收藏")
+                } else {
+                    showToast("下载完成，失败 ${result.failedItemCount} 个")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(tag = TAG, message = "favorite bulk download failed:$throwable")
+                favoriteBulkDownloadState = favoriteBulkDownloadState.copy(isDownloading = false)
+                showToast("下载失败")
+            } finally {
+                favoriteDownloadProgress.clear()
+                favoriteBulkDownloadJob = null
+            }
+        }
     }
 
     private fun enterSelectionMode() {
@@ -702,6 +842,12 @@ class TrendszineFragment : ComposeBaseFragment() {
         } else {
             2f / 3f
         }
+    }
+
+    private fun ImageLoadsInfo.bulkTitle(): String {
+        return title.trim()
+            .ifBlank { href.trim() }
+            .ifBlank { url.trim() }
     }
 }
 

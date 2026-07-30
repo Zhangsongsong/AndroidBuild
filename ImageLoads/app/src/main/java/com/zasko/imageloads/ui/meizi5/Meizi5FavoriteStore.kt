@@ -56,6 +56,10 @@ object Meizi5FavoriteStore {
         return !isFavorite
     }
 
+    fun replaceFavorites(list: List<ImageLoadsInfo>) {
+        saveFavorites(list)
+    }
+
     private fun saveFavorites(list: List<ImageLoadsInfo>) {
         val array = JSONArray()
         list.distinctBy { it.url }.forEach { info ->

@@ -73,6 +73,8 @@ fun ImageListScreen(
     imageScaleType: ImageView.ScaleType = ImageView.ScaleType.CENTER_INSIDE,
     showActionMenu: Boolean = false,
     showDownloadMenuAction: Boolean = true,
+    showDownloadAllAction: Boolean = false,
+    isDownloadAllActionEnabled: Boolean = true,
     showPageJumpMenuAction: Boolean = false,
     pageJumpInitialPage: Int = 1,
     showFavoriteMenuAction: Boolean = false,
@@ -89,6 +91,7 @@ fun ImageListScreen(
     imageKeyProvider: (ImageLoadsInfo) -> String = { it.url },
     itemDownloadProgressProvider: (ImageLoadsInfo) -> String? = { null },
     onImageDownloadModeClick: () -> Unit = {},
+    onDownloadAllClick: () -> Unit = {},
     onPageJump: (Int) -> Unit = {},
     onFavoriteMenuClick: () -> Unit = {},
     onFavoriteClick: (ImageLoadsInfo) -> Unit = {},
@@ -156,6 +159,16 @@ fun ImageListScreen(
                             onPageJumpMenuClick = { showPageJumpDialog = true },
                             onFavoriteMenuClick = onFavoriteMenuClick,
                         )
+                    } else if (showDownloadAllAction) {
+                        IconButton(
+                            enabled = isDownloadAllActionEnabled,
+                            onClick = onDownloadAllClick,
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_cloud_download_24),
+                                contentDescription = null,
+                            )
+                        }
                     } else if (showWebAction) {
                         IconButton(onClick = onOpenWeb) {
                             Icon(
