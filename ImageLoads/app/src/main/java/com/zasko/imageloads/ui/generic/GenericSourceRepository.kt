@@ -108,7 +108,7 @@ object GenericSourceRepository {
         return localDetail?.takeIf { it.pictures.isNotEmpty() } ?: getNetworkDetail(config = config, url = url)
     }
 
-    private fun transformHome(config: DynamicSourceConfig, data: String, page: Int): GenericSourcePageResult {
+    fun transformHome(config: DynamicSourceConfig, data: String, page: Int): GenericSourcePageResult {
         val doc = MJson.parse(data)
         val listConfig = config.processMethods.optJSONObject("list") ?: JSONObject()
         val parse = listConfig.optJSONObject("parse") ?: JSONObject()

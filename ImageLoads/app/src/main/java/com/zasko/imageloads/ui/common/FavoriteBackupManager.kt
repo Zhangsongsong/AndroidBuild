@@ -1,7 +1,5 @@
 package com.zasko.imageloads.ui.common
 
-import com.zasko.imageloads.components.HttpHeaderConfigStore
-import com.zasko.imageloads.components.HttpHeaderItem
 import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.ui.meizi5.Meizi5FavoriteStore
@@ -33,18 +31,15 @@ object FavoriteBackupManager {
     private const val SOURCE_TYPE_ALL = 0
     private const val KEY_VERSION = "version"
     private const val KEY_EXPORTED_AT = "exportedAt"
-    private const val KEY_COMMON = "common"
     private const val KEY_SOURCES = "sources"
     private const val KEY_TYPE = "type"
     private const val KEY_KEY = "key"
     private const val KEY_TITLE = "title"
     private const val KEY_COVER = "cover"
     private const val KEY_BASE_URL = "baseUrl"
-    private const val KEY_HEADERS = "headers"
     private const val KEY_SETTINGS = "settings"
     private const val KEY_PROCESS_METHODS = "processMethods"
     private const val KEY_FAVORITES = "favorites"
-    private const val KEY_USE_COMMON_HEADERS = "useCommonHeaders"
     private const val KEY_USE_LOCAL_DATA = "useLocalData"
     private const val KEY_LIST = "list"
     private const val KEY_DETAIL = "detail"
@@ -103,7 +98,6 @@ object FavoriteBackupManager {
         return JSONObject()
             .put(KEY_VERSION, VERSION)
             .put(KEY_EXPORTED_AT, System.currentTimeMillis())
-            .put(KEY_COMMON, createCommonJson())
             .put(KEY_SOURCES, sources)
             .toString(2)
     }
@@ -132,9 +126,6 @@ object FavoriteBackupManager {
         var restoredSettingsCount = 0
         val missingSources = mutableListOf<String>()
         val importSources = createImportSources(sourcesJson = sourcesJson, selectedSource = source)
-        val commonResult = importCommonJson(rawData = rawData)
-        restoredHeaderGroupCount += commonResult.headerGroupCount
-        restoredSettingsCount += commonResult.settingsCount
 
         importSources.forEach { importTarget ->
             val importSource = importTarget.source
@@ -241,33 +232,19 @@ object FavoriteBackupManager {
         }
     }
 
-    private fun createCommonJson(): JSONObject {
-        return JSONObject()
-            .put(KEY_HEADERS, HttpHeaderConfigStore.getHeaders(HttpHeaderConfigStore.TARGET_COMMON).toHeaderJsonArray())
-            .put(
-                KEY_SETTINGS,
-                JSONObject()
-                    .put(KEY_USE_COMMON_HEADERS, HttpHeaderConfigStore.isCommonHeadersEnabled()),
-            )
-    }
-
     private fun FavoriteBackupSource.toSourceJson(): JSONObject {
         if (!DynamicSourceStore.isBuiltInKey(key)) {
             val sourceJson = SourceLocalDataStore.getSourceJson(targetId = key) ?: JSONObject()
             return sourceJson
+                .withoutHeaderConfig()
                 .put(KEY_KEY, key)
                 .put(KEY_TYPE, type)
                 .put(KEY_TITLE, title)
                 .put(KEY_COVER, cover.ifBlank { sourceJson.optString(KEY_COVER) })
                 .put(KEY_BASE_URL, baseUrl.ifBlank { sourceJson.optString(KEY_BASE_URL) })
                 .put(
-                    KEY_HEADERS,
-                    HttpHeaderConfigStore.getHeaders(key).toHeaderJsonArray(),
-                )
-                .put(
                     KEY_SETTINGS,
                     JSONObject()
-                        .put(KEY_USE_COMMON_HEADERS, HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(key))
                         .put(KEY_USE_LOCAL_DATA, SourceListSettingsStore.isLocalDataEnabled(sourceKey = key)),
                 )
                 .put(
@@ -285,14 +262,8 @@ object FavoriteBackupManager {
             .put(KEY_COVER, SourceLocalDataStore.getCover(sourceType = type) ?: cover)
             .put(KEY_BASE_URL, baseUrl)
             .put(
-                KEY_HEADERS,
-                HttpHeaderConfigStore.getHeaders(HttpHeaderConfigStore.getHeaderTargetId(sourceType = type))
-                    .toHeaderJsonArray(),
-            )
-            .put(
                 KEY_SETTINGS,
                 JSONObject()
-                    .put(KEY_USE_COMMON_HEADERS, HttpHeaderConfigStore.isCommonHeadersEnabled(sourceType = type))
                     .put(KEY_USE_LOCAL_DATA, SourceListSettingsStore.isLocalDataEnabled(sourceType = type)),
             )
             .put(
@@ -301,31 +272,6 @@ object FavoriteBackupManager {
                     .withoutLocalCacheMethods(),
             )
             .put(KEY_FAVORITES, getFavorites(source = this).toJsonArray(sourceType = type))
-    }
-
-    private fun importCommonJson(rawData: String): SourceImportPartResult {
-        val commonJson = JSONObject(rawData).optJSONObject(KEY_COMMON) ?: return SourceImportPartResult()
-        var headerGroupCount = 0
-        var settingsCount = 0
-        commonJson.optJSONArray(KEY_HEADERS)?.let { headers ->
-            HttpHeaderConfigStore.saveHeaders(
-                targetId = HttpHeaderConfigStore.TARGET_COMMON,
-                headers = headers.toHeaderItems(),
-            )
-            headerGroupCount += 1
-        }
-        commonJson.optJSONObject(KEY_SETTINGS)?.let { settings ->
-            if (settings.has(KEY_USE_COMMON_HEADERS)) {
-                HttpHeaderConfigStore.setCommonHeadersEnabled(
-                    enabled = settings.optBoolean(KEY_USE_COMMON_HEADERS, true),
-                )
-                settingsCount += 1
-            }
-        }
-        return SourceImportPartResult(
-            headerGroupCount = headerGroupCount,
-            settingsCount = settingsCount,
-        )
     }
 
     private fun importSourceJson(
@@ -338,32 +284,7 @@ object FavoriteBackupManager {
         var headerGroupCount = 0
         var settingsCount = 0
         SourceLocalDataStore.saveSourceJson(targetId = targetId, sourceJson = sourceJson)
-        sourceJson.optJSONArray(KEY_HEADERS)?.let { headers ->
-            HttpHeaderConfigStore.saveHeaders(
-                targetId = if (DynamicSourceStore.isBuiltInKey(targetId)) {
-                    HttpHeaderConfigStore.getHeaderTargetId(sourceType = normalizedSource.type)
-                } else {
-                    targetId
-                },
-                headers = headers.toHeaderItems(),
-            )
-            headerGroupCount += 1
-        }
         sourceJson.optJSONObject(KEY_SETTINGS)?.let { settings ->
-            if (settings.has(KEY_USE_COMMON_HEADERS)) {
-                if (DynamicSourceStore.isBuiltInKey(targetId)) {
-                    HttpHeaderConfigStore.setCommonHeadersEnabled(
-                        sourceType = normalizedSource.type,
-                        enabled = settings.optBoolean(KEY_USE_COMMON_HEADERS, true),
-                    )
-                } else {
-                    HttpHeaderConfigStore.setCommonHeadersEnabledForTarget(
-                        targetId = targetId,
-                        enabled = settings.optBoolean(KEY_USE_COMMON_HEADERS, true),
-                    )
-                }
-                settingsCount += 1
-            }
             if (settings.has(KEY_USE_LOCAL_DATA)) {
                 SourceListSettingsStore.setLocalDataEnabled(sourceKey = targetId, enabled = settings.optBoolean(KEY_USE_LOCAL_DATA, true))
                 settingsCount += 1
@@ -399,18 +320,6 @@ object FavoriteBackupManager {
                     .put("width", info.width)
                     .put("height", info.height)
                     .put("title", info.title),
-            )
-        }
-        return array
-    }
-
-    private fun List<HttpHeaderItem>.toHeaderJsonArray(): JSONArray {
-        val array = JSONArray()
-        forEach { header ->
-            array.put(
-                JSONObject()
-                    .put("name", header.name)
-                    .put("value", header.value),
             )
         }
         return array
@@ -458,6 +367,13 @@ object FavoriteBackupManager {
         }
     }
 
+    private fun JSONObject.withoutHeaderConfig(): JSONObject {
+        return JSONObject(toString()).apply {
+            remove("headers")
+            optJSONObject(KEY_SETTINGS)?.remove("useCommonHeaders")
+        }
+    }
+
     private fun JSONArray.toFavorites(sourceType: Int): List<ImageLoadsInfo> {
         return buildList {
             for (index in 0 until length()) {
@@ -478,19 +394,6 @@ object FavoriteBackupManager {
                 )
             }
         }.distinctBy { it.url }
-    }
-
-    private fun JSONArray.toHeaderItems(): List<HttpHeaderItem> {
-        return buildList {
-            for (index in 0 until length()) {
-                val item = optJSONObject(index) ?: continue
-                val name = item.optString("name").trim()
-                val value = item.optString("value").trim()
-                if (name.isNotBlank() && value.isNotBlank()) {
-                    add(HttpHeaderItem(name = name, value = value))
-                }
-            }
-        }
     }
 
     private data class SourceImportPartResult(

@@ -197,7 +197,6 @@ private fun importFavorites(
         } else {
             showToast(
                 "已导入 ${result.restoredSourceCount} 个来源，" +
-                    "${result.restoredHeaderGroupCount} 组 Header，" +
                     "${result.restoredSettingsCount} 项设置，" +
                     "${result.restoredItemCount} 条收藏",
             )

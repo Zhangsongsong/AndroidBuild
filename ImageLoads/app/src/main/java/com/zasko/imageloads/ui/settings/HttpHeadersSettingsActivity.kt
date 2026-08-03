@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,8 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,14 +27,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,8 +54,12 @@ import kotlinx.coroutines.withContext
 class HttpHeadersSettingsActivity : BaseComposeActivity() {
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, HttpHeadersSettingsActivity::class.java))
+        private const val KEY_TARGET_ID = "key_target_id"
+
+        fun start(context: Context, targetId: String = HttpHeaderConfigStore.TARGET_COMMON) {
+            context.startActivity(Intent(context, HttpHeadersSettingsActivity::class.java).apply {
+                putExtra(KEY_TARGET_ID, targetId)
+            })
         }
     }
 
@@ -69,6 +68,8 @@ class HttpHeadersSettingsActivity : BaseComposeActivity() {
         setContent {
             ImageLoadsTheme {
                 HttpHeadersSettingsScreen(
+                    targetId = intent.getStringExtra(KEY_TARGET_ID).orEmpty()
+                        .ifBlank { HttpHeaderConfigStore.TARGET_COMMON },
                     onBack = ::finish,
                     showToast = ::showToast,
                 )
@@ -83,17 +84,17 @@ class HttpHeadersSettingsActivity : BaseComposeActivity() {
 
 @Composable
 private fun HttpHeadersSettingsScreen(
+    targetId: String,
     onBack: () -> Unit,
     showToast: (String) -> Unit,
 ) {
-    var selectedTargetId by rememberSaveable { mutableStateOf(HttpHeaderConfigStore.TARGET_COMMON) }
     val headerRows = remember { mutableStateListOf<HeaderDraft>() }
     var nextHeaderId by remember { mutableStateOf(0) }
-    val selectedTarget = HttpHeaderConfigStore.getTarget(id = selectedTargetId)
+    val target = HttpHeaderConfigStore.getTarget(id = targetId)
 
-    LaunchedEffect(selectedTargetId) {
+    LaunchedEffect(targetId) {
         val rows = withContext(Dispatchers.IO) {
-            HttpHeaderConfigStore.getHeaders(targetId = selectedTargetId).toHeaderDrafts()
+            HttpHeaderConfigStore.getHeaders(targetId = targetId).toHeaderDrafts()
         }
         headerRows.replaceWith(rows)
         nextHeaderId = headerRows.nextId()
@@ -103,16 +104,8 @@ private fun HttpHeadersSettingsScreen(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = "${selectedTarget.title} Headers",
+                title = "${target.title} Headers",
                 onBack = onBack,
-                actions = {
-                    HeaderTargetMenu(
-                        selectedTargetId = selectedTargetId,
-                        onTargetSelected = { targetId ->
-                            selectedTargetId = targetId
-                        },
-                    )
-                },
             )
         },
     ) { padding ->
@@ -184,9 +177,9 @@ private fun HttpHeadersSettingsScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        HttpHeaderConfigStore.resetHeaders(targetId = selectedTargetId)
+                        HttpHeaderConfigStore.resetHeaders(targetId = targetId)
                         headerRows.replaceWith(
-                            HttpHeaderConfigStore.getHeaders(targetId = selectedTargetId).toHeaderDrafts(),
+                            HttpHeaderConfigStore.getHeaders(targetId = targetId).toHeaderDrafts(),
                         )
                         nextHeaderId = headerRows.nextId()
                         showToast("已恢复默认")
@@ -203,7 +196,7 @@ private fun HttpHeadersSettingsScreen(
                             showToast("第 ${result.invalidItems.joinToString()} 项格式错误")
                         } else {
                             HttpHeaderConfigStore.saveHeaders(
-                                targetId = selectedTargetId,
+                                targetId = targetId,
                                 headers = result.headers,
                             )
                             showToast("已保存")
@@ -274,43 +267,6 @@ private fun HeaderEditorItem(
                 Text(text = "Value")
             },
         )
-    }
-}
-
-@Composable
-private fun HeaderTargetMenu(
-    selectedTargetId: String,
-    onTargetSelected: (String) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-
-    Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(text = "来源")
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            HttpHeaderConfigStore.targets.forEach { target ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = target.title,
-                            fontWeight = if (target.id == selectedTargetId) {
-                                FontWeight.SemiBold
-                            } else {
-                                FontWeight.Normal
-                            },
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onTargetSelected(target.id)
-                    },
-                )
-            }
-        }
     }
 }
 

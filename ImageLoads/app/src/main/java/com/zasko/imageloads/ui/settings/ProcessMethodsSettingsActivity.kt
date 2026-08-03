@@ -7,7 +7,6 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,22 +19,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -45,9 +37,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseComposeActivity
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.ui.common.SourceProcessMethodStore
+import com.zasko.imageloads.ui.common.DynamicSourceStore
 import com.zasko.imageloads.utils.Constants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,8 +51,24 @@ import org.json.JSONObject
 class ProcessMethodsSettingsActivity : BaseComposeActivity() {
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, ProcessMethodsSettingsActivity::class.java))
+        private const val KEY_SOURCE_TYPE = "key_source_type"
+        private const val KEY_SOURCE_KEY = "key_source_key"
+        private const val KEY_SOURCE_TITLE = "key_source_title"
+        private const val KEY_IS_BUILT_IN = "key_is_built_in"
+
+        fun start(
+            context: Context,
+            sourceType: Int = Constants.THEME_TYPE_TRENDSZINE,
+            sourceKey: String = "trendszine",
+            sourceTitle: String = "Trendszine",
+            isBuiltIn: Boolean = true,
+        ) {
+            context.startActivity(Intent(context, ProcessMethodsSettingsActivity::class.java).apply {
+                putExtra(KEY_SOURCE_TYPE, sourceType)
+                putExtra(KEY_SOURCE_KEY, sourceKey)
+                putExtra(KEY_SOURCE_TITLE, sourceTitle)
+                putExtra(KEY_IS_BUILT_IN, isBuiltIn)
+            })
         }
     }
 
@@ -67,6 +77,7 @@ class ProcessMethodsSettingsActivity : BaseComposeActivity() {
         setContent {
             ImageLoadsTheme {
                 ProcessMethodsSettingsScreen(
+                    source = readProcessMethodSource(),
                     onBack = ::finish,
                     showToast = ::showToast,
                 )
@@ -77,11 +88,26 @@ class ProcessMethodsSettingsActivity : BaseComposeActivity() {
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
+
+    private fun readProcessMethodSource(): ProcessMethodSource {
+        val sourceKey = intent.getStringExtra(KEY_SOURCE_KEY).orEmpty()
+        return ProcessMethodSource(
+            type = intent.getIntExtra(KEY_SOURCE_TYPE, Constants.THEME_TYPE_TRENDSZINE),
+            key = sourceKey.ifBlank { "trendszine" },
+            title = intent.getStringExtra(KEY_SOURCE_TITLE).orEmpty().ifBlank { sourceKey.ifBlank { "Trendszine" } },
+            isBuiltIn = intent.getBooleanExtra(
+                KEY_IS_BUILT_IN,
+                DynamicSourceStore.isBuiltInKey(sourceKey.ifBlank { "trendszine" }),
+            ),
+        )
+    }
 }
 
 private data class ProcessMethodSource(
     val type: Int,
+    val key: String,
     val title: String,
+    val isBuiltIn: Boolean,
 )
 
 private enum class ProcessMethodValueType {
@@ -104,12 +130,6 @@ private data class ProcessMethodBuildResult(
     val invalidPaths: List<String>,
 )
 
-private val processMethodSources = listOf(
-    ProcessMethodSource(type = Constants.THEME_TYPE_TRENDSZINE, title = "Trendszine"),
-    ProcessMethodSource(type = Constants.THEME_TYPE_MEIZI5, title = "Meizi5"),
-    ProcessMethodSource(type = Constants.THEME_TYPE_TAOTU, title = "TaoTu"),
-)
-
 private const val GROUP_LIST_PREVIEW = "封面预览页面"
 private const val GROUP_LIST_PAGINATION = "封面预览分页"
 private const val GROUP_DETAIL_PAGE = "详情页面"
@@ -126,18 +146,15 @@ private val processMethodGroupOrder = listOf(
 
 @Composable
 private fun ProcessMethodsSettingsScreen(
+    source: ProcessMethodSource,
     onBack: () -> Unit,
     showToast: (String) -> Unit,
 ) {
-    var selectedSourceType by rememberSaveable { mutableStateOf(processMethodSources.first().type) }
-    val selectedSource = processMethodSources.firstOrNull { it.type == selectedSourceType }
-        ?: processMethodSources.first()
     val rows = remember { mutableStateListOf<ProcessMethodDraft>() }
 
-    LaunchedEffect(selectedSourceType) {
+    LaunchedEffect(source.key, source.type, source.isBuiltIn) {
         val draftRows = withContext(Dispatchers.IO) {
-            SourceProcessMethodStore.getOrCacheMethods(sourceType = selectedSourceType)
-                .toProcessMethodDrafts()
+            source.loadProcessMethods().toProcessMethodDrafts()
         }
         rows.replaceWith(draftRows)
     }
@@ -146,16 +163,8 @@ private fun ProcessMethodsSettingsScreen(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = "${selectedSource.title} 处理方法",
+                title = "${source.title} 处理方法",
                 onBack = onBack,
-                actions = {
-                    ProcessMethodSourceMenu(
-                        selectedSource = selectedSource,
-                        onSourceSelected = { source ->
-                            selectedSourceType = source.type
-                        },
-                    )
-                },
             )
         },
     ) { padding ->
@@ -203,10 +212,11 @@ private fun ProcessMethodsSettingsScreen(
             ) {
                 OutlinedButton(
                     modifier = Modifier.weight(1f),
+                    enabled = source.isBuiltIn,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        val defaultRows = SourceProcessMethodStore
-                            .resetDefaultMethods(sourceType = selectedSource.type)
+                        val defaultRows = source
+                            .resetDefaultMethods()
                             .toProcessMethodDrafts()
                         rows.replaceWith(defaultRows)
                         showToast("已恢复默认")
@@ -223,10 +233,7 @@ private fun ProcessMethodsSettingsScreen(
                         if (json == null) {
                             showToast("格式错误: ${result.invalidPaths.joinToString()}")
                         } else {
-                            SourceProcessMethodStore.saveMethods(
-                                sourceType = selectedSource.type,
-                                methods = json,
-                            )
+                            source.saveMethods(methods = json)
                             showToast("已保存")
                         }
                     },
@@ -294,40 +301,27 @@ private fun ProcessMethodEditorItem(
     }
 }
 
-@Composable
-private fun ProcessMethodSourceMenu(
-    selectedSource: ProcessMethodSource,
-    onSourceSelected: (ProcessMethodSource) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+private fun ProcessMethodSource.loadProcessMethods(): JSONObject {
+    return if (isBuiltIn) {
+        SourceProcessMethodStore.getOrCacheMethods(sourceType = type)
+    } else {
+        SourceLocalDataStore.getProcessMethods(targetId = key) ?: JSONObject()
+    }
+}
 
-    Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(text = selectedSource.title)
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            processMethodSources.forEach { source ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = source.title,
-                            fontWeight = if (source.type == selectedSource.type) {
-                                FontWeight.SemiBold
-                            } else {
-                                FontWeight.Normal
-                            },
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSourceSelected(source)
-                    },
-                )
-            }
-        }
+private fun ProcessMethodSource.resetDefaultMethods(): JSONObject {
+    return if (isBuiltIn) {
+        SourceProcessMethodStore.resetDefaultMethods(sourceType = type)
+    } else {
+        loadProcessMethods()
+    }
+}
+
+private fun ProcessMethodSource.saveMethods(methods: JSONObject) {
+    if (isBuiltIn) {
+        SourceProcessMethodStore.saveMethods(sourceType = type, methods = methods)
+    } else {
+        SourceLocalDataStore.saveProcessMethods(targetId = key, methods = methods)
     }
 }
 

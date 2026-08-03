@@ -6,6 +6,7 @@ import com.zasko.imageloads.utils.Constants
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
 import org.json.JSONArray
+import org.json.JSONObject
 
 data class HttpHeaderItem(
     val name: String = "",
@@ -59,24 +60,25 @@ object HttpHeaderConfigStore {
     }
 
     fun getHeaders(targetId: String): List<HttpHeaderItem> {
-        SourceLocalDataStore.getHeaders(targetId = targetId)?.let { headers ->
-            return headers
-        }
         val key = targetId.toPreferenceKey()
         val preferences = getPreferences()
-        if (!preferences.contains(key)) {
-            return getDefaultHeaders(targetId = targetId)
+        if (preferences.contains(key)) {
+            return parseHeaders(rawData = preferences.getString(key, null).orEmpty())
         }
-        val rawData = preferences.getString(key, null).orEmpty()
-        val migratedHeaders = parseHeaders(rawData = rawData).ifEmpty {
-            emptyList()
+
+        SourceLocalDataStore.getHeaders(targetId = targetId)?.let { legacyHeaders ->
+            saveHeaders(targetId = targetId, headers = legacyHeaders)
+            return legacyHeaders
         }
-        SourceLocalDataStore.saveHeaders(targetId = targetId, headers = migratedHeaders)
-        return migratedHeaders
+
+        return getDefaultHeaders(targetId = targetId)
     }
 
     fun saveHeaders(targetId: String, headers: List<HttpHeaderItem>) {
-        SourceLocalDataStore.saveHeaders(targetId = targetId, headers = headers.normalized())
+        getPreferences()
+            .edit()
+            .putString(targetId.toPreferenceKey(), headers.normalized().toHeaderJsonArray().toString())
+            .apply()
     }
 
     fun resetHeaders(targetId: String) {
@@ -88,16 +90,22 @@ object HttpHeaderConfigStore {
     }
 
     fun isCommonHeadersEnabled(): Boolean {
-        SourceLocalDataStore.getGlobalCommonHeadersEnabled()?.let { enabled ->
-            return enabled
+        val preferences = getPreferences()
+        if (preferences.contains(KEY_USE_COMMON_HEADERS)) {
+            return preferences.getBoolean(KEY_USE_COMMON_HEADERS, true)
         }
-        val enabled = getPreferences().getBoolean(KEY_USE_COMMON_HEADERS, true)
-        SourceLocalDataStore.setGlobalCommonHeadersEnabled(enabled = enabled)
-        return enabled
+        SourceLocalDataStore.getGlobalCommonHeadersEnabled()?.let { legacyEnabled ->
+            setCommonHeadersEnabled(enabled = legacyEnabled)
+            return legacyEnabled
+        }
+        return true
     }
 
     fun setCommonHeadersEnabled(enabled: Boolean) {
-        SourceLocalDataStore.setGlobalCommonHeadersEnabled(enabled = enabled)
+        getPreferences()
+            .edit()
+            .putBoolean(KEY_USE_COMMON_HEADERS, enabled)
+            .apply()
     }
 
     fun isCommonHeadersEnabled(sourceType: Int): Boolean {
@@ -239,6 +247,18 @@ object HttpHeaderConfigStore {
         return headersByName.values.toList()
     }
 
+    private fun List<HttpHeaderItem>.toHeaderJsonArray(): JSONArray {
+        val array = JSONArray()
+        forEach { header ->
+            array.put(
+                JSONObject()
+                    .put("name", header.name)
+                    .put("value", header.value),
+            )
+        }
+        return array
+    }
+
     private fun String.toSourceTargetId(): String? {
         val normalizedHost = trim().lowercase()
         return when {
@@ -257,18 +277,16 @@ object HttpHeaderConfigStore {
         if (targetId == TARGET_COMMON) {
             return isCommonHeadersEnabled()
         }
-        SourceLocalDataStore.getSourceCommonHeadersEnabled(targetId = targetId)?.let { enabled ->
-            return enabled
-        }
         val preferences = getPreferences()
         val key = targetId.toCommonHeadersEnabledPreferenceKey()
-        val enabled = if (preferences.contains(key)) {
-            preferences.getBoolean(key, true)
-        } else {
-            isCommonHeadersEnabled()
+        if (preferences.contains(key)) {
+            return preferences.getBoolean(key, true)
         }
-        SourceLocalDataStore.setSourceCommonHeadersEnabled(targetId = targetId, enabled = enabled)
-        return enabled
+        SourceLocalDataStore.getSourceCommonHeadersEnabled(targetId = targetId)?.let { legacyEnabled ->
+            setCommonHeadersEnabled(targetId = targetId, enabled = legacyEnabled)
+            return legacyEnabled
+        }
+        return isCommonHeadersEnabled()
     }
 
     private fun setCommonHeadersEnabled(targetId: String, enabled: Boolean) {
@@ -276,7 +294,10 @@ object HttpHeaderConfigStore {
             setCommonHeadersEnabled(enabled = enabled)
             return
         }
-        SourceLocalDataStore.setSourceCommonHeadersEnabled(targetId = targetId, enabled = enabled)
+        getPreferences()
+            .edit()
+            .putBoolean(targetId.toCommonHeadersEnabledPreferenceKey(), enabled)
+            .apply()
     }
 
     private fun Int.toHeaderTargetPreferenceId(): String {

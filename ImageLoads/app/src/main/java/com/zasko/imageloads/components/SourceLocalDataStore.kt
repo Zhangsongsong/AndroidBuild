@@ -187,10 +187,18 @@ object SourceLocalDataStore {
                 ?: JSONObject().also { root.put(KEY_SOURCES, it) }
             val normalizedTargetId = targetId.normalizeTargetId()
             val json = JSONObject(sourceJson.toString())
+                .withoutHeaderConfig()
                 .put(KEY_KEY, normalizedTargetId)
                 .put(KEY_TYPE, sourceJson.optInt(KEY_TYPE, normalizedTargetId.toSourceType()))
                 .put(KEY_TITLE, sourceJson.optString(KEY_TITLE).ifBlank { normalizedTargetId.toSourceTitle() })
             sources.put(normalizedTargetId, json)
+        }
+    }
+
+    fun removeSourceJson(targetId: String) {
+        editRoot { root ->
+            root.optJSONObject(KEY_SOURCES)
+                ?.remove(targetId.normalizeTargetId())
         }
     }
 
@@ -406,6 +414,17 @@ object SourceLocalDataStore {
         }.getOrDefault("")
             .removePrefix("www.")
             .lowercase()
+    }
+
+    private fun JSONObject.withoutHeaderConfig(): JSONObject {
+        remove(KEY_HEADERS)
+        optJSONObject(KEY_SETTINGS)?.let { settings ->
+            settings.remove(KEY_USE_COMMON_HEADERS)
+            if (settings.length() == 0) {
+                remove(KEY_SETTINGS)
+            }
+        }
+        return this
     }
 
     private fun getPreferences() = MApplication.application.getSharedPreferences(
