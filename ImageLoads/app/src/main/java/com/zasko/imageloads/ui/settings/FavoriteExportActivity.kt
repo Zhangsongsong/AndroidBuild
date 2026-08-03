@@ -122,7 +122,7 @@ private fun FavoriteExportScreen(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = "导出收藏",
+                title = "导出来源数据",
                 onBack = onBack,
                 actions = {
                     FavoriteSourceMenu(
@@ -143,7 +143,7 @@ private fun FavoriteExportScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "选择来源后复制 JSON，选择全部会包含所有来源",
+                text = "选择来源后导出 JSON，包含 Headers、列表设置和收藏",
                 color = colorResource(id = R.color.color_h2),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -157,7 +157,7 @@ private fun FavoriteExportScreen(
                     .weight(1f),
                 readOnly = true,
                 label = {
-                    Text(text = "${selectedSource.title} JSON")
+                    Text(text = "${selectedSource.title} 来源 JSON")
                 },
                 minLines = 12,
             )
@@ -197,7 +197,7 @@ private fun FavoriteExportScreen(
                             showToast("暂无可复制内容")
                         } else {
                             copyToClipboard(selectedSource, jsonText)
-                            showToast("已复制 ${selectedSource.title} 收藏 JSON")
+                            showToast("已复制 ${selectedSource.title} 来源 JSON")
                         }
                     },
                 ) {

@@ -1,5 +1,7 @@
 package com.zasko.imageloads.ui.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -27,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,12 +47,15 @@ import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.ui.common.FavoriteBackupManager
 import com.zasko.imageloads.ui.common.FavoriteBackupSource
+import com.zasko.imageloads.ui.common.FavoritePythonExportManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-class FavoriteImportActivity : BaseComposeActivity() {
+class FavoritePythonExportActivity : BaseComposeActivity() {
 
     companion object {
         fun start(context: Context) {
-            context.startActivity(Intent(context, FavoriteImportActivity::class.java))
+            context.startActivity(Intent(context, FavoritePythonExportActivity::class.java))
         }
     }
 
@@ -57,12 +63,23 @@ class FavoriteImportActivity : BaseComposeActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ImageLoadsTheme {
-                FavoriteImportScreen(
+                FavoritePythonExportScreen(
                     onBack = ::finish,
+                    copyToClipboard = ::copyToClipboard,
                     showToast = ::showToast,
                 )
             }
         }
+    }
+
+    private fun copyToClipboard(source: FavoriteBackupSource, python: String) {
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(
+                FavoritePythonExportManager.createExportFileName(source = source),
+                python,
+            ),
+        )
     }
 
     private fun showToast(message: String) {
@@ -71,32 +88,34 @@ class FavoriteImportActivity : BaseComposeActivity() {
 }
 
 @Composable
-private fun FavoriteImportScreen(
+private fun FavoritePythonExportScreen(
     onBack: () -> Unit,
+    copyToClipboard: (FavoriteBackupSource, String) -> Unit,
     showToast: (String) -> Unit,
 ) {
     var selectedSourceKey by rememberSaveable {
         mutableStateOf(FavoriteBackupManager.sourceOptions.first().key)
     }
-    var jsonText by rememberSaveable { mutableStateOf("") }
-    var pendingFileImportSourceKey by rememberSaveable { mutableStateOf(selectedSourceKey) }
+    var pythonText by rememberSaveable { mutableStateOf("") }
     val selectedSource = FavoriteBackupManager.sourceOptions.firstOrNull { it.key == selectedSourceKey }
         ?: FavoriteBackupManager.sourceOptions.first()
     val context = LocalContext.current
-    val importFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
+    val exportFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/x-python"),
     ) { uri ->
         if (uri != null) {
-            val fileSource = FavoriteBackupManager.sourceOptions
-                .firstOrNull { it.key == pendingFileImportSourceKey }
-                ?: selectedSource
-            importJsonFromFile(
+            exportPythonToFile(
                 context = context,
                 uri = uri,
-                source = fileSource,
-                onJsonLoaded = { jsonText = it },
+                python = pythonText,
                 showToast = showToast,
             )
+        }
+    }
+
+    LaunchedEffect(selectedSourceKey) {
+        pythonText = withContext(Dispatchers.IO) {
+            FavoritePythonExportManager.createPython(source = selectedSource)
         }
     }
 
@@ -104,10 +123,10 @@ private fun FavoriteImportScreen(
         containerColor = Color.White,
         topBar = {
             ImageLoadsTopBar(
-                title = "导入来源数据",
+                title = "导出收藏 Python",
                 onBack = onBack,
                 actions = {
-                    FavoriteSourceMenu(
+                    FavoritePythonSourceMenu(
                         selectedSource = selectedSource,
                         onSourceSelected = { source ->
                             selectedSourceKey = source.key
@@ -125,20 +144,21 @@ private fun FavoriteImportScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "粘贴导出的来源 JSON，包含 Headers、列表设置和收藏",
+                text = "根据收藏详情链接和处理方法生成 Python 下载脚本",
                 color = colorResource(id = R.color.color_h2),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             OutlinedTextField(
-                value = jsonText,
-                onValueChange = { jsonText = it },
+                value = pythonText,
+                onValueChange = {},
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
+                readOnly = true,
                 label = {
-                    Text(text = "${selectedSource.title} 来源 JSON")
+                    Text(text = "${selectedSource.title} 收藏 Python")
                 },
                 minLines = 12,
             )
@@ -150,33 +170,39 @@ private fun FavoriteImportScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        jsonText = ""
+                        pythonText = FavoritePythonExportManager.createPython(source = selectedSource)
                     },
                 ) {
-                    Text(text = "清空", maxLines = 1)
+                    Text(text = "刷新", maxLines = 1)
                 }
                 Button(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        pendingFileImportSourceKey = selectedSourceKey
-                        importFileLauncher.launch(arrayOf("application/json", "text/*"))
+                        if (pythonText.isBlank()) {
+                            showToast("暂无可导出内容")
+                        } else {
+                            exportFileLauncher.launch(
+                                FavoritePythonExportManager.createExportFileName(source = selectedSource),
+                            )
+                        }
                     },
                 ) {
-                    Text(text = "选文件", maxLines = 1)
+                    Text(text = "导出文件", maxLines = 1)
                 }
                 Button(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        importFavorites(
-                            source = selectedSource,
-                            rawData = jsonText,
-                            showToast = showToast,
-                        )
+                        if (pythonText.isBlank()) {
+                            showToast("暂无可复制内容")
+                        } else {
+                            copyToClipboard(selectedSource, pythonText)
+                            showToast("已复制 ${selectedSource.title} 收藏 Python")
+                        }
                     },
                 ) {
-                    Text(text = "导入", maxLines = 1)
+                    Text(text = "复制", maxLines = 1)
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -184,31 +210,25 @@ private fun FavoriteImportScreen(
     }
 }
 
-private fun importJsonFromFile(
+private fun exportPythonToFile(
     context: Context,
     uri: Uri,
-    source: FavoriteBackupSource,
-    onJsonLoaded: (String) -> Unit,
+    python: String,
     showToast: (String) -> Unit,
 ) {
     runCatching {
-        context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { input ->
-            input.readText()
-        } ?: throw IllegalStateException("open input stream failed")
-    }.onSuccess { json ->
-        onJsonLoaded(json)
-        importFavorites(
-            source = source,
-            rawData = json,
-            showToast = showToast,
-        )
+        context.contentResolver.openOutputStream(uri)?.use { output ->
+            output.write(python.toByteArray(Charsets.UTF_8))
+        } ?: throw IllegalStateException("open output stream failed")
+    }.onSuccess {
+        showToast("已导出 Python 文件")
     }.onFailure {
-        showToast("读取文件失败")
+        showToast("导出失败")
     }
 }
 
 @Composable
-private fun FavoriteSourceMenu(
+private fun FavoritePythonSourceMenu(
     selectedSource: FavoriteBackupSource,
     onSourceSelected: (FavoriteBackupSource) -> Unit,
 ) {
@@ -241,39 +261,5 @@ private fun FavoriteSourceMenu(
                 )
             }
         }
-    }
-}
-
-private fun importFavorites(
-    source: FavoriteBackupSource,
-    rawData: String,
-    showToast: (String) -> Unit,
-) {
-    val json = rawData.trim()
-    if (json.isBlank()) {
-        showToast("请先填写来源 JSON")
-        return
-    }
-    runCatching {
-        FavoriteBackupManager.importBackupJson(rawData = json, source = source)
-    }.onSuccess { result ->
-        if (result.restoredSourceCount == 0) {
-            showToast(
-                if (source.key == "all") {
-                    "JSON 中没有可导入来源数据"
-                } else {
-                    "JSON 中没有 ${source.title} 来源数据"
-                },
-            )
-        } else {
-            showToast(
-                "已导入 ${result.restoredSourceCount} 个来源，" +
-                    "${result.restoredHeaderGroupCount} 组 Header，" +
-                    "${result.restoredSettingsCount} 项设置，" +
-                    "${result.restoredItemCount} 条收藏",
-            )
-        }
-    }.onFailure {
-        showToast("导入失败")
     }
 }

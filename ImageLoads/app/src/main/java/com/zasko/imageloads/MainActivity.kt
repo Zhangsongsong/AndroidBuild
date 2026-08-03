@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.activity.PersonListActivity
 import com.zasko.imageloads.base.BaseComposeActivity
@@ -31,9 +32,11 @@ import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.common.CommonDownloadedActivity
+import com.zasko.imageloads.ui.common.SourceListSettingsStore
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
 import com.zasko.imageloads.ui.settings.FavoriteExportActivity
 import com.zasko.imageloads.ui.settings.FavoriteImportActivity
+import com.zasko.imageloads.ui.settings.FavoritePythonExportActivity
 import com.zasko.imageloads.ui.settings.LabActivity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
 import com.zasko.imageloads.ui.trendszine.TrendszineActivity
@@ -55,10 +58,18 @@ class MainActivity : BaseComposeActivity() {
 
     @Composable
     private fun MainRoute() {
-        var useXiuRenLocalData by rememberSaveable { mutableStateOf(true) }
-        var useMeizi5LocalData by rememberSaveable { mutableStateOf(true) }
-        var useTaoTuLocalData by rememberSaveable { mutableStateOf(true) }
-        var useTrendszineLocalData by rememberSaveable { mutableStateOf(true) }
+        var useXiuRenLocalData by rememberSaveable {
+            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_XIUREN))
+        }
+        var useMeizi5LocalData by rememberSaveable {
+            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_MEIZI5))
+        }
+        var useTaoTuLocalData by rememberSaveable {
+            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_TAOTU))
+        }
+        var useTrendszineLocalData by rememberSaveable {
+            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_TRENDSZINE))
+        }
         var useXiuRenCommonHeaders by rememberSaveable {
             mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_XIUREN))
         }
@@ -130,10 +141,13 @@ class MainActivity : BaseComposeActivity() {
                     onLabClick = {
                         LabActivity.start(context = this@MainActivity)
                     },
-                    onExportFavoritesClick = {
+                    onExportSourceDataClick = {
                         FavoriteExportActivity.start(context = this@MainActivity)
                     },
-                    onImportFavoritesClick = {
+                    onExportFavoritePythonClick = {
+                        FavoritePythonExportActivity.start(context = this@MainActivity)
+                    },
+                    onImportSourceDataClick = {
                         FavoriteImportActivity.start(context = this@MainActivity)
                     },
                 )
@@ -169,6 +183,10 @@ class MainActivity : BaseComposeActivity() {
                         Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
                         Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
                     }
+                    SourceListSettingsStore.setLocalDataEnabled(
+                        sourceType = info.theme,
+                        enabled = checked,
+                    )
                 },
                 onUseCommonHeadersChanged = { info, checked ->
                     when (info.theme) {
@@ -192,8 +210,9 @@ class MainActivity : BaseComposeActivity() {
         onHomeClick: () -> Unit,
         onThemeClick: (MainThemeSelectInfo) -> Unit,
         onLabClick: () -> Unit,
-        onExportFavoritesClick: () -> Unit,
-        onImportFavoritesClick: () -> Unit,
+        onExportSourceDataClick: () -> Unit,
+        onExportFavoritePythonClick: () -> Unit,
+        onImportSourceDataClick: () -> Unit,
     ) {
         ModalDrawerSheet {
             Column(modifier = Modifier.padding(horizontal = 12.dp)) {
@@ -204,19 +223,38 @@ class MainActivity : BaseComposeActivity() {
                     onClick = onLabClick,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                DrawerSectionTitle(text = "导出数据")
                 NavigationDrawerItem(
-                    label = { Text(text = "导出收藏") },
+                    label = { Text(text = "来源数据") },
                     selected = false,
-                    onClick = onExportFavoritesClick,
+                    onClick = onExportSourceDataClick,
                 )
                 NavigationDrawerItem(
-                    label = { Text(text = "导入收藏") },
+                    label = { Text(text = "收藏 Python") },
                     selected = false,
-                    onClick = onImportFavoritesClick,
+                    onClick = onExportFavoritePythonClick,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                DrawerSectionTitle(text = "导入数据")
+                NavigationDrawerItem(
+                    label = { Text(text = "来源数据") },
+                    selected = false,
+                    onClick = onImportSourceDataClick,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
+    }
+
+    @Composable
+    private fun DrawerSectionTitle(text: String) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 
     private fun openFavoriteTheme(info: MainThemeSelectInfo) {

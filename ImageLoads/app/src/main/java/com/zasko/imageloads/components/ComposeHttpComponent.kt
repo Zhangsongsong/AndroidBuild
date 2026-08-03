@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.Query
@@ -21,6 +22,10 @@ object ComposeHttpComponent {
 
     private val imageServer by lazy {
         HttpComponent.getRetrofit().create(ComposeImageLoadsServices::class.java)
+    }
+
+    private val trendszineCompatibleClient by lazy {
+        HttpComponent.createCompatibleHeaderAwareClient()
     }
 
     suspend fun getImage(url: String = "https://v2.api-m.com/api/heisi?return=2"): HeiSiInfo {
@@ -54,8 +59,20 @@ object ComposeHttpComponent {
     }
 
     suspend fun getTrendszine(url: String = "https://trendszine.com/"): String {
-        return ioRequest {
-            imageServer.getTrendszine(url = url)
+        return try {
+            ioRequest {
+                imageServer.getTrendszine(url = url)
+            }
+        } catch (throwable: IOException) {
+            if (HttpComponent.isTlsConnectionReset(throwable)) {
+                LogComponent.printE(
+                    tag = "ComposeHttpComponent",
+                    message = "getTrendszine fallback to compatible client:$throwable",
+                )
+                getTrendszineWithCompatibleClient(url = url)
+            } else {
+                throw throwable
+            }
         }
     }
 
@@ -128,6 +145,22 @@ object ComposeHttpComponent {
             }
         }
         throw lastError ?: IOException("Compose request failed")
+    }
+
+    private suspend fun getTrendszineWithCompatibleClient(url: String): String {
+        return ioRequest {
+            trendszineCompatibleClient.newCall(
+                Request.Builder()
+                    .url(url)
+                    .get()
+                    .build(),
+            ).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("HTTP ${response.code} ${response.message}")
+                }
+                response.body?.string().orEmpty()
+            }
+        }
     }
 }
 

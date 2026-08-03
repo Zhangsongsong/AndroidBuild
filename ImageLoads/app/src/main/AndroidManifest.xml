@@ -42,8 +42,10 @@
         <activity android:name=".ui.meizi5.Meizi5Activity" />
         <activity android:name=".ui.settings.FavoriteExportActivity" />
         <activity android:name=".ui.settings.FavoriteImportActivity" />
+        <activity android:name=".ui.settings.FavoritePythonExportActivity" />
         <activity android:name=".ui.settings.HttpHeadersSettingsActivity" />
         <activity android:name=".ui.settings.LabActivity" />
+        <activity android:name=".ui.settings.ProcessMethodsSettingsActivity" />
         <activity android:name=".ui.taotu.TaoTuActivity" />
         <activity android:name=".ui.trendszine.TrendszineActivity" />
 

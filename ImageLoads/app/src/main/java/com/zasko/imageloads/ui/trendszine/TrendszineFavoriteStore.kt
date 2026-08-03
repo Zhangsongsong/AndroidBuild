@@ -3,9 +3,10 @@ package com.zasko.imageloads.ui.trendszine
 import android.content.Context
 import com.zasko.imageloads.MApplication
 import com.zasko.imageloads.components.LogComponent
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.utils.Constants
 import org.json.JSONArray
-import org.json.JSONObject
 
 object TrendszineFavoriteStore {
 
@@ -14,8 +15,11 @@ object TrendszineFavoriteStore {
     private const val KEY_ITEMS = "items"
 
     fun getFavorites(): List<ImageLoadsInfo> {
+        SourceLocalDataStore.getFavorites(sourceType = Constants.THEME_TYPE_TRENDSZINE)?.let { favorites ->
+            return favorites
+        }
         val rawData = getPreferences().getString(KEY_ITEMS, null) ?: return emptyList()
-        return runCatching {
+        val favorites = runCatching {
             val array = JSONArray(rawData)
             buildList {
                 for (index in 0 until array.length()) {
@@ -38,6 +42,11 @@ object TrendszineFavoriteStore {
         }.onFailure { throwable ->
             LogComponent.printE(tag = TAG, message = throwable.toString())
         }.getOrDefault(emptyList())
+        SourceLocalDataStore.replaceFavorites(
+            sourceType = Constants.THEME_TYPE_TRENDSZINE,
+            favorites = favorites,
+        )
+        return favorites
     }
 
     fun toggleFavorite(imageInfo: ImageLoadsInfo): Boolean {
@@ -61,21 +70,10 @@ object TrendszineFavoriteStore {
     }
 
     private fun saveFavorites(list: List<ImageLoadsInfo>) {
-        val array = JSONArray()
-        list.distinctBy { it.url }.forEach { info ->
-            array.put(
-                JSONObject()
-                    .put("url", info.url)
-                    .put("href", info.href)
-                    .put("width", info.width)
-                    .put("height", info.height)
-                    .put("title", info.title),
-            )
-        }
-        getPreferences()
-            .edit()
-            .putString(KEY_ITEMS, array.toString())
-            .apply()
+        SourceLocalDataStore.replaceFavorites(
+            sourceType = Constants.THEME_TYPE_TRENDSZINE,
+            favorites = list,
+        )
     }
 
     private fun getPreferences() = MApplication.application.getSharedPreferences(

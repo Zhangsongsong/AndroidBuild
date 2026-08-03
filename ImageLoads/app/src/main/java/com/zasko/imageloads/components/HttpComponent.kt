@@ -8,16 +8,24 @@ import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.StringFormat
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
+import okhttp3.ConnectionSpec
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Converter
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava3.RxJava3CallAdapterFactory
+import java.io.EOFException
+import java.io.IOException
 import java.lang.reflect.Type
+import java.net.SocketException
+import javax.net.ssl.SSLException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLProtocolException
 
 object HttpComponent {
 
@@ -43,6 +51,40 @@ object HttpComponent {
 
     fun getRetrofit(): Retrofit {
         return retrofit
+    }
+
+    fun createHeaderAwareClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(HttpHeaderConfigStore.createInterceptor())
+            .build()
+    }
+
+    fun createCompatibleHeaderAwareClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .protocols(listOf(Protocol.HTTP_1_1))
+            .connectionSpecs(
+                listOf(
+                    ConnectionSpec.MODERN_TLS,
+                    ConnectionSpec.COMPATIBLE_TLS,
+                    ConnectionSpec.CLEARTEXT,
+                ),
+            )
+            .addInterceptor(HttpHeaderConfigStore.createInterceptor())
+            .build()
+    }
+
+    fun isTlsConnectionReset(throwable: Throwable?): Boolean {
+        val ioException = throwable as? IOException ?: return false
+        if (ioException is SSLHandshakeException || ioException is SSLProtocolException || ioException is EOFException) {
+            return true
+        }
+        if (ioException is SSLException && ioException.message.orEmpty().contains("Connection reset", ignoreCase = true)) {
+            return true
+        }
+        if (ioException is SocketException && ioException.message.orEmpty().contains("Connection reset", ignoreCase = true)) {
+            return true
+        }
+        return isTlsConnectionReset(ioException.cause)
     }
 }
 
