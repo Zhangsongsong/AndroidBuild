@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.bumptech.glide.Glide
 import com.zasko.imageloads.components.LogComponent
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.ImageLoadsInfo
@@ -355,6 +356,10 @@ class TrendszineFragment : ComposeBaseFragment() {
                 pageLabels.clear()
                 if (result.images.isNotEmpty()) {
                     pageLabels[0] = page
+                    SourceLocalDataStore.saveCover(
+                        sourceType = Constants.THEME_TYPE_TRENDSZINE,
+                        cover = result.images.first().url,
+                    )
                 }
                 images.clear()
                 images.addAll(result.images)

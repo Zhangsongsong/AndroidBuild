@@ -15,6 +15,8 @@ data class FavoriteBackupSource(
     val type: Int,
     val title: String,
     val key: String,
+    val cover: String = "",
+    val baseUrl: String = "",
 )
 
 data class FavoriteImportResult(
@@ -34,7 +36,10 @@ object FavoriteBackupManager {
     private const val KEY_COMMON = "common"
     private const val KEY_SOURCES = "sources"
     private const val KEY_TYPE = "type"
+    private const val KEY_KEY = "key"
     private const val KEY_TITLE = "title"
+    private const val KEY_COVER = "cover"
+    private const val KEY_BASE_URL = "baseUrl"
     private const val KEY_HEADERS = "headers"
     private const val KEY_SETTINGS = "settings"
     private const val KEY_PROCESS_METHODS = "processMethods"
@@ -56,20 +61,27 @@ object FavoriteBackupManager {
             type = Constants.THEME_TYPE_TRENDSZINE,
             title = "Trendszine",
             key = "trendszine",
+            cover = "https://trendszine.com/wp-content/uploads/2026/07/33603291310201.webp.webp",
+            baseUrl = "https://trendszine.com/",
         ),
         FavoriteBackupSource(
             type = Constants.THEME_TYPE_MEIZI5,
             title = "Meizi5",
             key = "meizi5",
+            cover = "https://meizi5.com/wp-content/uploads/2026/04/VOL_350_face.jpg",
+            baseUrl = "https://meizi5.com/",
         ),
         FavoriteBackupSource(
             type = Constants.THEME_TYPE_TAOTU,
             title = "TaoTu",
             key = "taotu",
+            cover = "https://res.taotu.org/hot-girls/%e5%b0%8f%e8%94%a1%e5%a4%b4%e5%96%b5%e5%96%b5%e5%96%b5/00069-%e9%bb%91%e4%b8%9d%e8%be%85%e5%af%bc%e5%91%98-29p/thumbnail/0020.jpg",
+            baseUrl = "https://taotu.org/",
         ),
     )
 
-    val sourceOptions: List<FavoriteBackupSource> = listOf(allSource) + supportedSources
+    val sourceOptions: List<FavoriteBackupSource>
+        get() = listOf(allSource) + supportedSources + getDynamicSources()
 
     fun createExportFileName(source: FavoriteBackupSource): String {
         return "imageloads_source_${source.key}.json"
@@ -78,7 +90,7 @@ object FavoriteBackupManager {
     fun createBackupJson(source: FavoriteBackupSource): String {
         val sources = JSONObject()
         val exportSources = if (source.isAll()) {
-            supportedSources
+            supportedSources + getDynamicSources()
         } else {
             listOf(source)
         }
@@ -96,6 +108,21 @@ object FavoriteBackupManager {
             .toString(2)
     }
 
+    fun importBackupJson(rawData: String): FavoriteImportResult {
+        val sourcesJson = JSONObject(rawData).optJSONObject(KEY_SOURCES)
+            ?: throw IllegalArgumentException("来源备份格式错误")
+        val rawKeys = sourcesJson.keys().asSequence().toList()
+        if (rawKeys.isEmpty()) {
+            throw IllegalArgumentException("JSON 中没有可导入来源数据")
+        }
+        if (rawKeys.size > 1) {
+            throw IllegalArgumentException("一次只能导入一个来源")
+        }
+        val rawKey = rawKeys.first()
+        val source = sourceForRawKey(sourcesJson = sourcesJson, rawKey = rawKey)
+        return importBackupJson(rawData = rawData, source = source)
+    }
+
     fun importBackupJson(rawData: String, source: FavoriteBackupSource): FavoriteImportResult {
         val sourcesJson = JSONObject(rawData).optJSONObject(KEY_SOURCES)
             ?: throw IllegalArgumentException("来源备份格式错误")
@@ -104,17 +131,15 @@ object FavoriteBackupManager {
         var restoredHeaderGroupCount = 0
         var restoredSettingsCount = 0
         val missingSources = mutableListOf<String>()
-        val importSources = if (source.isAll()) {
-            supportedSources
-        } else {
-            listOf(source)
-        }
+        val importSources = createImportSources(sourcesJson = sourcesJson, selectedSource = source)
         val commonResult = importCommonJson(rawData = rawData)
         restoredHeaderGroupCount += commonResult.headerGroupCount
         restoredSettingsCount += commonResult.settingsCount
 
-        importSources.forEach { importSource ->
-            val sourceNode = sourcesJson.opt(importSource.key)
+        importSources.forEach { importTarget ->
+            val importSource = importTarget.source
+            val sourceNode = sourcesJson.opt(importTarget.rawKey)
+                ?: sourcesJson.opt(importSource.key)
             if (sourceNode == null) {
                 missingSources.add(importSource.title)
                 return@forEach
@@ -147,12 +172,59 @@ object FavoriteBackupManager {
         )
     }
 
+    private fun createImportSources(
+        sourcesJson: JSONObject,
+        selectedSource: FavoriteBackupSource,
+    ): List<PendingImportSource> {
+        val rawKeys = sourcesJson.keys().asSequence().toList()
+        if (selectedSource.isAll()) {
+            return rawKeys.map { rawKey ->
+                PendingImportSource(
+                    source = sourceForRawKey(sourcesJson = sourcesJson, rawKey = rawKey),
+                    rawKey = rawKey,
+                )
+            }
+        }
+
+        rawKeys.firstOrNull { rawKey ->
+            rawKey == selectedSource.key || rawKey.normalizeBackupSourceKey() == selectedSource.key
+        }?.let { rawKey ->
+            return listOf(
+                PendingImportSource(
+                    source = selectedSource,
+                    rawKey = rawKey,
+                ),
+            )
+        }
+
+        if (rawKeys.size == 1) {
+            val rawKey = rawKeys.first()
+            return listOf(
+                PendingImportSource(
+                    source = sourcesJson.optJSONObject(rawKey)
+                        ?.toBackupSource(rawKey = rawKey)
+                        ?: selectedSource,
+                    rawKey = rawKey,
+                ),
+            )
+        }
+
+        return listOf(PendingImportSource(source = selectedSource, rawKey = selectedSource.key))
+    }
+
+    private fun sourceForRawKey(sourcesJson: JSONObject, rawKey: String): FavoriteBackupSource {
+        val normalizedKey = rawKey.normalizeBackupSourceKey()
+        return sourceOptions.firstOrNull { it.key == rawKey || it.key == normalizedKey }
+            ?: sourcesJson.optJSONObject(rawKey)?.toBackupSource(rawKey = rawKey)
+            ?: JSONObject().toBackupSource(rawKey = rawKey)
+    }
+
     private fun getFavorites(source: FavoriteBackupSource): List<ImageLoadsInfo> {
         return when (source.type) {
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineFavoriteStore.getFavorites()
             Constants.THEME_TYPE_MEIZI5 -> Meizi5FavoriteStore.getFavorites()
             Constants.THEME_TYPE_TAOTU -> TaoTuFavoriteStore.getFavorites()
-            else -> emptyList()
+            else -> SourceLocalDataStore.getFavorites(targetId = source.key, defaultSourceType = source.type).orEmpty()
         }
     }
 
@@ -161,6 +233,11 @@ object FavoriteBackupManager {
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineFavoriteStore.replaceFavorites(favorites)
             Constants.THEME_TYPE_MEIZI5 -> Meizi5FavoriteStore.replaceFavorites(favorites)
             Constants.THEME_TYPE_TAOTU -> TaoTuFavoriteStore.replaceFavorites(favorites)
+            else -> SourceLocalDataStore.replaceFavorites(
+                targetId = source.key,
+                sourceType = source.type,
+                favorites = favorites,
+            )
         }
     }
 
@@ -175,9 +252,38 @@ object FavoriteBackupManager {
     }
 
     private fun FavoriteBackupSource.toSourceJson(): JSONObject {
+        if (!DynamicSourceStore.isBuiltInKey(key)) {
+            val sourceJson = SourceLocalDataStore.getSourceJson(targetId = key) ?: JSONObject()
+            return sourceJson
+                .put(KEY_KEY, key)
+                .put(KEY_TYPE, type)
+                .put(KEY_TITLE, title)
+                .put(KEY_COVER, cover.ifBlank { sourceJson.optString(KEY_COVER) })
+                .put(KEY_BASE_URL, baseUrl.ifBlank { sourceJson.optString(KEY_BASE_URL) })
+                .put(
+                    KEY_HEADERS,
+                    HttpHeaderConfigStore.getHeaders(key).toHeaderJsonArray(),
+                )
+                .put(
+                    KEY_SETTINGS,
+                    JSONObject()
+                        .put(KEY_USE_COMMON_HEADERS, HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(key))
+                        .put(KEY_USE_LOCAL_DATA, SourceListSettingsStore.isLocalDataEnabled(sourceKey = key)),
+                )
+                .put(
+                    KEY_PROCESS_METHODS,
+                    SourceLocalDataStore.getProcessMethods(targetId = key)
+                        ?.withoutLocalCacheMethods()
+                        ?: JSONObject(),
+                )
+                .put(KEY_FAVORITES, getFavorites(source = this).toJsonArray(sourceType = type))
+        }
         return JSONObject()
+            .put(KEY_KEY, key)
             .put(KEY_TYPE, type)
             .put(KEY_TITLE, title)
+            .put(KEY_COVER, SourceLocalDataStore.getCover(sourceType = type) ?: cover)
+            .put(KEY_BASE_URL, baseUrl)
             .put(
                 KEY_HEADERS,
                 HttpHeaderConfigStore.getHeaders(HttpHeaderConfigStore.getHeaderTargetId(sourceType = type))
@@ -226,42 +332,53 @@ object FavoriteBackupManager {
         source: FavoriteBackupSource,
         sourceJson: JSONObject,
     ): SourceImportPartResult {
+        val normalizedSource = sourceJson.toBackupSource(rawKey = source.key)
+        val targetId = normalizedSource.key
         var itemCount = 0
         var headerGroupCount = 0
         var settingsCount = 0
+        SourceLocalDataStore.saveSourceJson(targetId = targetId, sourceJson = sourceJson)
         sourceJson.optJSONArray(KEY_HEADERS)?.let { headers ->
             HttpHeaderConfigStore.saveHeaders(
-                targetId = HttpHeaderConfigStore.getHeaderTargetId(sourceType = source.type),
+                targetId = if (DynamicSourceStore.isBuiltInKey(targetId)) {
+                    HttpHeaderConfigStore.getHeaderTargetId(sourceType = normalizedSource.type)
+                } else {
+                    targetId
+                },
                 headers = headers.toHeaderItems(),
             )
             headerGroupCount += 1
         }
         sourceJson.optJSONObject(KEY_SETTINGS)?.let { settings ->
             if (settings.has(KEY_USE_COMMON_HEADERS)) {
-                HttpHeaderConfigStore.setCommonHeadersEnabled(
-                    sourceType = source.type,
-                    enabled = settings.optBoolean(KEY_USE_COMMON_HEADERS, true),
-                )
+                if (DynamicSourceStore.isBuiltInKey(targetId)) {
+                    HttpHeaderConfigStore.setCommonHeadersEnabled(
+                        sourceType = normalizedSource.type,
+                        enabled = settings.optBoolean(KEY_USE_COMMON_HEADERS, true),
+                    )
+                } else {
+                    HttpHeaderConfigStore.setCommonHeadersEnabledForTarget(
+                        targetId = targetId,
+                        enabled = settings.optBoolean(KEY_USE_COMMON_HEADERS, true),
+                    )
+                }
                 settingsCount += 1
             }
             if (settings.has(KEY_USE_LOCAL_DATA)) {
-                SourceListSettingsStore.setLocalDataEnabled(
-                    sourceType = source.type,
-                    enabled = settings.optBoolean(KEY_USE_LOCAL_DATA, true),
-                )
+                SourceListSettingsStore.setLocalDataEnabled(sourceKey = targetId, enabled = settings.optBoolean(KEY_USE_LOCAL_DATA, true))
                 settingsCount += 1
             }
         }
         sourceJson.optJSONObject(KEY_PROCESS_METHODS)?.let { processMethods ->
             SourceLocalDataStore.saveProcessMethods(
-                sourceType = source.type,
+                targetId = targetId,
                 methods = processMethods.withoutLocalCacheMethods(),
             )
             settingsCount += 1
         }
         sourceJson.optJSONArray(KEY_FAVORITES)?.let { favoritesJson ->
-            val favorites = favoritesJson.toFavorites(sourceType = source.type)
-            replaceFavorites(source = source, favorites = favorites)
+            val favorites = favoritesJson.toFavorites(sourceType = normalizedSource.type)
+            replaceFavorites(source = normalizedSource, favorites = favorites)
             itemCount = favorites.size
         }
         return SourceImportPartResult(
@@ -301,6 +418,37 @@ object FavoriteBackupManager {
 
     private fun FavoriteBackupSource.isAll(): Boolean {
         return type == SOURCE_TYPE_ALL
+    }
+
+    private fun getDynamicSources(): List<FavoriteBackupSource> {
+        return DynamicSourceStore.getDynamicThemes().map { theme ->
+            FavoriteBackupSource(
+                type = theme.theme,
+                title = theme.title,
+                key = theme.sourceKey,
+                cover = theme.cover,
+                baseUrl = theme.baseUrl,
+            )
+        }
+    }
+
+    private fun JSONObject.toBackupSource(rawKey: String): FavoriteBackupSource {
+        val (key, json) = DynamicSourceStore.normalizeSourceJson(rawKey = rawKey, sourceJson = this)
+        return FavoriteBackupSource(
+            type = json.optInt(KEY_TYPE, key.toDynamicBackupSourceType()),
+            title = json.optString(KEY_TITLE).ifBlank { key },
+            key = key,
+            cover = json.optString(KEY_COVER),
+            baseUrl = json.optString(KEY_BASE_URL),
+        )
+    }
+
+    private fun String.toDynamicBackupSourceType(): Int {
+        return DynamicSourceStore.run { this@toDynamicBackupSourceType.toDynamicSourceType() }
+    }
+
+    private fun String.normalizeBackupSourceKey(): String {
+        return DynamicSourceStore.run { this@normalizeBackupSourceKey.normalizeSourceKey() }
     }
 
     private fun JSONObject.withoutLocalCacheMethods(): JSONObject {
@@ -349,5 +497,10 @@ object FavoriteBackupManager {
         val itemCount: Int = 0,
         val headerGroupCount: Int = 0,
         val settingsCount: Int = 0,
+    )
+
+    private data class PendingImportSource(
+        val source: FavoriteBackupSource,
+        val rawKey: String,
     )
 }

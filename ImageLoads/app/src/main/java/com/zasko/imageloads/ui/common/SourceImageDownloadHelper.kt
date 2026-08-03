@@ -364,7 +364,7 @@ object SourceImageDownloadHelper {
         }
     }
 
-    private fun isDetailHrefDownloaded(parentDir: File, detailHref: String): Boolean {
+    fun isDetailHrefDownloaded(parentDir: File, detailHref: String): Boolean {
         val normalizedHref = detailHref.trim()
         if (normalizedHref.isBlank()) {
             return false

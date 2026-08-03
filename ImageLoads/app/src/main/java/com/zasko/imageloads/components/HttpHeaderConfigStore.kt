@@ -29,12 +29,30 @@ object HttpHeaderConfigStore {
     private const val KEY_PREFIX = "headers_"
     private const val KEY_USE_COMMON_HEADERS = "use_common_headers"
 
-    val targets = listOf(
+    private val builtInTargets = listOf(
         HttpHeaderTarget(id = TARGET_COMMON, title = "公共"),
         HttpHeaderTarget(id = TARGET_TRENDSZINE, title = "Trendszine"),
         HttpHeaderTarget(id = TARGET_MEIZI5, title = "Meizi5"),
         HttpHeaderTarget(id = TARGET_TAOTU, title = "TaoTu"),
     )
+
+    val targets: List<HttpHeaderTarget>
+        get() {
+            val builtInIds = builtInTargets.map { it.id }.toSet()
+            val dynamicTargets = SourceLocalDataStore.getSourceJsonList()
+                .mapNotNull { sourceJson ->
+                    val id = sourceJson.optString("key").trim()
+                    if (id.isBlank() || id in builtInIds) {
+                        null
+                    } else {
+                        HttpHeaderTarget(
+                            id = id,
+                            title = sourceJson.optString("title").ifBlank { id },
+                        )
+                    }
+                }
+            return builtInTargets + dynamicTargets
+        }
 
     fun getTarget(id: String): HttpHeaderTarget {
         return targets.firstOrNull { it.id == id } ?: targets.first()
@@ -227,7 +245,7 @@ object HttpHeaderConfigStore {
             normalizedHost.endsWith("trendszine.com") -> TARGET_TRENDSZINE
             normalizedHost.endsWith("meizi5.com") -> TARGET_MEIZI5
             normalizedHost.endsWith("taotu.org") -> TARGET_TAOTU
-            else -> null
+            else -> SourceLocalDataStore.getTargetIdForHost(host = normalizedHost)
         }
     }
 

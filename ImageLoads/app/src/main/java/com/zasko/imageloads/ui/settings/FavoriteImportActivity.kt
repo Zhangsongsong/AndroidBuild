@@ -9,7 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,23 +18,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.R
@@ -43,7 +39,6 @@ import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.ui.common.FavoriteBackupManager
-import com.zasko.imageloads.ui.common.FavoriteBackupSource
 
 class FavoriteImportActivity : BaseComposeActivity() {
 
@@ -75,25 +70,15 @@ private fun FavoriteImportScreen(
     onBack: () -> Unit,
     showToast: (String) -> Unit,
 ) {
-    var selectedSourceKey by rememberSaveable {
-        mutableStateOf(FavoriteBackupManager.sourceOptions.first().key)
-    }
     var jsonText by rememberSaveable { mutableStateOf("") }
-    var pendingFileImportSourceKey by rememberSaveable { mutableStateOf(selectedSourceKey) }
-    val selectedSource = FavoriteBackupManager.sourceOptions.firstOrNull { it.key == selectedSourceKey }
-        ?: FavoriteBackupManager.sourceOptions.first()
     val context = LocalContext.current
     val importFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) {
-            val fileSource = FavoriteBackupManager.sourceOptions
-                .firstOrNull { it.key == pendingFileImportSourceKey }
-                ?: selectedSource
             importJsonFromFile(
                 context = context,
                 uri = uri,
-                source = fileSource,
                 onJsonLoaded = { jsonText = it },
                 showToast = showToast,
             )
@@ -106,14 +91,6 @@ private fun FavoriteImportScreen(
             ImageLoadsTopBar(
                 title = "导入来源数据",
                 onBack = onBack,
-                actions = {
-                    FavoriteSourceMenu(
-                        selectedSource = selectedSource,
-                        onSourceSelected = { source ->
-                            selectedSourceKey = source.key
-                        },
-                    )
-                },
             )
         },
     ) { padding ->
@@ -125,7 +102,7 @@ private fun FavoriteImportScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "粘贴导出的来源 JSON，包含 Headers、列表设置和收藏",
+                text = "粘贴单个来源 JSON，未知来源会添加到首页",
                 color = colorResource(id = R.color.color_h2),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -138,7 +115,7 @@ private fun FavoriteImportScreen(
                     .fillMaxWidth()
                     .weight(1f),
                 label = {
-                    Text(text = "${selectedSource.title} 来源 JSON")
+                    Text(text = "来源 JSON")
                 },
                 minLines = 12,
             )
@@ -159,7 +136,6 @@ private fun FavoriteImportScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        pendingFileImportSourceKey = selectedSourceKey
                         importFileLauncher.launch(arrayOf("application/json", "text/*"))
                     },
                 ) {
@@ -170,7 +146,6 @@ private fun FavoriteImportScreen(
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
                         importFavorites(
-                            source = selectedSource,
                             rawData = jsonText,
                             showToast = showToast,
                         )
@@ -187,7 +162,6 @@ private fun FavoriteImportScreen(
 private fun importJsonFromFile(
     context: Context,
     uri: Uri,
-    source: FavoriteBackupSource,
     onJsonLoaded: (String) -> Unit,
     showToast: (String) -> Unit,
 ) {
@@ -198,7 +172,6 @@ private fun importJsonFromFile(
     }.onSuccess { json ->
         onJsonLoaded(json)
         importFavorites(
-            source = source,
             rawData = json,
             showToast = showToast,
         )
@@ -207,45 +180,7 @@ private fun importJsonFromFile(
     }
 }
 
-@Composable
-private fun FavoriteSourceMenu(
-    selectedSource: FavoriteBackupSource,
-    onSourceSelected: (FavoriteBackupSource) -> Unit,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-
-    Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(text = selectedSource.title)
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            FavoriteBackupManager.sourceOptions.forEach { source ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = source.title,
-                            fontWeight = if (source.key == selectedSource.key) {
-                                FontWeight.SemiBold
-                            } else {
-                                FontWeight.Normal
-                            },
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSourceSelected(source)
-                    },
-                )
-            }
-        }
-    }
-}
-
 private fun importFavorites(
-    source: FavoriteBackupSource,
     rawData: String,
     showToast: (String) -> Unit,
 ) {
@@ -255,16 +190,10 @@ private fun importFavorites(
         return
     }
     runCatching {
-        FavoriteBackupManager.importBackupJson(rawData = json, source = source)
+        FavoriteBackupManager.importBackupJson(rawData = json)
     }.onSuccess { result ->
         if (result.restoredSourceCount == 0) {
-            showToast(
-                if (source.key == "all") {
-                    "JSON 中没有可导入来源数据"
-                } else {
-                    "JSON 中没有 ${source.title} 来源数据"
-                },
-            )
+            showToast("JSON 中没有可导入来源数据")
         } else {
             showToast(
                 "已导入 ${result.restoredSourceCount} 个来源，" +
@@ -274,6 +203,6 @@ private fun importFavorites(
             )
         }
     }.onFailure {
-        showToast("导入失败")
+        showToast(it.message?.takeIf { message -> message.isNotBlank() } ?: "导入失败")
     }
 }

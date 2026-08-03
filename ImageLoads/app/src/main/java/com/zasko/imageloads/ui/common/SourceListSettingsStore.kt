@@ -22,6 +22,18 @@ object SourceListSettingsStore {
         SourceLocalDataStore.setLocalDataEnabled(sourceType = sourceType, enabled = enabled)
     }
 
+    fun isLocalDataEnabled(sourceKey: String): Boolean {
+        SourceLocalDataStore.getLocalDataEnabled(targetId = sourceKey)?.let { enabled ->
+            return enabled
+        }
+        SourceLocalDataStore.setLocalDataEnabled(targetId = sourceKey, enabled = true)
+        return true
+    }
+
+    fun setLocalDataEnabled(sourceKey: String, enabled: Boolean) {
+        SourceLocalDataStore.setLocalDataEnabled(targetId = sourceKey, enabled = enabled)
+    }
+
     private fun Int.toUseLocalDataKey(): String {
         return KEY_USE_LOCAL_DATA_PREFIX + this
     }

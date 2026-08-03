@@ -39,6 +39,8 @@
         <activity android:name=".ui.xiuren.activity.XiuRenWebViewActivity" />
         <activity android:name=".ui.common.CommonDownloadedActivity" />
         <activity android:name=".ui.common.SourceImageDetailActivity" />
+        <activity android:name=".ui.generic.GenericImageDetailActivity" />
+        <activity android:name=".ui.generic.GenericSourceActivity" />
         <activity android:name=".ui.meizi5.Meizi5Activity" />
         <activity android:name=".ui.settings.FavoriteExportActivity" />
         <activity android:name=".ui.settings.FavoriteImportActivity" />

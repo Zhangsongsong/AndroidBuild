@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.zasko.imageloads.activity.PersonDetailActivity
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.components.LogComponent
@@ -181,6 +182,10 @@ class XiuRenFragment : ComposeBaseFragment() {
                 pageLabels.clear()
                 if (list.isNotEmpty()) {
                     pageLabels[0] = start.toPageNumber()
+                    SourceLocalDataStore.saveCover(
+                        sourceType = Constants.THEME_TYPE_XIUREN,
+                        cover = list.first().url,
+                    )
                 }
                 images.clear()
                 images.addAll(list)

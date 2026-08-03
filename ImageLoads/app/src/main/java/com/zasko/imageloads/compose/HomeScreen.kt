@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.R
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.ui.generic.toGenericImageModel
 import com.zasko.imageloads.ui.meizi5.toMeizi5ImageModel
 import com.zasko.imageloads.ui.taotu.toTaoTuImageModel
 import com.zasko.imageloads.ui.trendszine.toTrendszineImageModel
@@ -393,7 +394,11 @@ private fun MainThemeSelectInfo.coverModel(): Any {
         Constants.THEME_TYPE_MEIZI5 -> cover.toMeizi5ImageModel()
         Constants.THEME_TYPE_TAOTU -> cover.toTaoTuImageModel()
         Constants.THEME_TYPE_TRENDSZINE -> cover.toTrendszineImageModel()
-        else -> cover
+        else -> if (sourceKey.isNotBlank() && cover.isNotBlank()) {
+            cover.toGenericImageModel()
+        } else {
+            cover
+        }
     }
 }
 

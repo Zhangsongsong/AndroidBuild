@@ -2,6 +2,7 @@ package com.zasko.imageloads.ui.common
 
 import com.zasko.imageloads.components.HttpHeaderConfigStore
 import com.zasko.imageloads.components.HttpHeaderItem
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.ui.meizi5.Meizi5FavoriteStore
 import com.zasko.imageloads.ui.taotu.TaoTuFavoriteStore
@@ -59,11 +60,14 @@ object FavoritePythonExportManager {
             .put("baseUrl", baseUrl)
             .put("downloadDir", key)
             .put("headers", HttpHeaderConfigStore.getHeadersForUrl(url = baseUrl).toHeadersJson())
-            .put("processMethods", SourceProcessMethodStore.getOrCacheMethods(sourceType = type).toPythonMethodsJson())
+            .put("processMethods", sourceProcessMethods().toPythonMethodsJson())
             .put("favorites", getFavorites(sourceType = type).toFavoritesJson())
     }
 
     private fun FavoriteBackupSource.baseUrl(): String {
+        if (baseUrl.isNotBlank()) {
+            return baseUrl
+        }
         return when (type) {
             Constants.THEME_TYPE_TRENDSZINE -> "https://trendszine.com/"
             Constants.THEME_TYPE_MEIZI5 -> "https://meizi5.com/"
@@ -77,7 +81,22 @@ object FavoritePythonExportManager {
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineFavoriteStore.getFavorites()
             Constants.THEME_TYPE_MEIZI5 -> Meizi5FavoriteStore.getFavorites()
             Constants.THEME_TYPE_TAOTU -> TaoTuFavoriteStore.getFavorites()
-            else -> emptyList()
+            else -> {
+                FavoriteBackupManager.sourceOptions.firstOrNull { it.type == sourceType }
+                    ?.let { SourceLocalDataStore.getFavorites(targetId = it.key, defaultSourceType = it.type) }
+                    .orEmpty()
+            }
+        }
+    }
+
+    private fun FavoriteBackupSource.sourceProcessMethods(): JSONObject {
+        return when (type) {
+            Constants.THEME_TYPE_TRENDSZINE,
+            Constants.THEME_TYPE_MEIZI5,
+            Constants.THEME_TYPE_TAOTU,
+            -> SourceProcessMethodStore.getOrCacheMethods(sourceType = type)
+
+            else -> SourceLocalDataStore.getProcessMethods(targetId = key) ?: JSONObject()
         }
     }
 

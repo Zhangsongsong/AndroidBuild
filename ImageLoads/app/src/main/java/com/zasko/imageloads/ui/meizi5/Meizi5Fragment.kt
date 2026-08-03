@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.bumptech.glide.Glide
 import com.zasko.imageloads.components.LogComponent
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageListScreen
 import com.zasko.imageloads.data.ImageLoadsInfo
@@ -288,6 +289,10 @@ class Meizi5Fragment : ComposeBaseFragment() {
                 pageLabels.clear()
                 if (list.isNotEmpty()) {
                     pageLabels[0] = page
+                    SourceLocalDataStore.saveCover(
+                        sourceType = Constants.THEME_TYPE_MEIZI5,
+                        cover = list.first().url,
+                    )
                 }
                 images.clear()
                 images.addAll(list)

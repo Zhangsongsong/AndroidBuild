@@ -9,5 +9,10 @@ enum class DataUseFrom(val value: Int) {
 
 @Serializable
 data class MainThemeSelectInfo(
-    var cover: String = "", var title: String = "", var dataUseFrom: Int = DataUseFrom.NETWORK.value, var theme: Int = 0
+    var cover: String = "",
+    var title: String = "",
+    var dataUseFrom: Int = DataUseFrom.NETWORK.value,
+    var theme: Int = 0,
+    var sourceKey: String = "",
+    var baseUrl: String = "",
 ) : java.io.Serializable

@@ -11,5 +11,6 @@ object Constants {
     const val THEME_TYPE_MEIZI5 = 2
     const val THEME_TYPE_TAOTU = 3
     const val THEME_TYPE_TRENDSZINE = 4
+    const val THEME_TYPE_DYNAMIC_START = 10000
 
 }

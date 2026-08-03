@@ -17,6 +17,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -27,12 +28,15 @@ import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.activity.PersonListActivity
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.components.HttpHeaderConfigStore
+import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.compose.HomeScreen
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.common.CommonDownloadedActivity
+import com.zasko.imageloads.ui.common.DynamicSourceStore
 import com.zasko.imageloads.ui.common.SourceListSettingsStore
+import com.zasko.imageloads.ui.generic.GenericSourceActivity
 import com.zasko.imageloads.ui.meizi5.Meizi5Activity
 import com.zasko.imageloads.ui.settings.FavoriteExportActivity
 import com.zasko.imageloads.ui.settings.FavoriteImportActivity
@@ -47,6 +51,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : BaseComposeActivity() {
 
+    private var homeRefreshVersion by mutableStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -54,6 +60,11 @@ class MainActivity : BaseComposeActivity() {
                 MainRoute()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        homeRefreshVersion += 1
     }
 
     @Composable
@@ -83,7 +94,7 @@ class MainActivity : BaseComposeActivity() {
             mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_TRENDSZINE))
         }
         val xiuRenTheme = MainThemeSelectInfo(
-            cover = XIUREN_COVER,
+            cover = getHomeCover(sourceType = Constants.THEME_TYPE_XIUREN, fallback = XIUREN_COVER),
             title = stringResource(id = R.string.xiuren),
             dataUseFrom = if (useXiuRenLocalData) {
                 DataUseFrom.PRIVATE_FILE.value
@@ -93,7 +104,7 @@ class MainActivity : BaseComposeActivity() {
             theme = Constants.THEME_TYPE_XIUREN,
         )
         val meizi5Theme = MainThemeSelectInfo(
-            cover = MEIZI5_COVER,
+            cover = getHomeCover(sourceType = Constants.THEME_TYPE_MEIZI5, fallback = MEIZI5_COVER),
             title = "Meizi5",
             dataUseFrom = if (useMeizi5LocalData) {
                 DataUseFrom.PRIVATE_FILE.value
@@ -103,7 +114,7 @@ class MainActivity : BaseComposeActivity() {
             theme = Constants.THEME_TYPE_MEIZI5,
         )
         val taoTuTheme = MainThemeSelectInfo(
-            cover = TAOTU_COVER,
+            cover = getHomeCover(sourceType = Constants.THEME_TYPE_TAOTU, fallback = TAOTU_COVER),
             title = "TaoTu",
             dataUseFrom = if (useTaoTuLocalData) {
                 DataUseFrom.PRIVATE_FILE.value
@@ -113,7 +124,7 @@ class MainActivity : BaseComposeActivity() {
             theme = Constants.THEME_TYPE_TAOTU,
         )
         val trendszineTheme = MainThemeSelectInfo(
-            cover = TRENDSZINE_COVER,
+            cover = getHomeCover(sourceType = Constants.THEME_TYPE_TRENDSZINE, fallback = TRENDSZINE_COVER),
             title = "Trendszine",
             dataUseFrom = if (useTrendszineLocalData) {
                 DataUseFrom.PRIVATE_FILE.value
@@ -122,7 +133,11 @@ class MainActivity : BaseComposeActivity() {
             },
             theme = Constants.THEME_TYPE_TRENDSZINE,
         )
-        val themes = listOf(trendszineTheme, meizi5Theme, taoTuTheme, xiuRenTheme)
+        val refreshVersion = homeRefreshVersion
+        val dynamicThemes = remember(refreshVersion) {
+            DynamicSourceStore.getDynamicThemes()
+        }
+        val themes = listOf(trendszineTheme, meizi5Theme, taoTuTheme, xiuRenTheme) + dynamicThemes
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val coroutineScope = rememberCoroutineScope()
 
@@ -161,7 +176,7 @@ class MainActivity : BaseComposeActivity() {
                         Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders
                         Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders
                         Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders
-                        else -> true
+                        else -> HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(info.sourceKey)
                     }
                 },
                 onOpenDrawer = {
@@ -183,10 +198,15 @@ class MainActivity : BaseComposeActivity() {
                         Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
                         Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
                     }
-                    SourceListSettingsStore.setLocalDataEnabled(
-                        sourceType = info.theme,
-                        enabled = checked,
-                    )
+                    if (info.sourceKey.isBlank()) {
+                        SourceListSettingsStore.setLocalDataEnabled(
+                            sourceType = info.theme,
+                            enabled = checked,
+                        )
+                    } else {
+                        SourceListSettingsStore.setLocalDataEnabled(sourceKey = info.sourceKey, enabled = checked)
+                        homeRefreshVersion += 1
+                    }
                 },
                 onUseCommonHeadersChanged = { info, checked ->
                     when (info.theme) {
@@ -195,10 +215,15 @@ class MainActivity : BaseComposeActivity() {
                         Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders = checked
                         Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders = checked
                     }
-                    HttpHeaderConfigStore.setCommonHeadersEnabled(
-                        sourceType = info.theme,
-                        enabled = checked,
-                    )
+                    if (info.sourceKey.isBlank()) {
+                        HttpHeaderConfigStore.setCommonHeadersEnabled(
+                            sourceType = info.theme,
+                            enabled = checked,
+                        )
+                    } else {
+                        HttpHeaderConfigStore.setCommonHeadersEnabledForTarget(targetId = info.sourceKey, enabled = checked)
+                        homeRefreshVersion += 1
+                    }
                 },
             )
         }
@@ -263,6 +288,7 @@ class MainActivity : BaseComposeActivity() {
             Constants.THEME_TYPE_MEIZI5 -> Meizi5Activity.startFavorite(context = this, data = info)
             Constants.THEME_TYPE_TAOTU -> TaoTuActivity.startFavorite(context = this, data = info)
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineActivity.startFavorite(context = this, data = info)
+            else -> GenericSourceActivity.startFavorite(context = this, data = info)
         }
     }
 
@@ -272,7 +298,13 @@ class MainActivity : BaseComposeActivity() {
             Constants.THEME_TYPE_MEIZI5 -> Meizi5Activity.start(context = this, data = info)
             Constants.THEME_TYPE_TAOTU -> TaoTuActivity.start(context = this, data = info)
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineActivity.start(context = this, data = info)
-            else -> PersonListActivity.start(context = this, data = info)
+            else -> {
+                if (info.sourceKey.isNotBlank()) {
+                    GenericSourceActivity.start(context = this, data = info)
+                } else {
+                    PersonListActivity.start(context = this, data = info)
+                }
+            }
         }
     }
 
@@ -291,11 +323,19 @@ class MainActivity : BaseComposeActivity() {
                 "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TRENDSZINE}/${FileUtil.PICTURE_TRENDSZINE_DETAIL}"
             }
 
-            else -> ""
+            else -> if (info.sourceKey.isNotBlank()) {
+                "${FileUtil.getDownloadPath()}/${info.sourceKey}/detail"
+            } else {
+                ""
+            }
         }
         if (parentPath.isNotBlank()) {
             CommonDownloadedActivity.start(context = this, parentPath = parentPath)
         }
+    }
+
+    private fun getHomeCover(sourceType: Int, fallback: String): String {
+        return SourceLocalDataStore.getCover(sourceType = sourceType) ?: fallback
     }
 
     private companion object {

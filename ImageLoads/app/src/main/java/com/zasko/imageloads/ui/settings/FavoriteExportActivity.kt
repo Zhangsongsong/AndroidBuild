@@ -143,7 +143,7 @@ private fun FavoriteExportScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "选择来源后导出 JSON，包含 Headers、列表设置和收藏",
+                text = "选择来源后导出 JSON，包含来源定义、Headers、列表设置和收藏",
                 color = colorResource(id = R.color.color_h2),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
