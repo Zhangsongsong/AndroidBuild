@@ -110,13 +110,13 @@ private data class ProcessMethodSource(
     val isBuiltIn: Boolean,
 )
 
-private enum class ProcessMethodValueType {
+internal enum class ProcessMethodValueType {
     STRING,
     NUMBER,
     BOOLEAN,
 }
 
-private data class ProcessMethodDraft(
+internal data class ProcessMethodDraft(
     val id: Int,
     val path: String,
     val group: String,
@@ -325,7 +325,7 @@ private fun ProcessMethodSource.saveMethods(methods: JSONObject) {
     }
 }
 
-private fun JSONObject.toProcessMethodDrafts(): List<ProcessMethodDraft> {
+internal fun JSONObject.toProcessMethodDrafts(): List<ProcessMethodDraft> {
     val rows = mutableListOf<ProcessMethodDraft>()
     appendProcessMethodRows(value = this, path = "", rows = rows)
     return rows.mapIndexed { index, row -> row.copy(id = index) }
