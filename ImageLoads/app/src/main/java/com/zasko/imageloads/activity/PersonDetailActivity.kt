@@ -184,10 +184,11 @@ class PersonDetailActivity : BaseComposeActivity() {
         finish()
     }
 
-    private fun openImagePreview(imageInfo: ImageLoadsInfo) {
+    private fun openImagePreview(imageInfo: ImageLoadsInfo, index: Int) {
         ImagePreviewFragment.show(
             fragmentManager = supportFragmentManager,
-            imageUrl = imageInfo.url,
+            imageUrls = pictures.map { it.url },
+            initialIndex = index,
             referer = "",
         )
     }

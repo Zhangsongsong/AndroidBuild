@@ -75,7 +75,7 @@ private fun CommonDetailScreenPreview() {
             onConfirmOverwrite = {},
             onDismissOverwrite = {},
             onLoadMore = {},
-            onImageClick = {},
+            onImageClick = { _, _ -> },
         )
     }
 }

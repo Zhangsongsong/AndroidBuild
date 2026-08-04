@@ -103,7 +103,8 @@ class CommonDownloadedImagesFragment : ComposeBaseFragment() {
     private fun openImagePreview(imageInfo: ImageLoadsInfo) {
         ImagePreviewFragment.show(
             fragmentManager = parentFragmentManager,
-            imageUrl = imageInfo.url,
+            imageUrls = images.map { it.url },
+            initialIndex = images.indexOfFirst { it.url == imageInfo.url }.coerceAtLeast(0),
             referer = "",
         )
     }

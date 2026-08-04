@@ -17,8 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -325,10 +325,11 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         }
     }
 
-    private fun openImagePreview(imageInfo: ImageLoadsInfo) {
+    private fun openImagePreview(imageInfo: ImageLoadsInfo, index: Int) {
         ImagePreviewFragment.show(
             fragmentManager = supportFragmentManager,
-            imageUrl = imageInfo.url,
+            imageUrls = detailInfo.pictures.map { it.url },
+            initialIndex = index,
             referer = referer,
         )
     }
@@ -384,7 +385,7 @@ fun CommonImageDetailScreen(
     onConfirmOverwrite: () -> Unit,
     onDismissOverwrite: () -> Unit,
     onLoadMore: () -> Unit,
-    onImageClick: (ImageLoadsInfo) -> Unit,
+    onImageClick: (ImageLoadsInfo, Int) -> Unit,
 ) {
     var currentImageIndex by remember { mutableStateOf(0) }
     val detailTitle = remember(detailInfo.pictures.size, currentImageIndex) {
@@ -490,7 +491,7 @@ private fun CommonDetailContent(
     imageModelProvider: (ImageLoadsInfo) -> Any?,
     onLoadMore: () -> Unit,
     onCurrentImageIndexChanged: (Int) -> Unit,
-    onImageClick: (ImageLoadsInfo) -> Unit,
+    onImageClick: (ImageLoadsInfo, Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val shouldLoadMore by remember(listState, detailInfo.pictures.size, isLoadMoreEnabled) {
@@ -538,7 +539,7 @@ private fun CommonDetailContent(
         item {
             CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
         }
-        items(detailInfo.pictures) { imageInfo ->
+        itemsIndexed(detailInfo.pictures) { index, imageInfo ->
             GlideImage(
                 model = imageModelProvider(imageInfo),
                 modifier = Modifier
@@ -546,7 +547,7 @@ private fun CommonDetailContent(
                     .aspectRatio(imageInfo.displayRatio())
                     .clip(RoundedCornerShape(4.dp))
                     .background(Color(0xFFF1F1F1))
-                    .clickable { onImageClick(imageInfo) },
+                    .clickable { onImageClick(imageInfo, index) },
                 scaleType = ImageView.ScaleType.FIT_CENTER,
             )
         }

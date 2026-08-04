@@ -1,6 +1,7 @@
 package com.zasko.imageloads
 
 import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +42,7 @@ import com.zasko.imageloads.ui.meizi5.Meizi5Activity
 import com.zasko.imageloads.ui.settings.FavoriteExportActivity
 import com.zasko.imageloads.ui.settings.FavoriteImportActivity
 import com.zasko.imageloads.ui.settings.FavoritePythonExportActivity
+import com.zasko.imageloads.ui.settings.AboutActivity
 import com.zasko.imageloads.ui.settings.LabActivity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
 import com.zasko.imageloads.ui.trendszine.TrendszineActivity
@@ -55,6 +57,14 @@ class MainActivity : BaseComposeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    moveTaskToBack(true)
+                }
+            },
+        )
         setContent {
             ImageLoadsTheme {
                 MainRoute()
@@ -156,6 +166,9 @@ class MainActivity : BaseComposeActivity() {
                     onLabClick = {
                         LabActivity.start(context = this@MainActivity)
                     },
+                    onAboutClick = {
+                        AboutActivity.start(context = this@MainActivity)
+                    },
                     onExportSourceDataClick = {
                         FavoriteExportActivity.start(context = this@MainActivity)
                     },
@@ -235,6 +248,7 @@ class MainActivity : BaseComposeActivity() {
         onHomeClick: () -> Unit,
         onThemeClick: (MainThemeSelectInfo) -> Unit,
         onLabClick: () -> Unit,
+        onAboutClick: () -> Unit,
         onExportSourceDataClick: () -> Unit,
         onExportFavoritePythonClick: () -> Unit,
         onImportSourceDataClick: () -> Unit,
@@ -242,12 +256,6 @@ class MainActivity : BaseComposeActivity() {
         ModalDrawerSheet {
             Column(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Spacer(modifier = Modifier.height(24.dp))
-                NavigationDrawerItem(
-                    label = { Text(text = "实验室") },
-                    selected = false,
-                    onClick = onLabClick,
-                )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 DrawerSectionTitle(text = "导出数据")
                 NavigationDrawerItem(
                     label = { Text(text = "来源数据") },
@@ -265,6 +273,18 @@ class MainActivity : BaseComposeActivity() {
                     label = { Text(text = "来源数据") },
                     selected = false,
                     onClick = onImportSourceDataClick,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                DrawerSectionTitle(text = "其他")
+                NavigationDrawerItem(
+                    label = { Text(text = "实验室") },
+                    selected = false,
+                    onClick = onLabClick,
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = "关于") },
+                    selected = false,
+                    onClick = onAboutClick,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }

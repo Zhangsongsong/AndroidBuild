@@ -54,6 +54,14 @@ fun GlideImage(
         },
         update = { imageView ->
             imageView.scaleType = scaleType
+            val requestKey = GlideImageRequestKey(
+                model = model,
+                placeholderRes = placeholderRes,
+            )
+            if (imageView.getTag(R.id.tag_glide_image_request_key) == requestKey) {
+                return@AndroidView
+            }
+            imageView.setTag(R.id.tag_glide_image_request_key, requestKey)
             val request = Glide.with(imageView)
                 .load(model)
                 .diskCacheStrategy(DiskCacheStrategy.DATA)
@@ -64,3 +72,8 @@ fun GlideImage(
         },
     )
 }
+
+private data class GlideImageRequestKey(
+    val model: Any?,
+    @DrawableRes val placeholderRes: Int?,
+)
