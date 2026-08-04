@@ -160,7 +160,7 @@ private fun ProcessMethodsSettingsScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             ImageLoadsTopBar(
                 title = "${source.title} 处理方法",
@@ -177,7 +177,7 @@ private fun ProcessMethodsSettingsScreen(
         ) {
             Text(
                 text = "逐项编辑处理方法，保存时才会写回来源 JSON",
-                color = colorResource(id = R.color.color_h2),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -248,14 +248,15 @@ private fun ProcessMethodsSettingsScreen(
 
 @Composable
 private fun ProcessMethodGroupHeader(title: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Text(
         text = title,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color(0xFFE8F0FE))
+            .background(colorScheme.primary.copy(alpha = 0.14f))
             .padding(horizontal = 10.dp, vertical = 7.dp),
-        color = Color(0xFF1967D2),
+        color = colorScheme.primary,
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
     )
@@ -267,17 +268,18 @@ private fun ProcessMethodEditorItem(
     row: ProcessMethodDraft,
     onValueChanged: (String) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFF8FAFD))
+            .background(colorScheme.surfaceVariant)
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = row.remark.ifBlank { "处理项 ${index + 1}" },
-            color = colorResource(id = R.color.color_h1),
+            color = colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
@@ -285,7 +287,7 @@ private fun ProcessMethodEditorItem(
         )
         Text(
             text = row.path,
-            color = Color(0xFF5F6368),
+            color = colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )
         OutlinedTextField(

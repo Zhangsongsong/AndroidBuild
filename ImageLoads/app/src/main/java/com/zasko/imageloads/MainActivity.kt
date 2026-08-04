@@ -3,17 +3,32 @@ package com.zasko.imageloads
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,7 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +49,8 @@ import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.components.HttpHeaderConfigStore
 import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.compose.HomeScreen
+import com.zasko.imageloads.compose.AppThemeStyleOption
+import com.zasko.imageloads.compose.AppThemeStyleStore
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -103,6 +123,9 @@ class MainActivity : BaseComposeActivity() {
         var useTrendszineCommonHeaders by rememberSaveable {
             mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_TRENDSZINE))
         }
+        var showThemeStyleDialog by rememberSaveable {
+            mutableStateOf(false)
+        }
         val xiuRenTheme = MainThemeSelectInfo(
             cover = getHomeCover(sourceType = Constants.THEME_TYPE_XIUREN, fallback = XIUREN_COVER),
             title = stringResource(id = R.string.xiuren),
@@ -168,6 +191,9 @@ class MainActivity : BaseComposeActivity() {
                     },
                     onAboutClick = {
                         AboutActivity.start(context = this@MainActivity)
+                    },
+                    onThemeStyleClick = {
+                        showThemeStyleDialog = true
                     },
                     onExportSourceDataClick = {
                         FavoriteExportActivity.start(context = this@MainActivity)
@@ -239,6 +265,17 @@ class MainActivity : BaseComposeActivity() {
                     }
                 },
             )
+            if (showThemeStyleDialog) {
+                ThemeStyleDialog(
+                    onDismiss = {
+                        showThemeStyleDialog = false
+                    },
+                    onSelect = { option ->
+                        AppThemeStyleStore.select(option)
+                        showThemeStyleDialog = false
+                    },
+                )
+            }
         }
     }
 
@@ -249,6 +286,7 @@ class MainActivity : BaseComposeActivity() {
         onThemeClick: (MainThemeSelectInfo) -> Unit,
         onLabClick: () -> Unit,
         onAboutClick: () -> Unit,
+        onThemeStyleClick: () -> Unit,
         onExportSourceDataClick: () -> Unit,
         onExportFavoritePythonClick: () -> Unit,
         onImportSourceDataClick: () -> Unit,
@@ -277,6 +315,11 @@ class MainActivity : BaseComposeActivity() {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 DrawerSectionTitle(text = "其他")
                 NavigationDrawerItem(
+                    label = { Text(text = "主题风格") },
+                    selected = false,
+                    onClick = onThemeStyleClick,
+                )
+                NavigationDrawerItem(
                     label = { Text(text = "实验室") },
                     selected = false,
                     onClick = onLabClick,
@@ -300,6 +343,97 @@ class MainActivity : BaseComposeActivity() {
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
         )
+    }
+
+    @Composable
+    private fun ThemeStyleDialog(
+        onDismiss: () -> Unit,
+        onSelect: (AppThemeStyleOption) -> Unit,
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(text = "主题风格")
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppThemeStyleStore.options.forEach { option ->
+                        ThemeStyleOptionRow(
+                            option = option,
+                            selected = AppThemeStyleStore.isSelected(option),
+                            onClick = {
+                                onSelect(option)
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(text = "关闭")
+                }
+            },
+        )
+    }
+
+    @Composable
+    private fun ThemeStyleOptionRow(
+        option: AppThemeStyleOption,
+        selected: Boolean,
+        onClick: () -> Unit,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(8.dp),
+            color = if (selected) {
+                option.primary.copy(alpha = 0.08f)
+            } else {
+                Color.Transparent
+            },
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (selected) option.primary else MaterialTheme.colorScheme.outline,
+            ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(option.primary),
+                )
+                Box(
+                    modifier = Modifier
+                        .width(12.dp)
+                        .height(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(option.secondary),
+                )
+                Text(
+                    text = option.title,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                RadioButton(
+                    selected = selected,
+                    onClick = onClick,
+                )
+            }
+        }
     }
 
     private fun openFavoriteTheme(info: MainThemeSelectInfo) {

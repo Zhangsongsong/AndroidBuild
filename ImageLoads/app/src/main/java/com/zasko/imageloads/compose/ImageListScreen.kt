@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -100,6 +99,7 @@ fun ImageListScreen(
     onDownloadSelected: () -> Unit = {},
 ) {
     val gridState = rememberLazyStaggeredGridState()
+    val colorScheme = MaterialTheme.colorScheme
     var showPageJumpDialog by remember { mutableStateOf(false) }
     val shouldLoadMore by remember(gridState, images.size) {
         derivedStateOf {
@@ -115,7 +115,7 @@ fun ImageListScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = colorScheme.background,
         topBar = {
             ImageLoadsTopBar(
                 title = if (isSelectionMode) "已选择 ${selectedImageKeys.size} 张" else title,
@@ -185,7 +185,7 @@ fun ImageListScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color.White),
+                .background(colorScheme.background),
         ) {
             if (images.isEmpty() && !isRefreshing && topContent == null) {
                 EmptyContent(text = "暂无图片")
@@ -252,7 +252,7 @@ fun ImageListScreen(
             if (isRefreshing && images.isEmpty()) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = colorResource(id = R.color.teal_700),
+                    color = colorScheme.primary,
                 )
             }
         }
@@ -273,6 +273,7 @@ fun ImageListScreen(
 
 @Composable
 private fun ImageListPageLabel(text: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -283,9 +284,9 @@ private fun ImageListPageLabel(text: String) {
             text = text,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFF1F3F4))
+                .background(colorScheme.surfaceVariant)
                 .padding(horizontal = 12.dp, vertical = 5.dp),
-            color = Color(0xFF5F6368),
+            color = colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -446,13 +447,14 @@ private fun ImageLoadTile(
     onDownloadClick: (ImageLoadsInfo) -> Unit,
 ) {
     val displayRatio = remember(ratio) { ratio.coerceIn(0.2f, 5f) }
+    val colorScheme = MaterialTheme.colorScheme
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(displayRatio)
             .clip(RoundedCornerShape(4.dp))
-            .background(Color(0xFFF1F1F1))
+            .background(colorScheme.surfaceVariant)
             .clickable(enabled = !isItemDownloading) { onClick(info) },
     ) {
         GlideImage(
@@ -533,17 +535,24 @@ private fun DownloadIndicator(
     isDownloaded: Boolean,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     IconButton(
         modifier = modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(if (isDownloaded) Color(0xDDE6F4EA) else Color(0xB3FFFFFF)),
+            .background(
+                if (isDownloaded) {
+                    Color(0xDDE6F4EA)
+                } else {
+                    colorScheme.surface.copy(alpha = 0.78f)
+                },
+            ),
         onClick = onClick,
     ) {
         Icon(
             painter = painterResource(id = R.drawable.baseline_cloud_download_24),
             contentDescription = null,
-            tint = if (isDownloaded) Color(0xFF137333) else Color(0xFF5F6368),
+            tint = if (isDownloaded) Color(0xFF137333) else colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -577,11 +586,12 @@ private fun FavoriteIndicator(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     IconButton(
         modifier = modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(Color(0xB3FFFFFF)),
+            .background(colorScheme.surface.copy(alpha = 0.78f)),
         onClick = onClick,
     ) {
         Icon(
@@ -593,7 +603,7 @@ private fun FavoriteIndicator(
                 },
             ),
             contentDescription = null,
-            tint = if (isFavorite) Color(0xFFE91E63) else Color(0xFF5F6368),
+            tint = if (isFavorite) Color(0xFFE91E63) else colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -604,11 +614,12 @@ private fun SelectionIndicator(
     isSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .size(24.dp)
             .clip(CircleShape)
-            .background(if (isSelected) Color(0xFF1967D2) else Color(0xB3FFFFFF)),
+            .background(if (isSelected) colorScheme.primary else colorScheme.surface.copy(alpha = 0.78f)),
         contentAlignment = Alignment.Center,
     ) {
         if (isSelected) {

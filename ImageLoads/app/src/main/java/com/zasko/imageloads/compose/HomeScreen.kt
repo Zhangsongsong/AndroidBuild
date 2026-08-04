@@ -38,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -69,8 +68,9 @@ fun HomeScreen(
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
     onUseCommonHeadersChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Scaffold(
-        containerColor = Color(0xFFF8FAFD),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 navigationIcon = {
@@ -84,13 +84,14 @@ fun HomeScreen(
                 title = {
                     Text(
                         text = stringResource(id = R.string.app_name),
-                        color = colorResource(id = R.color.color_h1),
+                        color = colorScheme.onBackground,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFFF8FAFD),
+                    containerColor = colorScheme.background,
+                    navigationIconContentColor = colorScheme.onBackground,
                 ),
             )
         },
@@ -130,13 +131,14 @@ private fun ThemeSelectCard(
 ) {
     val useLocalData = info.dataUseFrom == DataUseFrom.PRIVATE_FILE.value
     val isAvailable = info.isAvailable()
-    val outlineColor = Color(0xFFE0E3EB)
+    val colorScheme = MaterialTheme.colorScheme
+    val outlineColor = colorScheme.outline
 
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
-            containerColor = Color.White,
+            containerColor = colorScheme.surface,
         ),
         border = BorderStroke(1.dp, outlineColor),
     ) {
@@ -152,7 +154,7 @@ private fun ThemeSelectCard(
                     .width(104.dp)
                     .height(136.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFE8EAED))
+                    .background(colorScheme.surfaceVariant)
                     .clickable { onOpenTheme(info) },
             ) {
                 OfficialGlideImage(
@@ -183,7 +185,7 @@ private fun ThemeSelectCard(
                         Text(
                             text = info.title,
                             modifier = Modifier.weight(1f),
-                            color = colorResource(id = R.color.color_h1),
+                            color = colorScheme.onSurface,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -193,7 +195,7 @@ private fun ThemeSelectCard(
                     }
                     Text(
                         text = if (useLocalData) "本地缓存" else "网络内容",
-                        color = colorResource(id = R.color.color_h2),
+                        color = colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                     )
@@ -223,8 +225,8 @@ private fun ThemeSelectCard(
                         onClick = { onOpenTheme(info) },
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFFE8F0FE),
-                            contentColor = Color(0xFF1967D2),
+                            containerColor = colorScheme.primary.copy(alpha = 0.14f),
+                            contentColor = colorScheme.primary,
                         ),
                         contentPadding = PaddingValues(horizontal = 14.dp),
                     ) {
@@ -246,7 +248,7 @@ private fun ThemeSelectCard(
                             painter = painterResource(id = R.drawable.baseline_favorite_24),
                             contentDescription = "收藏",
                             modifier = Modifier.size(18.dp),
-                            tint = Color(0xFF5F6368),
+                            tint = colorScheme.onSurfaceVariant,
                         )
                     }
                     OutlinedIconButton(
@@ -259,7 +261,7 @@ private fun ThemeSelectCard(
                             painter = painterResource(id = R.drawable.baseline_cloud_download_24),
                             contentDescription = stringResource(id = R.string.has_download),
                             modifier = Modifier.size(18.dp),
-                            tint = Color(0xFF5F6368),
+                            tint = colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -298,7 +300,7 @@ private fun DataSourceSelector(
             .fillMaxWidth()
             .height(36.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFF1F3F4))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -335,7 +337,7 @@ private fun CommonHeaderSelector(
         ) {
             Text(
                 text = "公共 Header",
-                color = colorResource(id = R.color.color_h1),
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -343,7 +345,7 @@ private fun CommonHeaderSelector(
             )
             Text(
                 text = if (useCommonHeaders) "已启用" else "已关闭",
-                color = colorResource(id = R.color.color_h2),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
             )
@@ -362,18 +364,19 @@ private fun DataSourceOption(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Surface(
         modifier = modifier
             .fillMaxSize()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(6.dp),
-        color = if (selected) Color.White else Color.Transparent,
+        color = if (selected) colorScheme.surface else Color.Transparent,
         shadowElevation = if (selected) 1.dp else 0.dp,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
-                color = if (selected) Color(0xFF1967D2) else Color(0xFF5F6368),
+                color = if (selected) colorScheme.primary else colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,

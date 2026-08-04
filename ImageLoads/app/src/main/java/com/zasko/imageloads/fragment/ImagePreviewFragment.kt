@@ -124,7 +124,7 @@ class ImagePreviewFragment : DialogFragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ImageLoadsTheme {
+                ImageLoadsTheme(applySystemBars = false) {
                     ImagePreviewContent(
                         imageUrls = imageUrls,
                         initialIndex = initialIndex,

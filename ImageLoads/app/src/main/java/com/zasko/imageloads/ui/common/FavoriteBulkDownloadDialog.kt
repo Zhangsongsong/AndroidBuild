@@ -37,6 +37,7 @@ fun FavoriteBulkDownloadDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = {
             if (!state.isDownloading) {
@@ -58,7 +59,7 @@ fun FavoriteBulkDownloadDialog(
                     )
                     Text(
                         text = "进度 ${state.finishedCount}/${state.pendingCount}",
-                        color = Color(0xFF3C4043),
+                        color = colorScheme.onSurface,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -72,7 +73,7 @@ fun FavoriteBulkDownloadDialog(
                     if (state.currentTitle.isNotBlank()) {
                         Text(
                             text = state.currentTitle,
-                            color = Color(0xFF5F6368),
+                            color = colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -81,14 +82,14 @@ fun FavoriteBulkDownloadDialog(
                     if (state.currentImageProgress.isNotBlank()) {
                         Text(
                             text = state.currentImageProgress,
-                            color = Color(0xFF5F6368),
+                            color = colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 } else if (state.pendingCount == 0) {
                     Text(
                         text = "没有需要下载的收藏",
-                        color = Color(0xFF5F6368),
+                        color = colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -126,7 +127,7 @@ fun FavoriteBulkDownloadDialog(
 private fun FavoriteBulkStatLine(label: String, value: Int) {
     Text(
         text = "$label: $value",
-        color = Color(0xFF3C4043),
+        color = MaterialTheme.colorScheme.onSurface,
         style = MaterialTheme.typography.bodyMedium,
     )
 }
@@ -136,6 +137,7 @@ private fun DownloadProgressBar(
     finishedCount: Int,
     totalCount: Int,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val progress = if (totalCount > 0) {
         (finishedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -146,7 +148,7 @@ private fun DownloadProgressBar(
             .fillMaxWidth()
             .height(6.dp)
             .clip(RoundedCornerShape(3.dp))
-            .background(Color(0xFFE8EAED)),
+            .background(colorScheme.surfaceVariant),
     ) {
         Box(
             modifier = Modifier

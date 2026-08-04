@@ -16,10 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
-import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
@@ -69,7 +66,7 @@ private fun AboutScreen(
     onBack: () -> Unit,
 ) {
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             ImageLoadsTopBar(
                 title = "关于",
@@ -86,7 +83,7 @@ private fun AboutScreen(
             Text(
                 text = "版本号：$versionName",
                 modifier = Modifier.fillMaxWidth(),
-                color = colorResource(id = R.color.color_h1),
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyLarge,
             )
         }

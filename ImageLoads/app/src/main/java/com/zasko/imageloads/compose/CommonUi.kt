@@ -13,8 +13,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.zasko.imageloads.R
@@ -27,6 +25,7 @@ fun ImageLoadsTopBar(
     titleContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     TopAppBar(
         title = {
             if (titleContent != null) {
@@ -52,10 +51,10 @@ fun ImageLoadsTopBar(
         },
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.White,
-            titleContentColor = colorResource(id = R.color.color_h1),
-            navigationIconContentColor = colorResource(id = R.color.color_222125),
-            actionIconContentColor = colorResource(id = R.color.color_222125),
+            containerColor = colorScheme.surface,
+            titleContentColor = colorScheme.onSurface,
+            navigationIconContentColor = colorScheme.onSurface,
+            actionIconContentColor = colorScheme.onSurface,
         ),
     )
 }
@@ -71,7 +70,7 @@ fun EmptyContent(
     ) {
         Text(
             text = text,
-            color = colorResource(id = R.color.color_h3),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
     }

@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -388,12 +387,13 @@ fun CommonImageDetailScreen(
     onImageClick: (ImageLoadsInfo, Int) -> Unit,
 ) {
     var currentImageIndex by remember { mutableStateOf(0) }
+    val colorScheme = MaterialTheme.colorScheme
     val detailTitle = remember(detailInfo.pictures.size, currentImageIndex) {
         detailInfo.toIndexTitle(currentImageIndex = currentImageIndex)
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = colorScheme.background,
         topBar = {
             ImageLoadsTopBar(
                 title = detailTitle,
@@ -410,7 +410,7 @@ fun CommonImageDetailScreen(
                                     },
                                 ),
                                 contentDescription = null,
-                                tint = if (isFavorite) Color(0xFFE91E63) else Color(0xFF5F6368),
+                                tint = if (isFavorite) Color(0xFFE91E63) else colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -428,12 +428,12 @@ fun CommonImageDetailScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color.White),
+                .background(colorScheme.background),
         ) {
             when {
                 isLoading && detailInfo.pictures.isEmpty() -> CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = colorResource(id = R.color.teal_700),
+                    color = colorScheme.primary,
                 )
 
                 detailInfo.pictures.isEmpty() -> EmptyContent(text = errorMessage.ifBlank { "暂无详情图片" })
@@ -494,6 +494,7 @@ private fun CommonDetailContent(
     onImageClick: (ImageLoadsInfo, Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    val colorScheme = MaterialTheme.colorScheme
     val shouldLoadMore by remember(listState, detailInfo.pictures.size, isLoadMoreEnabled) {
         derivedStateOf {
             if (!isLoadMoreEnabled || detailInfo.pictures.size <= 2) {
@@ -546,7 +547,7 @@ private fun CommonDetailContent(
                     .fillMaxWidth()
                     .aspectRatio(imageInfo.displayRatio())
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFFF1F1F1))
+                    .background(colorScheme.surfaceVariant)
                     .clickable { onImageClick(imageInfo, index) },
                 scaleType = ImageView.ScaleType.FIT_CENTER,
             )
@@ -564,6 +565,7 @@ private fun CommonDetailHeader(
     detailInfo: CommonImageDetailInfo,
     defaultTitle: String,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -572,7 +574,7 @@ private fun CommonDetailHeader(
     ) {
         Text(
             text = detailInfo.title.ifBlank { defaultTitle },
-            color = colorResource(id = R.color.color_h1),
+            color = colorScheme.onSurface,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -580,7 +582,7 @@ private fun CommonDetailHeader(
             if (text.isNotBlank()) {
                 Text(
                     text = text,
-                    color = colorResource(id = R.color.color_h2),
+                    color = colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

@@ -26,10 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
-import com.zasko.imageloads.R
 import com.zasko.imageloads.data.HasDownloadInfo
 
 @Composable
@@ -39,8 +36,9 @@ fun HasDownloadScreen(
     onBack: () -> Unit,
     onItemClick: (HasDownloadInfo) -> Unit = {},
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Scaffold(
-        containerColor = Color.White,
+        containerColor = colorScheme.background,
         topBar = {
             ImageLoadsTopBar(
                 title = "已下载",
@@ -52,13 +50,13 @@ fun HasDownloadScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color.White),
+                .background(colorScheme.background),
         ) {
             when {
                 isLoading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
-                        color = colorResource(id = R.color.teal_700),
+                        color = colorScheme.primary,
                     )
                 }
 
@@ -88,12 +86,13 @@ private fun HasDownloadItem(
     info: HasDownloadInfo,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(
@@ -103,7 +102,7 @@ private fun HasDownloadItem(
         ) {
             Text(
                 text = info.name,
-                color = colorResource(id = R.color.color_h1),
+                color = colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyLarge,
             )
             Row(
@@ -120,7 +119,7 @@ private fun HasDownloadItem(
                             .weight(1f)
                             .aspectRatio(2f / 3f)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFF1F1F1)),
+                            .background(colorScheme.surfaceVariant),
                         scaleType = ImageView.ScaleType.CENTER_CROP,
                     )
                 }

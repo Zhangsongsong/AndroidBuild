@@ -212,7 +212,7 @@ private fun LabScreen(
     }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             ImageLoadsTopBar(
                 title = "",
@@ -273,7 +273,7 @@ private fun LabScreen(
             )
             Text(
                 text = "按分类查看处理方法，每一项都可以单独弹窗测试",
-                color = Color(0xFF5F6368),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -292,9 +292,9 @@ private fun LabScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFF8FAFD))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(16.dp),
-                        color = Color(0xFF5F6368),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
@@ -337,13 +337,14 @@ private fun LabSettingCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     OutlinedCard(
         modifier = modifier
             .height(72.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE0E3EB)),
+        colors = CardDefaults.outlinedCardColors(containerColor = colorScheme.surface),
+        border = BorderStroke(1.dp, colorScheme.outline),
     ) {
         Box(
             modifier = Modifier
@@ -353,7 +354,7 @@ private fun LabSettingCard(
         ) {
             Text(
                 text = title,
-                color = Color(0xFF202124),
+                color = colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -365,14 +366,15 @@ private fun LabSettingCard(
 
 @Composable
 private fun LabProcessMethodGroupHeader(title: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Text(
         text = title,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color(0xFFE8F0FE))
+            .background(colorScheme.primary.copy(alpha = 0.14f))
             .padding(horizontal = 10.dp, vertical = 7.dp),
-        color = Color(0xFF1967D2),
+        color = colorScheme.primary,
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
     )
@@ -383,11 +385,12 @@ private fun LabProcessMethodItem(
     option: ProcessMethodDraft,
     onTestClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFF8FAFD))
+            .background(colorScheme.surfaceVariant)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -398,7 +401,7 @@ private fun LabProcessMethodItem(
         ) {
             Text(
                 text = option.remark.ifBlank { option.path },
-                color = Color(0xFF202124),
+                color = colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
@@ -406,14 +409,14 @@ private fun LabProcessMethodItem(
             )
             Text(
                 text = option.path,
-                color = Color(0xFF5F6368),
+                color = colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = option.value.ifBlank { "-" },
-                color = Color(0xFF3C4043),
+                color = colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -433,6 +436,7 @@ private fun LabProcessMethodTestDialog(
     onOptionSaved: (ProcessMethodDraft) -> Unit,
     showToast: (String) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     var url by remember(source.key, option.path) { mutableStateOf(source.defaultUrl) }
     var optionValue by remember(source.key, option.path, option.value) { mutableStateOf(option.value) }
@@ -464,7 +468,7 @@ private fun LabProcessMethodTestDialog(
                 .fillMaxHeight(0.82f)
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(12.dp),
-            color = Color.White,
+            color = colorScheme.surface,
         ) {
             Column(
                 modifier = Modifier
@@ -475,7 +479,7 @@ private fun LabProcessMethodTestDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = option.remark.ifBlank { option.path },
-                        color = Color(0xFF202124),
+                        color = colorScheme.onSurface,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2,
@@ -483,7 +487,7 @@ private fun LabProcessMethodTestDialog(
                     )
                     Text(
                         text = option.path,
-                        color = Color(0xFF5F6368),
+                        color = colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -617,13 +621,14 @@ private fun LabScrollableResultPanel(
     modifier: Modifier = Modifier,
     scrollState: ScrollState,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
             text = title,
-            color = Color(0xFF202124),
+            color = colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -637,7 +642,7 @@ private fun LabScrollableResultPanel(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFF8FAFD))
+                    .background(colorScheme.surfaceVariant)
                     .labResultScrollbar(scrollState = scrollState),
             ) {
                 Text(
@@ -646,7 +651,7 @@ private fun LabScrollableResultPanel(
                         .fillMaxSize()
                         .verticalScroll(scrollState)
                         .padding(start = 12.dp, top = 12.dp, end = 18.dp, bottom = 12.dp),
-                    color = Color(0xFF3C4043),
+                    color = colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

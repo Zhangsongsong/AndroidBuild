@@ -103,14 +103,15 @@ private fun TrendszineCategoryChip(
     hasChildren: Boolean,
     onClick: () -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
-        color = if (selected) Color(0xFFE8F0FE) else Color.White,
-        contentColor = if (selected) Color(0xFF1967D2) else Color(0xFF3C4043),
+        color = if (selected) colorScheme.primary.copy(alpha = 0.14f) else colorScheme.surface,
+        contentColor = if (selected) colorScheme.primary else colorScheme.onSurface,
         border = BorderStroke(
             width = 1.dp,
-            color = if (selected) Color(0xFF1967D2) else Color(0xFFE0E3EB),
+            color = if (selected) colorScheme.primary else colorScheme.outline,
         ),
     ) {
         Row(
