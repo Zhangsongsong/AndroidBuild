@@ -71,6 +71,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
     private var isRefreshing by mutableStateOf(false)
     private var isLoadingMoreState by mutableStateOf(false)
     private var showFavoritesOnly by mutableStateOf(false)
+    private var openedFavoritesOnly = false
     private var activeRequest: Job? = null
     private var favoriteBulkDownloadJob: Job? = null
     private var pendingOverwriteDownload by mutableStateOf<PreparedFavoriteItemDownload?>(null)
@@ -87,6 +88,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
         dataInfo = readThemeInfo()
         sourceConfig = dataInfo?.sourceKey?.let(DynamicSourceStore::getConfig)
         showFavoritesOnly = arguments?.getBoolean(KEY_SHOW_FAVORITES) == true
+        openedFavoritesOnly = showFavoritesOnly
         refreshFavorites()
         requireActivity().onBackPressedDispatcher.addCallback(
             this,
@@ -420,6 +422,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
                         ),
                         imageModelProvider = { it.url.toGenericImageModel() },
                         logTag = TAG,
+                        replaceExisting = forceOverwrite,
                         onProgress = { progress ->
                             favoriteDownloadProgress[imageKey] = "$progress/${completeDetailInfo.pictures.size}"
                         },
@@ -563,7 +566,11 @@ class GenericSourceFragment : ComposeBaseFragment() {
             return
         }
         if (showFavoritesOnly) {
-            showFavoritesOnly = false
+            if (openedFavoritesOnly) {
+                requireActivity().finish()
+            } else {
+                showFavoritesOnly = false
+            }
             return
         }
         requireActivity().finish()

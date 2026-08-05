@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
+import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.common.FavoriteBackupManager
 import com.zasko.imageloads.ui.common.FavoriteBackupSource
 import com.zasko.imageloads.ui.common.FavoritePythonExportManager
@@ -51,16 +52,27 @@ import kotlinx.coroutines.withContext
 class FavoritePythonExportActivity : BaseComposeActivity() {
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, FavoritePythonExportActivity::class.java))
+        private const val EXTRA_HOME_THEMES = "extra_home_themes"
+
+        fun start(context: Context, themes: List<MainThemeSelectInfo> = emptyList()) {
+            context.startActivity(
+                Intent(context, FavoritePythonExportActivity::class.java).apply {
+                    putExtra(EXTRA_HOME_THEMES, ArrayList(themes))
+                },
+            )
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val sourceOptions = FavoriteBackupManager.sourceOptionsFromHomeThemes(
+            themes = readHomeThemes(),
+            includeAll = false,
+        )
         setContent {
             ImageLoadsTheme {
                 FavoritePythonExportScreen(
+                    sourceOptions = sourceOptions,
                     onBack = ::finish,
                     copyToClipboard = ::copyToClipboard,
                     showToast = ::showToast,
@@ -82,20 +94,26 @@ class FavoritePythonExportActivity : BaseComposeActivity() {
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
+
+    @Suppress("DEPRECATION")
+    private fun readHomeThemes(): List<MainThemeSelectInfo> {
+        val rawThemes = intent.getSerializableExtra(EXTRA_HOME_THEMES) as? ArrayList<*>
+        return rawThemes?.filterIsInstance<MainThemeSelectInfo>().orEmpty()
+    }
 }
 
 @Composable
 private fun FavoritePythonExportScreen(
+    sourceOptions: List<FavoriteBackupSource>,
     onBack: () -> Unit,
     copyToClipboard: (FavoriteBackupSource, String) -> Unit,
     showToast: (String) -> Unit,
 ) {
     var selectedSourceKey by rememberSaveable {
-        mutableStateOf(FavoriteBackupManager.sourceOptions.first().key)
+        mutableStateOf(sourceOptions.firstOrNull()?.key.orEmpty())
     }
     var pythonText by rememberSaveable { mutableStateOf("") }
-    val selectedSource = FavoriteBackupManager.sourceOptions.firstOrNull { it.key == selectedSourceKey }
-        ?: FavoriteBackupManager.sourceOptions.first()
+    val selectedSource = sourceOptions.firstOrNull { it.key == selectedSourceKey }
     val context = LocalContext.current
     val exportFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/x-python"),
@@ -110,9 +128,16 @@ private fun FavoritePythonExportScreen(
         }
     }
 
-    LaunchedEffect(selectedSourceKey) {
-        pythonText = withContext(Dispatchers.IO) {
-            FavoritePythonExportManager.createPython(source = selectedSource)
+    LaunchedEffect(selectedSourceKey, sourceOptions.size) {
+        pythonText = if (selectedSource == null) {
+            ""
+        } else {
+            withContext(Dispatchers.IO) {
+                FavoritePythonExportManager.createPython(
+                    source = selectedSource,
+                    sourceOptions = sourceOptions,
+                )
+            }
         }
     }
 
@@ -123,12 +148,15 @@ private fun FavoritePythonExportScreen(
                 title = "导出收藏 Python",
                 onBack = onBack,
                 actions = {
-                    FavoritePythonSourceMenu(
-                        selectedSource = selectedSource,
-                        onSourceSelected = { source ->
-                            selectedSourceKey = source.key
-                        },
-                    )
+                    selectedSource?.let { source ->
+                        FavoritePythonSourceMenu(
+                            sourceOptions = sourceOptions,
+                            selectedSource = source,
+                            onSourceSelected = { selected ->
+                                selectedSourceKey = selected.key
+                            },
+                        )
+                    }
                 },
             )
         },
@@ -141,7 +169,11 @@ private fun FavoritePythonExportScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "根据收藏详情链接和处理方法生成 Python 下载脚本",
+                text = if (selectedSource == null) {
+                    "暂无可导出来源，先导入一个来源 JSON"
+                } else {
+                    "根据收藏详情链接和处理方法生成 Python 下载脚本"
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -155,7 +187,7 @@ private fun FavoritePythonExportScreen(
                     .weight(1f),
                 readOnly = true,
                 label = {
-                    Text(text = "${selectedSource.title} 收藏 Python")
+                    Text(text = "${selectedSource?.title ?: "未选择"} 收藏 Python")
                 },
                 minLines = 12,
             )
@@ -165,20 +197,27 @@ private fun FavoritePythonExportScreen(
             ) {
                 TextButton(
                     modifier = Modifier.weight(1f),
+                    enabled = selectedSource != null,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        pythonText = FavoritePythonExportManager.createPython(source = selectedSource)
+                        selectedSource?.let { source ->
+                            pythonText = FavoritePythonExportManager.createPython(
+                                source = source,
+                                sourceOptions = sourceOptions,
+                            )
+                        }
                     },
                 ) {
                     Text(text = "刷新", maxLines = 1)
                 }
                 Button(
                     modifier = Modifier.weight(1f),
+                    enabled = selectedSource != null,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
                         if (pythonText.isBlank()) {
                             showToast("暂无可导出内容")
-                        } else {
+                        } else if (selectedSource != null) {
                             exportFileLauncher.launch(
                                 FavoritePythonExportManager.createExportFileName(source = selectedSource),
                             )
@@ -189,11 +228,12 @@ private fun FavoritePythonExportScreen(
                 }
                 Button(
                     modifier = Modifier.weight(1f),
+                    enabled = selectedSource != null,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
                         if (pythonText.isBlank()) {
                             showToast("暂无可复制内容")
-                        } else {
+                        } else if (selectedSource != null) {
                             copyToClipboard(selectedSource, pythonText)
                             showToast("已复制 ${selectedSource.title} 收藏 Python")
                         }
@@ -226,6 +266,7 @@ private fun exportPythonToFile(
 
 @Composable
 private fun FavoritePythonSourceMenu(
+    sourceOptions: List<FavoriteBackupSource>,
     selectedSource: FavoriteBackupSource,
     onSourceSelected: (FavoriteBackupSource) -> Unit,
 ) {
@@ -239,7 +280,7 @@ private fun FavoritePythonSourceMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            FavoriteBackupManager.sourceOptions.forEach { source ->
+            sourceOptions.forEach { source ->
                 DropdownMenuItem(
                     text = {
                         Text(

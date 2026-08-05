@@ -25,16 +25,22 @@ object FavoritePythonExportManager {
         return "imageloads_favorites_${source.key}.py"
     }
 
-    fun createPython(source: FavoriteBackupSource): String {
-        val payload = createPayloadJson(source = source)
+    fun createPython(
+        source: FavoriteBackupSource,
+        sourceOptions: List<FavoriteBackupSource> = FavoriteBackupManager.sourceOptions,
+    ): String {
+        val payload = createPayloadJson(source = source, sourceOptions = sourceOptions)
         val encodedPayload = Base64.getEncoder()
             .encodeToString(payload.toString().toByteArray(Charsets.UTF_8))
         return PYTHON_TEMPLATE.replace("__PAYLOAD_BASE64__", encodedPayload)
     }
 
-    private fun createPayloadJson(source: FavoriteBackupSource): JSONObject {
+    private fun createPayloadJson(
+        source: FavoriteBackupSource,
+        sourceOptions: List<FavoriteBackupSource>,
+    ): JSONObject {
         val sources = JSONObject()
-        exportSources(source = source).forEach { exportSource ->
+        exportSources(source = source, sourceOptions = sourceOptions).forEach { exportSource ->
             sources.put(exportSource.key, exportSource.toPythonSourceJson())
         }
         return JSONObject()
@@ -43,9 +49,12 @@ object FavoritePythonExportManager {
             .put("sources", sources)
     }
 
-    private fun exportSources(source: FavoriteBackupSource): List<FavoriteBackupSource> {
+    private fun exportSources(
+        source: FavoriteBackupSource,
+        sourceOptions: List<FavoriteBackupSource>,
+    ): List<FavoriteBackupSource> {
         return if (source.key == KEY_ALL) {
-            FavoriteBackupManager.sourceOptions.filterNot { it.key == KEY_ALL }
+            sourceOptions.filterNot { it.key == KEY_ALL }
         } else {
             listOf(source)
         }
@@ -61,7 +70,7 @@ object FavoritePythonExportManager {
             .put("downloadDir", key)
             .put("headers", HttpHeaderConfigStore.getHeadersForUrl(url = baseUrl).toHeadersJson())
             .put("processMethods", sourceProcessMethods().toPythonMethodsJson())
-            .put("favorites", getFavorites(sourceType = type).toFavoritesJson())
+            .put("favorites", getFavorites(source = this).toFavoritesJson())
     }
 
     private fun FavoriteBackupSource.baseUrl(): String {
@@ -76,16 +85,15 @@ object FavoritePythonExportManager {
         }
     }
 
-    private fun getFavorites(sourceType: Int): List<ImageLoadsInfo> {
-        return when (sourceType) {
+    private fun getFavorites(source: FavoriteBackupSource): List<ImageLoadsInfo> {
+        return when (source.type) {
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineFavoriteStore.getFavorites()
             Constants.THEME_TYPE_MEIZI5 -> Meizi5FavoriteStore.getFavorites()
             Constants.THEME_TYPE_TAOTU -> TaoTuFavoriteStore.getFavorites()
-            else -> {
-                FavoriteBackupManager.sourceOptions.firstOrNull { it.type == sourceType }
-                    ?.let { SourceLocalDataStore.getFavorites(targetId = it.key, defaultSourceType = it.type) }
-                    .orEmpty()
-            }
+            else -> SourceLocalDataStore.getFavorites(
+                targetId = source.key,
+                defaultSourceType = source.type,
+            ).orEmpty()
         }
     }
 
@@ -270,7 +278,9 @@ object FavoritePythonExportManager {
             container = soup
             container_selector = pagination.get("containerSelector")
             if container_selector:
-                container = safe_select_one(soup, container_selector) or soup
+                container = safe_select_one(soup, container_selector)
+                if not container:
+                    return ""
 
             link_selector = pagination.get("linkSelector") or "a[href]"
             links = safe_select(container, link_selector)
@@ -306,7 +316,10 @@ object FavoritePythonExportManager {
             content = soup
             content_selector = parse.get("contentSelector")
             if content_selector:
-                content = safe_select_one(soup, content_selector) or soup
+                if str(content_selector).strip() == ".entry-content, article":
+                    content = safe_select_one(soup, ".entry-content") or safe_select_one(soup, "article") or soup
+                else:
+                    content = safe_select_one(soup, content_selector) or soup
 
             image_urls = []
             image_link_selector = parse.get("imageLinkSelector")

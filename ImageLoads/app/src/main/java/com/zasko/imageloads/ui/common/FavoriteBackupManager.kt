@@ -2,6 +2,7 @@ package com.zasko.imageloads.ui.common
 
 import com.zasko.imageloads.components.SourceLocalDataStore
 import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.meizi5.Meizi5FavoriteStore
 import com.zasko.imageloads.ui.taotu.TaoTuFavoriteStore
 import com.zasko.imageloads.ui.trendszine.TrendszineFavoriteStore
@@ -78,21 +79,40 @@ object FavoriteBackupManager {
     val sourceOptions: List<FavoriteBackupSource>
         get() = listOf(allSource) + supportedSources + getDynamicSources()
 
+    fun sourceOptionsFromHomeThemes(
+        themes: List<MainThemeSelectInfo>,
+        includeAll: Boolean = true,
+    ): List<FavoriteBackupSource> {
+        val sources = themes
+            .mapNotNull { it.toBackupSource() }
+            .filterNot { it.key == allSource.key }
+            .distinctBy { it.key }
+        return if (includeAll) {
+            listOf(allSource) + sources
+        } else {
+            sources
+        }
+    }
+
     fun createExportFileName(source: FavoriteBackupSource): String {
         return "imageloads_source_${source.key}.json"
     }
 
-    fun createBackupJson(source: FavoriteBackupSource): String {
+    fun createBackupJson(
+        source: FavoriteBackupSource,
+        sourceOptions: List<FavoriteBackupSource> = this.sourceOptions,
+        includeFavorites: Boolean = true,
+    ): String {
         val sources = JSONObject()
         val exportSources = if (source.isAll()) {
-            supportedSources + getDynamicSources()
+            sourceOptions.filterNot { it.isAll() }
         } else {
             listOf(source)
         }
         exportSources.forEach { exportSource ->
             sources.put(
                 exportSource.key,
-                exportSource.toSourceJson(),
+                exportSource.toSourceJson(includeFavorites = includeFavorites),
             )
         }
         return JSONObject()
@@ -232,10 +252,10 @@ object FavoriteBackupManager {
         }
     }
 
-    private fun FavoriteBackupSource.toSourceJson(): JSONObject {
+    private fun FavoriteBackupSource.toSourceJson(includeFavorites: Boolean): JSONObject {
         if (!DynamicSourceStore.isBuiltInKey(key)) {
             val sourceJson = SourceLocalDataStore.getSourceJson(targetId = key) ?: JSONObject()
-            return sourceJson
+            val json = sourceJson
                 .withoutHeaderConfig()
                 .put(KEY_KEY, key)
                 .put(KEY_TYPE, type)
@@ -253,7 +273,7 @@ object FavoriteBackupManager {
                         ?.withoutLocalCacheMethods()
                         ?: JSONObject(),
                 )
-                .put(KEY_FAVORITES, getFavorites(source = this).toJsonArray(sourceType = type))
+            return json.withFavoritesIfNeeded(source = this, includeFavorites = includeFavorites)
         }
         return JSONObject()
             .put(KEY_KEY, key)
@@ -271,7 +291,18 @@ object FavoriteBackupManager {
                 SourceProcessMethodStore.getOrCacheMethods(sourceType = type)
                     .withoutLocalCacheMethods(),
             )
-            .put(KEY_FAVORITES, getFavorites(source = this).toJsonArray(sourceType = type))
+            .withFavoritesIfNeeded(source = this, includeFavorites = includeFavorites)
+    }
+
+    private fun JSONObject.withFavoritesIfNeeded(
+        source: FavoriteBackupSource,
+        includeFavorites: Boolean,
+    ): JSONObject {
+        remove(KEY_FAVORITES)
+        if (includeFavorites) {
+            put(KEY_FAVORITES, getFavorites(source = source).toJsonArray(sourceType = source.type))
+        }
+        return this
     }
 
     private fun importSourceJson(
@@ -338,6 +369,33 @@ object FavoriteBackupManager {
                 cover = theme.cover,
                 baseUrl = theme.baseUrl,
             )
+        }
+    }
+
+    private fun MainThemeSelectInfo.toBackupSource(): FavoriteBackupSource? {
+        val builtInSource = supportedSources.firstOrNull { it.type == theme }
+        val key = sourceKey.normalizeBackupSourceKey()
+            .ifBlank { builtInSource?.key.orEmpty() }
+            .ifBlank { theme.toBuiltInSourceKey() }
+        if (key.isBlank()) {
+            return null
+        }
+        return FavoriteBackupSource(
+            type = theme,
+            title = title.ifBlank { builtInSource?.title ?: key },
+            key = key,
+            cover = cover.ifBlank { builtInSource?.cover.orEmpty() },
+            baseUrl = baseUrl.ifBlank { builtInSource?.baseUrl.orEmpty() },
+        )
+    }
+
+    private fun Int.toBuiltInSourceKey(): String {
+        return when (this) {
+            Constants.THEME_TYPE_XIUREN -> "xiuren"
+            Constants.THEME_TYPE_MEIZI5 -> "meizi5"
+            Constants.THEME_TYPE_TAOTU -> "taotu"
+            Constants.THEME_TYPE_TRENDSZINE -> "trendszine"
+            else -> ""
         }
     }
 

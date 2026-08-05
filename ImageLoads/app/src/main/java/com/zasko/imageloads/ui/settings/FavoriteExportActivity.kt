@@ -26,6 +26,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.base.BaseComposeActivity
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
+import com.zasko.imageloads.data.MainThemeSelectInfo
 import com.zasko.imageloads.ui.common.FavoriteBackupManager
 import com.zasko.imageloads.ui.common.FavoriteBackupSource
 import kotlinx.coroutines.Dispatchers
@@ -50,16 +53,27 @@ import kotlinx.coroutines.withContext
 class FavoriteExportActivity : BaseComposeActivity() {
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, FavoriteExportActivity::class.java))
+        private const val EXTRA_HOME_THEMES = "extra_home_themes"
+
+        fun start(context: Context, themes: List<MainThemeSelectInfo> = emptyList()) {
+            context.startActivity(
+                Intent(context, FavoriteExportActivity::class.java).apply {
+                    putExtra(EXTRA_HOME_THEMES, ArrayList(themes))
+                },
+            )
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val sourceOptions = FavoriteBackupManager.sourceOptionsFromHomeThemes(
+            themes = readHomeThemes(),
+            includeAll = false,
+        )
         setContent {
             ImageLoadsTheme {
                 FavoriteExportScreen(
+                    sourceOptions = sourceOptions,
                     onBack = ::finish,
                     copyToClipboard = ::copyToClipboard,
                     showToast = ::showToast,
@@ -81,20 +95,29 @@ class FavoriteExportActivity : BaseComposeActivity() {
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
+
+    @Suppress("DEPRECATION")
+    private fun readHomeThemes(): List<MainThemeSelectInfo> {
+        val rawThemes = intent.getSerializableExtra(EXTRA_HOME_THEMES) as? ArrayList<*>
+        return rawThemes?.filterIsInstance<MainThemeSelectInfo>().orEmpty()
+    }
 }
 
 @Composable
 private fun FavoriteExportScreen(
+    sourceOptions: List<FavoriteBackupSource>,
     onBack: () -> Unit,
     copyToClipboard: (FavoriteBackupSource, String) -> Unit,
     showToast: (String) -> Unit,
 ) {
     var selectedSourceKey by rememberSaveable {
-        mutableStateOf(FavoriteBackupManager.sourceOptions.first().key)
+        mutableStateOf(sourceOptions.firstOrNull()?.key.orEmpty())
+    }
+    var includeFavorites by rememberSaveable {
+        mutableStateOf(false)
     }
     var jsonText by rememberSaveable { mutableStateOf("") }
-    val selectedSource = FavoriteBackupManager.sourceOptions.firstOrNull { it.key == selectedSourceKey }
-        ?: FavoriteBackupManager.sourceOptions.first()
+    val selectedSource = sourceOptions.firstOrNull { it.key == selectedSourceKey }
     val context = LocalContext.current
     val exportFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -109,9 +132,17 @@ private fun FavoriteExportScreen(
         }
     }
 
-    LaunchedEffect(selectedSourceKey) {
-        jsonText = withContext(Dispatchers.IO) {
-            FavoriteBackupManager.createBackupJson(source = selectedSource)
+    LaunchedEffect(selectedSourceKey, sourceOptions.size, includeFavorites) {
+        jsonText = if (selectedSource == null) {
+            ""
+        } else {
+            withContext(Dispatchers.IO) {
+                FavoriteBackupManager.createBackupJson(
+                    source = selectedSource,
+                    sourceOptions = sourceOptions,
+                    includeFavorites = includeFavorites,
+                )
+            }
         }
     }
 
@@ -122,12 +153,15 @@ private fun FavoriteExportScreen(
                 title = "导出来源数据",
                 onBack = onBack,
                 actions = {
-                    FavoriteSourceMenu(
-                        selectedSource = selectedSource,
-                        onSourceSelected = { source ->
-                            selectedSourceKey = source.key
-                        },
-                    )
+                    selectedSource?.let { source ->
+                        FavoriteSourceMenu(
+                            sourceOptions = sourceOptions,
+                            selectedSource = source,
+                            onSourceSelected = { selected ->
+                                selectedSourceKey = selected.key
+                            },
+                        )
+                    }
                 },
             )
         },
@@ -140,12 +174,45 @@ private fun FavoriteExportScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "选择来源后导出 JSON，包含来源定义、列表设置和收藏",
+                text = if (selectedSource == null) {
+                    "暂无可导出来源，先导入一个来源 JSON"
+                } else {
+                    "选择来源后导出 JSON，默认只包含来源定义和列表设置"
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = "一起导出收藏",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text = "关闭时不会写入 favorites 字段",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Switch(
+                    checked = includeFavorites,
+                    enabled = selectedSource != null,
+                    onCheckedChange = { includeFavorites = it },
+                )
+            }
             OutlinedTextField(
                 value = jsonText,
                 onValueChange = {},
@@ -154,7 +221,7 @@ private fun FavoriteExportScreen(
                     .weight(1f),
                 readOnly = true,
                 label = {
-                    Text(text = "${selectedSource.title} 来源 JSON")
+                    Text(text = "${selectedSource?.title ?: "未选择"} 来源 JSON")
                 },
                 minLines = 12,
             )
@@ -164,20 +231,28 @@ private fun FavoriteExportScreen(
             ) {
                 TextButton(
                     modifier = Modifier.weight(1f),
+                    enabled = selectedSource != null,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        jsonText = FavoriteBackupManager.createBackupJson(source = selectedSource)
+                        selectedSource?.let { source ->
+                            jsonText = FavoriteBackupManager.createBackupJson(
+                                source = source,
+                                sourceOptions = sourceOptions,
+                                includeFavorites = includeFavorites,
+                            )
+                        }
                     },
                 ) {
                     Text(text = "刷新", maxLines = 1)
                 }
                 Button(
                     modifier = Modifier.weight(1f),
+                    enabled = selectedSource != null,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
                         if (jsonText.isBlank()) {
                             showToast("暂无可导出内容")
-                        } else {
+                        } else if (selectedSource != null) {
                             exportFileLauncher.launch(
                                 FavoriteBackupManager.createExportFileName(source = selectedSource),
                             )
@@ -188,11 +263,12 @@ private fun FavoriteExportScreen(
                 }
                 Button(
                     modifier = Modifier.weight(1f),
+                    enabled = selectedSource != null,
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
                         if (jsonText.isBlank()) {
                             showToast("暂无可复制内容")
-                        } else {
+                        } else if (selectedSource != null) {
                             copyToClipboard(selectedSource, jsonText)
                             showToast("已复制 ${selectedSource.title} 来源 JSON")
                         }
@@ -225,6 +301,7 @@ private fun exportJsonToFile(
 
 @Composable
 private fun FavoriteSourceMenu(
+    sourceOptions: List<FavoriteBackupSource>,
     selectedSource: FavoriteBackupSource,
     onSourceSelected: (FavoriteBackupSource) -> Unit,
 ) {
@@ -238,7 +315,7 @@ private fun FavoriteSourceMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            FavoriteBackupManager.sourceOptions.forEach { source ->
+            sourceOptions.forEach { source ->
                 DropdownMenuItem(
                     text = {
                         Text(

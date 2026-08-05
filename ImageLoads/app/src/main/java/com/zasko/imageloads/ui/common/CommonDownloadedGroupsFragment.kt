@@ -1,5 +1,6 @@
 package com.zasko.imageloads.ui.common
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -44,6 +45,7 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
                         path = info.path,
                     )
                 },
+                onItemDelete = ::deleteDownload,
             )
         }
     }
@@ -86,7 +88,33 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
             ?: emptyList()
     }
 
+    private fun deleteDownload(info: HasDownloadInfo) {
+        val scope = composeRequestScope ?: return
+        val parentDir = File(readParentPath())
+        val downloadDir = File(info.path)
+        scope.launch {
+            val deleted = withContext(Dispatchers.IO) {
+                SourceImageDownloadHelper.deleteDownloadedDetailFolder(
+                    parentDir = parentDir,
+                    detailDownloadDir = downloadDir,
+                )
+            }
+            if (deleted) {
+                downloads.removeAll { it.path == info.path }
+                showToast("已删除")
+            } else {
+                showToast("删除失败")
+            }
+        }
+    }
+
     private fun readParentPath(): String {
         return arguments?.getString(KEY_PARENT_PATH).orEmpty()
+    }
+
+    private fun showToast(message: String) {
+        if (isAdded) {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+        }
     }
 }

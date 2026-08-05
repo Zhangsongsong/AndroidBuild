@@ -70,6 +70,32 @@ object SourceImageDownloadHelper {
         return File(parentDir, detailInfo.toDownloadFolderName())
     }
 
+    fun deleteDownloadedDetailFolder(parentDir: File, detailDownloadDir: File): Boolean {
+        return runCatching {
+            val canonicalParent = parentDir.canonicalFile
+            val canonicalDetailDownloadDir = detailDownloadDir.canonicalFile
+            if (
+                canonicalDetailDownloadDir.parentFile != canonicalParent ||
+                canonicalDetailDownloadDir.name.isBlank()
+            ) {
+                return@runCatching false
+            }
+            val folderDeleted = if (canonicalDetailDownloadDir.exists()) {
+                canonicalDetailDownloadDir.deleteRecursively() && !canonicalDetailDownloadDir.exists()
+            } else {
+                true
+            }
+            if (folderDeleted) {
+                clearDetailDownloadRecordsForFolder(
+                    parentDir = parentDir,
+                    folderName = canonicalDetailDownloadDir.name,
+                    logTag = "SourceImageDownloadHelper",
+                )
+            }
+            folderDeleted
+        }.getOrDefault(false)
+    }
+
     fun isDetailHrefDownloaded(sourceType: Int, detailHref: String): Boolean {
         return isDetailHrefDownloaded(
             parentDir = SourceImageDetailDelegate.getDownloadParentDir(sourceType = sourceType),
@@ -180,6 +206,7 @@ object SourceImageDownloadHelper {
                             )
                         },
                         logTag = logTag,
+                        replaceExisting = forceOverwrite,
                         onProgress = { progress ->
                             progressMap[imageKey] = "$progress/${completeDetailInfo.pictures.size}"
                         },
@@ -295,8 +322,16 @@ object SourceImageDownloadHelper {
         parentDir: File,
         imageModelProvider: (ImageLoadsInfo) -> Any?,
         logTag: String,
+        replaceExisting: Boolean = false,
         onProgress: suspend (Int) -> Unit = {},
     ): Int {
+        if (replaceExisting) {
+            clearExistingDetailDownload(
+                detailInfo = detailInfo,
+                detailDownloadDir = parentDir,
+                logTag = logTag,
+            )
+        }
         if (!parentDir.exists()) {
             parentDir.mkdirs()
         }
@@ -333,6 +368,98 @@ object SourceImageDownloadHelper {
             }
         }
         return savedCount
+    }
+
+    private fun clearExistingDetailDownload(
+        detailInfo: CommonImageDetailInfo,
+        detailDownloadDir: File,
+        logTag: String,
+    ) {
+        val detailParentDir = detailDownloadDir.parentFile
+        val recordedDetailDownloadDir = detailParentDir?.let { parentDir ->
+            getRecordedDetailDownloadDir(parentDir = parentDir, detailHref = detailInfo.url)
+        }
+        if (
+            recordedDetailDownloadDir != null &&
+            runCatching { recordedDetailDownloadDir.canonicalPath != detailDownloadDir.canonicalPath }.getOrDefault(true)
+        ) {
+            runCatching {
+                clearDetailDownloadDir(downloadDir = recordedDetailDownloadDir, logTag = logTag)
+            }.onFailure { throwable ->
+                LogComponent.printE(tag = logTag, message = "clear recorded detail download dir failed:$throwable")
+            }
+        }
+        clearDetailDownloadDir(downloadDir = detailDownloadDir, logTag = logTag)
+        detailParentDir?.let { parentDir ->
+            clearDetailDownloadRecord(
+                parentDir = parentDir,
+                detailHref = detailInfo.url,
+                logTag = logTag,
+            )
+        }
+    }
+
+    private fun clearDetailDownloadDir(downloadDir: File, logTag: String) {
+        val parent = downloadDir.parentFile
+        val canonicalParent = parent?.canonicalFile
+        val canonicalDownloadDir = downloadDir.canonicalFile
+        if (
+            canonicalParent == null ||
+            canonicalDownloadDir.parentFile != canonicalParent ||
+            canonicalDownloadDir.name.isBlank()
+        ) {
+            throw IllegalStateException("invalid detail download dir:${downloadDir.absolutePath}")
+        }
+        if (!canonicalDownloadDir.exists()) {
+            return
+        }
+        val deleted = canonicalDownloadDir.deleteRecursively()
+        if (!deleted && canonicalDownloadDir.exists()) {
+            throw IllegalStateException("clear detail download dir failed:${canonicalDownloadDir.absolutePath}")
+        }
+        LogComponent.printD(tag = logTag, message = "clear detail download dir:${canonicalDownloadDir.absolutePath}")
+    }
+
+    private fun clearDetailDownloadRecord(parentDir: File, detailHref: String, logTag: String) {
+        val normalizedHref = detailHref.trim()
+        if (normalizedHref.isBlank()) {
+            return
+        }
+        runCatching {
+            val recordFile = getDetailDownloadRecordFile(parentDir = parentDir, detailHref = normalizedHref)
+            if (recordFile.exists() && !recordFile.delete()) {
+                throw IllegalStateException("clear detail download record failed:${recordFile.absolutePath}")
+            }
+        }.onFailure { throwable ->
+            LogComponent.printE(tag = logTag, message = "clear detail download record failed:$throwable")
+        }
+    }
+
+    private fun clearDetailDownloadRecordsForFolder(parentDir: File, folderName: String, logTag: String) {
+        if (folderName.isBlank()) {
+            return
+        }
+        runCatching {
+            val recordDir = getDetailDownloadRecordDir(parentDir = parentDir)
+            recordDir.listFiles()
+                ?.filter { recordFile ->
+                    recordFile.isFile &&
+                        recordFile.readLines().any { line ->
+                            line.startsWith(RECORD_LINE_FOLDER) &&
+                                line.removePrefix(RECORD_LINE_FOLDER).trim() == folderName
+                        }
+                }
+                ?.forEach { recordFile ->
+                    if (!recordFile.delete()) {
+                        LogComponent.printE(
+                            tag = logTag,
+                            message = "clear detail download record failed:${recordFile.absolutePath}",
+                        )
+                    }
+                }
+        }.onFailure { throwable ->
+            LogComponent.printE(tag = logTag, message = "clear detail download records failed:$throwable")
+        }
     }
 
     private fun recordDetailDownload(
@@ -382,6 +509,31 @@ object SourceImageDownloadHelper {
         }.getOrDefault(false)
     }
 
+    private fun getRecordedDetailDownloadDir(parentDir: File, detailHref: String): File? {
+        val normalizedHref = detailHref.trim()
+        if (normalizedHref.isBlank()) {
+            return null
+        }
+        return runCatching {
+            val recordFile = getDetailDownloadRecordFile(parentDir = parentDir, detailHref = normalizedHref)
+            if (!recordFile.isFile) {
+                return@runCatching null
+            }
+            val lines = recordFile.readLines()
+            val recordedHref = lines.firstOrNull { it.startsWith(RECORD_LINE_URL) }
+                ?.removePrefix(RECORD_LINE_URL)
+                ?.trim()
+            if (recordedHref != normalizedHref) {
+                return@runCatching null
+            }
+            lines.firstOrNull { it.startsWith(RECORD_LINE_FOLDER) }
+                ?.removePrefix(RECORD_LINE_FOLDER)
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { folderName -> File(parentDir, folderName) }
+        }.getOrNull()
+    }
+
     private fun getDetailDownloadRecordFile(parentDir: File, detailHref: String): File {
         return File(getDetailDownloadRecordDir(parentDir = parentDir), "${detailHref.toSha256()}.txt")
     }
@@ -400,9 +552,10 @@ object SourceImageDownloadHelper {
     }
 
     private fun CommonImageDetailInfo.toDownloadFolderName(): String {
-        return title.ifBlank { url.trimEnd('/').substringAfterLast('/').substringBefore('?') }
+        val folderName = title.ifBlank { url.trimEnd('/').substringAfterLast('/').substringBefore('?') }
             .ifBlank { "image_detail" }
             .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        return folderName.takeUnless { it == "." || it == ".." } ?: "image_detail"
     }
 
     private fun String.toImageFileName(index: Int): String {

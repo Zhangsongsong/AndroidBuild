@@ -186,7 +186,7 @@ class MainActivity : BaseComposeActivity() {
         val dynamicThemes = remember(refreshVersion) {
             DynamicSourceStore.getDynamicThemes()
         }
-        val themes = listOf(trendszineTheme, meizi5Theme, taoTuTheme, xiuRenTheme) + dynamicThemes
+        val themes = dynamicThemes
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val coroutineScope = rememberCoroutineScope()
 
@@ -212,10 +212,10 @@ class MainActivity : BaseComposeActivity() {
                         showThemeStyleDialog = true
                     },
                     onExportSourceDataClick = {
-                        FavoriteExportActivity.start(context = this@MainActivity)
+                        FavoriteExportActivity.start(context = this@MainActivity, themes = themes)
                     },
                     onExportFavoritePythonClick = {
-                        FavoritePythonExportActivity.start(context = this@MainActivity)
+                        FavoritePythonExportActivity.start(context = this@MainActivity, themes = themes)
                     },
                     onImportSourceDataClick = {
                         FavoriteImportActivity.start(context = this@MainActivity)
@@ -229,12 +229,16 @@ class MainActivity : BaseComposeActivity() {
             HomeScreen(
                 themes = themes,
                 commonHeadersEnabledProvider = { info ->
-                    when (info.theme) {
-                        Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders
-                        Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders
-                        Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders
-                        Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders
-                        else -> HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(info.sourceKey)
+                    if (info.sourceKey.isNotBlank()) {
+                        HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(info.sourceKey)
+                    } else {
+                        when (info.theme) {
+                            Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders
+                            Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders
+                            Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders
+                            Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders
+                            else -> true
+                        }
                     }
                 },
                 onOpenDrawer = {
@@ -256,13 +260,13 @@ class MainActivity : BaseComposeActivity() {
                     }
                 },
                 onUseLocalChanged = { info, checked ->
-                    when (info.theme) {
-                        Constants.THEME_TYPE_XIUREN -> useXiuRenLocalData = checked
-                        Constants.THEME_TYPE_MEIZI5 -> useMeizi5LocalData = checked
-                        Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
-                        Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
-                    }
                     if (info.sourceKey.isBlank()) {
+                        when (info.theme) {
+                            Constants.THEME_TYPE_XIUREN -> useXiuRenLocalData = checked
+                            Constants.THEME_TYPE_MEIZI5 -> useMeizi5LocalData = checked
+                            Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
+                            Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
+                        }
                         SourceListSettingsStore.setLocalDataEnabled(
                             sourceType = info.theme,
                             enabled = checked,
@@ -273,13 +277,13 @@ class MainActivity : BaseComposeActivity() {
                     }
                 },
                 onUseCommonHeadersChanged = { info, checked ->
-                    when (info.theme) {
-                        Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders = checked
-                        Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders = checked
-                        Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders = checked
-                        Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders = checked
-                    }
                     if (info.sourceKey.isBlank()) {
+                        when (info.theme) {
+                            Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders = checked
+                            Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders = checked
+                            Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders = checked
+                            Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders = checked
+                        }
                         HttpHeaderConfigStore.setCommonHeadersEnabled(
                             sourceType = info.theme,
                             enabled = checked,
@@ -441,7 +445,7 @@ class MainActivity : BaseComposeActivity() {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(text = "确认删除「${info.title}」？会同时删除该来源的数据、收藏记录、本地 HTML 缓存和下载目录。")
+                    Text(text = "确认删除「${info.title}」？会同时删除该来源的数据、收藏记录和本地 HTML 缓存，已下载的图片会保留。")
                     if (isDeleting) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         Text(
@@ -566,6 +570,10 @@ class MainActivity : BaseComposeActivity() {
     }
 
     private fun openFavoriteTheme(info: MainThemeSelectInfo) {
+        if (info.sourceKey.isNotBlank()) {
+            GenericSourceActivity.startFavorite(context = this, data = info)
+            return
+        }
         when (info.theme) {
             Constants.THEME_TYPE_XIUREN -> XiuRenActivity.startFavorite(context = this, data = info)
             Constants.THEME_TYPE_MEIZI5 -> Meizi5Activity.startFavorite(context = this, data = info)
@@ -576,40 +584,38 @@ class MainActivity : BaseComposeActivity() {
     }
 
     private fun openTheme(info: MainThemeSelectInfo) {
+        if (info.sourceKey.isNotBlank()) {
+            GenericSourceActivity.start(context = this, data = info)
+            return
+        }
         when (info.theme) {
             Constants.THEME_TYPE_XIUREN -> XiuRenActivity.start(context = this, data = info)
             Constants.THEME_TYPE_MEIZI5 -> Meizi5Activity.start(context = this, data = info)
             Constants.THEME_TYPE_TAOTU -> TaoTuActivity.start(context = this, data = info)
             Constants.THEME_TYPE_TRENDSZINE -> TrendszineActivity.start(context = this, data = info)
-            else -> {
-                if (info.sourceKey.isNotBlank()) {
-                    GenericSourceActivity.start(context = this, data = info)
-                } else {
-                    PersonListActivity.start(context = this, data = info)
-                }
-            }
+            else -> PersonListActivity.start(context = this, data = info)
         }
     }
 
     private fun openDownloads(info: MainThemeSelectInfo) {
-        val parentPath = when (info.theme) {
-            Constants.THEME_TYPE_XIUREN -> "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_XIUREN}"
-            Constants.THEME_TYPE_MEIZI5 -> {
-                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_MEIZI5}/${FileUtil.PICTURE_MEIZI5_DETAIL}"
-            }
+        val parentPath = if (info.sourceKey.isNotBlank()) {
+            "${FileUtil.getDownloadPath()}/${info.sourceKey}/detail"
+        } else {
+            when (info.theme) {
+                Constants.THEME_TYPE_XIUREN -> "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_XIUREN}"
+                Constants.THEME_TYPE_MEIZI5 -> {
+                    "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_MEIZI5}/${FileUtil.PICTURE_MEIZI5_DETAIL}"
+                }
 
-            Constants.THEME_TYPE_TAOTU -> {
-                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}"
-            }
+                Constants.THEME_TYPE_TAOTU -> {
+                    "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TAOTU}/${FileUtil.PICTURE_TAOTU_DETAIL}"
+                }
 
-            Constants.THEME_TYPE_TRENDSZINE -> {
-                "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TRENDSZINE}/${FileUtil.PICTURE_TRENDSZINE_DETAIL}"
-            }
+                Constants.THEME_TYPE_TRENDSZINE -> {
+                    "${FileUtil.getDownloadPath()}/${FileUtil.PICTURE_TRENDSZINE}/${FileUtil.PICTURE_TRENDSZINE_DETAIL}"
+                }
 
-            else -> if (info.sourceKey.isNotBlank()) {
-                "${FileUtil.getDownloadPath()}/${info.sourceKey}/detail"
-            } else {
-                ""
+                else -> ""
             }
         }
         if (parentPath.isNotBlank()) {
@@ -637,12 +643,6 @@ class MainActivity : BaseComposeActivity() {
                 File(FileUtil.getPrivateHtmlDir(), dirName).deleteRecursively()
             }
         }
-        info.downloadDirName().takeIf { it.isNotBlank() }?.let { dirName ->
-            onProgress("删除下载目录")
-            withContext(Dispatchers.IO) {
-                File(FileUtil.getDownloadPath(), dirName).deleteRecursively()
-            }
-        }
         onProgress("刷新首页")
     }
 
@@ -659,18 +659,6 @@ class MainActivity : BaseComposeActivity() {
                 Constants.THEME_TYPE_MEIZI5 -> FileUtil.NAME_MEIZI5
                 Constants.THEME_TYPE_TAOTU -> FileUtil.NAME_TAOTU
                 Constants.THEME_TYPE_TRENDSZINE -> FileUtil.NAME_TRENDSZINE
-                else -> ""
-            }
-        }
-    }
-
-    private fun MainThemeSelectInfo.downloadDirName(): String {
-        return sourceKey.trim().ifBlank {
-            when (theme) {
-                Constants.THEME_TYPE_XIUREN -> FileUtil.PICTURE_XIUREN
-                Constants.THEME_TYPE_MEIZI5 -> FileUtil.PICTURE_MEIZI5
-                Constants.THEME_TYPE_TAOTU -> FileUtil.PICTURE_TAOTU
-                Constants.THEME_TYPE_TRENDSZINE -> FileUtil.PICTURE_TRENDSZINE
                 else -> ""
             }
         }

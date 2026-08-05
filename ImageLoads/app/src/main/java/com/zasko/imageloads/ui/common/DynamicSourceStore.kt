@@ -24,7 +24,7 @@ object DynamicSourceStore {
         return SourceLocalDataStore.getSourceJsonList()
             .mapNotNull { sourceJson ->
                 val key = sourceJson.optString("key").normalizeSourceKey()
-                if (key.isBlank() || key in builtInKeys || sourceJson.optJSONObject("processMethods") == null) {
+                if (key.isBlank() || sourceJson.optJSONObject("processMethods") == null) {
                     return@mapNotNull null
                 }
                 MainThemeSelectInfo(

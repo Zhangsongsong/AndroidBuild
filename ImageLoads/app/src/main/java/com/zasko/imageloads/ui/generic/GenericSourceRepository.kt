@@ -8,6 +8,7 @@ import com.zasko.imageloads.ui.common.CommonImageDetailInfo
 import com.zasko.imageloads.ui.common.DynamicSourceConfig
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.MJson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -27,6 +28,7 @@ object GenericSourceRepository {
     private const val DEFAULT_IMAGE_WIDTH = 400
     private const val DEFAULT_IMAGE_HEIGHT = 600
     private const val MAX_DETAIL_PAGE_COUNT = 50
+    private const val OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR = ".entry-content, article"
 
     private val defaultClient by lazy { HttpComponent.createHeaderAwareClient() }
     private val compatibleClient by lazy { HttpComponent.createCompatibleHeaderAwareClient() }
@@ -59,7 +61,17 @@ object GenericSourceRepository {
         var nextUrl = currentDetail.nextPageUrl.trim()
         var loadCount = 0
         while (nextUrl.isNotBlank() && loadCount < MAX_DETAIL_PAGE_COUNT && visitedUrls.add(nextUrl)) {
-            val nextDetail = getDetail(config = config, dataUseFrom = dataUseFrom, url = nextUrl)
+            val nextDetail = try {
+                getDetail(config = config, dataUseFrom = dataUseFrom, url = nextUrl)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(
+                    tag = TAG,
+                    message = "request remaining detail page failed:${config.key} $nextUrl $throwable",
+                )
+                return currentDetail.copy(nextPageUrl = "")
+            }
             currentDetail = currentDetail.mergePage(nextDetail)
             nextUrl = currentDetail.nextPageUrl.trim()
             loadCount += 1
@@ -158,7 +170,7 @@ object GenericSourceRepository {
                 add("标签: ${tags.joinToString(" / ")}")
             }
         }
-        val content = doc.selectFirstOrNull(parse.optString("contentSelector")) ?: doc
+        val content = doc.selectFirstContent(parse.optString("contentSelector")) ?: doc
         val images = mutableListOf<ImageLoadsInfo>()
 
         val imageLinkSelector = parse.optString("imageLinkSelector")
@@ -207,7 +219,12 @@ object GenericSourceRepository {
         if (pagination.optString("nextPageValue").equals("none", ignoreCase = true)) {
             return ""
         }
-        val container = doc.selectFirstOrNull(pagination.optString("containerSelector")) ?: doc
+        val containerSelector = pagination.optString("containerSelector")
+        val container = if (containerSelector.isBlank()) {
+            doc
+        } else {
+            doc.selectFirstOrNull(containerSelector) ?: return ""
+        }
         val links = container.selectOrEmpty(pagination.optString("linkSelector").ifBlank { "a[href]" })
         if (links.isEmpty()) {
             return ""
@@ -313,6 +330,14 @@ object GenericSourceRepository {
 
     private fun Element.firstSelected(selector: String): Element? {
         return selector.takeIf { it.isNotBlank() }?.let { selectFirst(it) }
+    }
+
+    private fun org.jsoup.nodes.Element.selectFirstContent(selector: String): Element? {
+        return if (selector.trim() == OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR) {
+            selectFirst(".entry-content") ?: selectFirst("article")
+        } else {
+            selectFirstOrNull(selector)
+        }
     }
 
     private fun org.jsoup.nodes.Element.selectFirstOrNull(selector: String): Element? {

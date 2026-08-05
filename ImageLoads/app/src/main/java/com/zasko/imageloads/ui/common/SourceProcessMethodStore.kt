@@ -10,11 +10,13 @@ object SourceProcessMethodStore {
     private const val KEY_PARSER = "parser"
     private const val KEY_LIST = "list"
     private const val KEY_DETAIL = "detail"
+    private const val TRENDSZINE_DETAIL_CONTENT_SELECTOR = ".entry-content"
+    private const val OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR = ".entry-content, article"
 
     fun getOrCacheMethods(sourceType: Int): JSONObject {
         val cachedMethods = SourceLocalDataStore.getProcessMethods(sourceType = sourceType)
         if (cachedMethods != null) {
-            return cachedMethods
+            return migrateCachedMethods(sourceType = sourceType, methods = cachedMethods)
         }
         val methods = createDefaultMethods(sourceType = sourceType)
         SourceLocalDataStore.saveProcessMethods(sourceType = sourceType, methods = methods)
@@ -29,6 +31,19 @@ object SourceProcessMethodStore {
 
     fun saveMethods(sourceType: Int, methods: JSONObject) {
         SourceLocalDataStore.saveProcessMethods(sourceType = sourceType, methods = methods)
+    }
+
+    private fun migrateCachedMethods(sourceType: Int, methods: JSONObject): JSONObject {
+        if (sourceType != Constants.THEME_TYPE_TRENDSZINE) {
+            return methods
+        }
+        val parse = methods.optJSONObject(KEY_DETAIL)?.optJSONObject("parse") ?: return methods
+        if (parse.optString("contentSelector").trim() != OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR) {
+            return methods
+        }
+        parse.put("contentSelector", TRENDSZINE_DETAIL_CONTENT_SELECTOR)
+        SourceLocalDataStore.saveProcessMethods(sourceType = sourceType, methods = methods)
+        return methods
     }
 
     private fun createDefaultMethods(sourceType: Int): JSONObject {
@@ -121,7 +136,7 @@ object SourceProcessMethodStore {
                         .put("titleSelector", "h1.entry-title")
                         .put("dateSelector", "time.entry-date")
                         .put("tagSelector", ".cat-links a, .tags-links a")
-                        .put("contentSelector", ".entry-content, article")
+                        .put("contentSelector", TRENDSZINE_DETAIL_CONTENT_SELECTOR)
                         .put("imageSelector", "img[src], img[data-src], img[data-lazy-src]")
                         .put("imageAttrOrder", JSONArray(listOf("src", "data-src", "data-lazy-src"))),
                 )

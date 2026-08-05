@@ -2,6 +2,7 @@ package com.zasko.imageloads.ui.common
 
 import android.content.Context
 import android.content.Intent
+import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.ui.meizi5.Meizi5DetailInfo
 import com.zasko.imageloads.ui.meizi5.Meizi5FavoriteStore
@@ -17,6 +18,7 @@ import com.zasko.imageloads.ui.trendszine.TrendszineRepository
 import com.zasko.imageloads.ui.trendszine.toTrendszineImageModel
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
+import kotlinx.coroutines.CancellationException
 import java.io.File
 
 object SourceImageDetailDelegate {
@@ -80,7 +82,17 @@ object SourceImageDetailDelegate {
         var nextUrl = currentDetail.nextPageUrl.trim()
         var loadCount = 0
         while (nextUrl.isNotBlank() && loadCount < MAX_DETAIL_PAGE_COUNT && visitedUrls.add(nextUrl)) {
-            val nextDetail = requestDetail(sourceType = sourceType, dataUseFrom = dataUseFrom, url = nextUrl)
+            val nextDetail = try {
+                requestDetail(sourceType = sourceType, dataUseFrom = dataUseFrom, url = nextUrl)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(
+                    tag = logTag(sourceType = sourceType),
+                    message = "request remaining detail page failed:$nextUrl $throwable",
+                )
+                return currentDetail.copy(nextPageUrl = "")
+            }
             currentDetail = currentDetail.mergePage(nextDetail)
             nextUrl = currentDetail.nextPageUrl.trim()
             loadCount += 1

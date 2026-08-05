@@ -168,10 +168,7 @@ private fun importJsonFromFile(
         } ?: throw IllegalStateException("open input stream failed")
     }.onSuccess { json ->
         onJsonLoaded(json)
-        importFavorites(
-            rawData = json,
-            showToast = showToast,
-        )
+        showToast("已读取文件，请确认内容后点击导入")
     }.onFailure {
         showToast("读取文件失败")
     }

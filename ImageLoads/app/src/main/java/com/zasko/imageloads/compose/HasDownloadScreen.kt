@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,7 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.zasko.imageloads.R
 import com.zasko.imageloads.data.HasDownloadInfo
 
 @Composable
@@ -35,6 +41,7 @@ fun HasDownloadScreen(
     isLoading: Boolean,
     onBack: () -> Unit,
     onItemClick: (HasDownloadInfo) -> Unit = {},
+    onItemDelete: (HasDownloadInfo) -> Unit = {},
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Scaffold(
@@ -72,6 +79,7 @@ fun HasDownloadScreen(
                             HasDownloadItem(
                                 info = info,
                                 onClick = { onItemClick(info) },
+                                onDelete = { onItemDelete(info) },
                             )
                         }
                     }
@@ -85,6 +93,7 @@ fun HasDownloadScreen(
 private fun HasDownloadItem(
     info: HasDownloadInfo,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Card(
@@ -100,11 +109,29 @@ private fun HasDownloadItem(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            Text(
-                text = info.name,
-                color = colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = info.name,
+                    modifier = Modifier.weight(1f),
+                    color = colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_delete_24),
+                        contentDescription = "删除",
+                        tint = colorScheme.error,
+                    )
+                }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

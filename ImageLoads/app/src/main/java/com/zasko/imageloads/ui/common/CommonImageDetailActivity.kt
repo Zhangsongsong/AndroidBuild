@@ -134,7 +134,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                     onFavoriteClick = ::handleFavoriteClick,
                     onConfirmOverwrite = {
                         showOverwriteDialog = false
-                        startDownload()
+                        startDownload(forceOverwrite = true)
                     },
                     onDismissOverwrite = {
                         showOverwriteDialog = false
@@ -169,6 +169,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         isLoading = true
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
+                logRequestDetailUrl(url = detailUrl)
                 detailInfo = requestDetail(dataUseFrom = readDataUseFrom(), url = detailUrl)
                 if (detailInfo.pictures.isEmpty()) {
                     errorMessage = "暂无详情图片"
@@ -195,6 +196,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         isLoadingMore = true
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
+                logRequestDetailUrl(url = nextUrl)
                 val nextDetail = requestDetail(dataUseFrom = readDataUseFrom(), url = nextUrl)
                 detailInfo = detailInfo.mergePage(nextDetail)
                 updateHasDownloadState()
@@ -233,7 +235,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         showToast(if (isFavorite) "已收藏" else "已取消收藏")
     }
 
-    private fun startDownload() {
+    private fun startDownload(forceOverwrite: Boolean = false) {
         if (isDownloading || detailInfo.pictures.isEmpty()) {
             return
         }
@@ -257,6 +259,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                         ),
                         imageModelProvider = ::imageModel,
                         logTag = logTag,
+                        replaceExisting = forceOverwrite,
                         onProgress = { progress ->
                             downloadFinishedCount = progress
                         },
@@ -283,13 +286,29 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         var nextUrl = currentDetail.nextPageUrl.trim()
         var loadCount = 0
         while (nextUrl.isNotBlank() && loadCount < MAX_DETAIL_PAGE_COUNT && visitedUrls.add(nextUrl)) {
-            val nextDetail = requestDetail(dataUseFrom = readDataUseFrom(), url = nextUrl)
+            val nextDetail = try {
+                logRequestDetailUrl(url = nextUrl)
+                requestDetail(dataUseFrom = readDataUseFrom(), url = nextUrl)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (throwable: Throwable) {
+                LogComponent.printE(
+                    tag = logTag,
+                    message = "load remaining detail page failed:$nextUrl $throwable",
+                )
+                showToast("后续分页加载失败，继续下载已解析图片")
+                return currentDetail.copy(nextPageUrl = "")
+            }
             currentDetail = currentDetail.mergePage(nextDetail)
             detailInfo = currentDetail
             nextUrl = currentDetail.nextPageUrl.trim()
             loadCount += 1
         }
         return currentDetail
+    }
+
+    private fun logRequestDetailUrl(url: String) {
+        LogComponent.printD(tag = logTag, message = "request detail url:$url")
     }
 
     private fun requestExternalStoragePermissionIfNeeded(): Boolean {
