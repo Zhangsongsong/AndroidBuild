@@ -127,6 +127,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                     isFavorite = isFavorite,
                     showOverwriteDialog = showOverwriteDialog,
                     errorMessage = errorMessage,
+                    logTag = logTag,
                     imageModelProvider = { imageModel(imageInfo = it) },
                     onBack = ::handleBack,
                     onDownload = ::handleDownloadClick,
@@ -377,6 +378,7 @@ fun CommonImageDetailScreen(
     isFavorite: Boolean = false,
     showOverwriteDialog: Boolean,
     errorMessage: String,
+    logTag: String = "CommonImageDetailActivity",
     imageModelProvider: (ImageLoadsInfo) -> Any?,
     onBack: () -> Unit,
     onDownload: () -> Unit,
@@ -443,6 +445,7 @@ fun CommonImageDetailScreen(
                     defaultTitle = defaultTitle,
                     isLoadingMore = isLoadingMore,
                     isLoadMoreEnabled = isLoadMoreEnabled,
+                    logTag = logTag,
                     imageModelProvider = imageModelProvider,
                     onLoadMore = onLoadMore,
                     onCurrentImageIndexChanged = { currentImageIndex = it },
@@ -488,6 +491,7 @@ private fun CommonDetailContent(
     defaultTitle: String,
     isLoadingMore: Boolean,
     isLoadMoreEnabled: Boolean,
+    logTag: String,
     imageModelProvider: (ImageLoadsInfo) -> Any?,
     onLoadMore: () -> Unit,
     onCurrentImageIndexChanged: (Int) -> Unit,
@@ -541,8 +545,15 @@ private fun CommonDetailContent(
             CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
         }
         itemsIndexed(detailInfo.pictures) { index, imageInfo ->
+            val imageModel = imageModelProvider(imageInfo)
+            LaunchedEffect(index, imageInfo.url) {
+                LogComponent.printD(
+                    tag = logTag,
+                    message = "detail preview image index:${index + 1} url:${imageInfo.url} model:$imageModel",
+                )
+            }
             GlideImage(
-                model = imageModelProvider(imageInfo),
+                model = imageModel,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(imageInfo.displayRatio())
