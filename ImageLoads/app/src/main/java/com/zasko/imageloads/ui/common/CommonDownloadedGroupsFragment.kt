@@ -1,6 +1,9 @@
 package com.zasko.imageloads.ui.common
 
 import android.widget.Toast
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -31,6 +34,7 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
 
     private val downloads = mutableStateListOf<HasDownloadInfo>()
     private var isLoading by mutableStateOf(false)
+    private var pendingDeleteDownload by mutableStateOf<HasDownloadInfo?>(null)
 
     @Composable
     override fun FragmentContent() {
@@ -45,8 +49,39 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
                         path = info.path,
                     )
                 },
-                onItemDelete = ::deleteDownload,
+                onItemDelete = { info ->
+                    pendingDeleteDownload = info
+                },
             )
+            pendingDeleteDownload?.let { info ->
+                AlertDialog(
+                    onDismissRequest = {
+                        pendingDeleteDownload = null
+                    },
+                    text = {
+                        Text(text = "确认删除「${info.name}」？会直接删除本地文件。")
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                pendingDeleteDownload = null
+                                deleteDownload(info)
+                            },
+                        ) {
+                            Text(text = "删除")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                pendingDeleteDownload = null
+                            },
+                        ) {
+                            Text(text = "取消")
+                        }
+                    },
+                )
+            }
         }
     }
 
