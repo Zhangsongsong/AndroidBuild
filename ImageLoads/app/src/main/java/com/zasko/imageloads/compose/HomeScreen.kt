@@ -1,5 +1,6 @@
 package com.zasko.imageloads.compose
 
+import android.widget.ImageView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,17 +34,19 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.zasko.imageloads.R
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
@@ -52,9 +55,6 @@ import com.zasko.imageloads.ui.meizi5.toMeizi5ImageModel
 import com.zasko.imageloads.ui.taotu.toTaoTuImageModel
 import com.zasko.imageloads.ui.trendszine.toTrendszineImageModel
 import com.zasko.imageloads.utils.Constants
-import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.GlideImage as OfficialGlideImage
-import com.bumptech.glide.integration.compose.placeholder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +65,7 @@ fun HomeScreen(
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
     onOpenFavorites: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
+    onDeleteTheme: (MainThemeSelectInfo) -> Unit = {},
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
     onUseCommonHeadersChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
@@ -103,13 +104,18 @@ fun HomeScreen(
             contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            items(themes) { theme ->
+            items(
+                items = themes,
+                key = { theme -> theme.sourceKey.ifBlank { theme.theme.toString() } },
+                contentType = { "home_theme" },
+            ) { theme ->
                 ThemeSelectCard(
                     info = theme,
                     useCommonHeaders = commonHeadersEnabledProvider(theme),
                     onOpenTheme = onOpenTheme,
                     onOpenFavorites = onOpenFavorites,
                     onOpenDownloads = onOpenDownloads,
+                    onDeleteTheme = onDeleteTheme,
                     onUseLocalChanged = onUseLocalChanged,
                     onUseCommonHeadersChanged = onUseCommonHeadersChanged,
                 )
@@ -118,7 +124,6 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun ThemeSelectCard(
     info: MainThemeSelectInfo,
@@ -126,6 +131,7 @@ private fun ThemeSelectCard(
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
     onOpenFavorites: (MainThemeSelectInfo) -> Unit,
     onOpenDownloads: (MainThemeSelectInfo) -> Unit,
+    onDeleteTheme: (MainThemeSelectInfo) -> Unit,
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
     onUseCommonHeadersChanged: (MainThemeSelectInfo, Boolean) -> Unit,
 ) {
@@ -133,6 +139,12 @@ private fun ThemeSelectCard(
     val isAvailable = info.isAvailable()
     val colorScheme = MaterialTheme.colorScheme
     val outlineColor = colorScheme.outline
+    val density = LocalDensity.current
+    val coverWidthPx = remember(density) { with(density) { 104.dp.roundToPx() } }
+    val coverHeightPx = remember(density) { with(density) { 136.dp.roundToPx() } }
+    val coverModel = remember(info.theme, info.sourceKey, info.cover) {
+        info.coverModel()
+    }
 
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -157,13 +169,14 @@ private fun ThemeSelectCard(
                     .background(colorScheme.surfaceVariant)
                     .clickable { onOpenTheme(info) },
             ) {
-                OfficialGlideImage(
-                    model = info.coverModel(),
-                    contentDescription = info.title,
+                GlideImage(
+                    model = coverModel,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    loading = placeholder(R.mipmap.icon_pic),
-                    failure = placeholder(R.mipmap.icon_pic),
+                    scaleType = ImageView.ScaleType.CENTER_CROP,
+                    placeholderRes = R.mipmap.icon_pic,
+                    requestWidth = coverWidthPx,
+                    requestHeight = coverHeightPx,
+                    diskCacheStrategy = DiskCacheStrategy.RESOURCE,
                 )
             }
 
@@ -192,6 +205,17 @@ private fun ThemeSelectCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         ThemeStatusBadge(isAvailable = isAvailable)
+                        IconButton(
+                            modifier = Modifier.size(32.dp),
+                            onClick = { onDeleteTheme(info) },
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_delete_24),
+                                contentDescription = "删除",
+                                modifier = Modifier.size(18.dp),
+                                tint = colorScheme.error,
+                            )
+                        }
                     }
                     Text(
                         text = if (useLocalData) "本地缓存" else "网络内容",

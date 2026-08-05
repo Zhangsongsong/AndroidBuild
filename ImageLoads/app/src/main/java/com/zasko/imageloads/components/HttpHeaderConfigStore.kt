@@ -89,6 +89,15 @@ object HttpHeaderConfigStore {
             .apply()
     }
 
+    fun removeTargetConfig(targetId: String) {
+        SourceLocalDataStore.removeHeaders(targetId = targetId)
+        getPreferences()
+            .edit()
+            .remove(targetId.toPreferenceKey())
+            .remove(targetId.toCommonHeadersEnabledPreferenceKey())
+            .apply()
+    }
+
     fun isCommonHeadersEnabled(): Boolean {
         val preferences = getPreferences()
         if (preferences.contains(KEY_USE_COMMON_HEADERS)) {

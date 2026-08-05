@@ -26,6 +26,9 @@ fun GlideImage(
     modifier: Modifier = Modifier,
     scaleType: ImageView.ScaleType = ImageView.ScaleType.CENTER_CROP,
     @DrawableRes placeholderRes: Int? = null,
+    requestWidth: Int? = null,
+    requestHeight: Int? = null,
+    diskCacheStrategy: DiskCacheStrategy = DiskCacheStrategy.DATA,
 ) {
     if (LocalInspectionMode.current) {
         Box(
@@ -57,6 +60,9 @@ fun GlideImage(
             val requestKey = GlideImageRequestKey(
                 model = model,
                 placeholderRes = placeholderRes,
+                requestWidth = requestWidth,
+                requestHeight = requestHeight,
+                diskCacheStrategy = diskCacheStrategy,
             )
             if (imageView.getTag(R.id.tag_glide_image_request_key) == requestKey) {
                 return@AndroidView
@@ -64,7 +70,11 @@ fun GlideImage(
             imageView.setTag(R.id.tag_glide_image_request_key, requestKey)
             val request = Glide.with(imageView)
                 .load(model)
-                .diskCacheStrategy(DiskCacheStrategy.DATA)
+                .diskCacheStrategy(diskCacheStrategy)
+                .dontAnimate()
+            if (requestWidth != null && requestHeight != null && requestWidth > 0 && requestHeight > 0) {
+                request.override(requestWidth, requestHeight)
+            }
             if (placeholderRes != null) {
                 request.placeholder(placeholderRes)
             }
@@ -76,4 +86,7 @@ fun GlideImage(
 private data class GlideImageRequestKey(
     val model: Any?,
     @DrawableRes val placeholderRes: Int?,
+    val requestWidth: Int?,
+    val requestHeight: Int?,
+    val diskCacheStrategy: DiskCacheStrategy,
 )

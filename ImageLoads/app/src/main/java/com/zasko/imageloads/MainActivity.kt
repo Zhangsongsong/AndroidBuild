@@ -1,6 +1,7 @@
 package com.zasko.imageloads
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -41,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,12 +67,16 @@ import com.zasko.imageloads.ui.settings.FavoriteImportActivity
 import com.zasko.imageloads.ui.settings.FavoritePythonExportActivity
 import com.zasko.imageloads.ui.settings.AboutActivity
 import com.zasko.imageloads.ui.settings.LabActivity
+import com.zasko.imageloads.ui.settings.ManualSourceImportActivity
 import com.zasko.imageloads.ui.taotu.TaoTuActivity
 import com.zasko.imageloads.ui.trendszine.TrendszineActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 class MainActivity : BaseComposeActivity() {
 
@@ -125,6 +132,15 @@ class MainActivity : BaseComposeActivity() {
         }
         var showThemeStyleDialog by rememberSaveable {
             mutableStateOf(false)
+        }
+        var pendingDeleteTheme by remember {
+            mutableStateOf<MainThemeSelectInfo?>(null)
+        }
+        var isDeletingSource by rememberSaveable {
+            mutableStateOf(false)
+        }
+        var deleteProgressText by rememberSaveable {
+            mutableStateOf("")
         }
         val xiuRenTheme = MainThemeSelectInfo(
             cover = getHomeCover(sourceType = Constants.THEME_TYPE_XIUREN, fallback = XIUREN_COVER),
@@ -204,6 +220,9 @@ class MainActivity : BaseComposeActivity() {
                     onImportSourceDataClick = {
                         FavoriteImportActivity.start(context = this@MainActivity)
                     },
+                    onManualImportSourceClick = {
+                        ManualSourceImportActivity.start(context = this@MainActivity)
+                    },
                 )
             },
         ) {
@@ -229,6 +248,12 @@ class MainActivity : BaseComposeActivity() {
                 },
                 onOpenDownloads = { info ->
                     openDownloads(info = info)
+                },
+                onDeleteTheme = { info ->
+                    if (!isDeletingSource) {
+                        deleteProgressText = ""
+                        pendingDeleteTheme = info
+                    }
                 },
                 onUseLocalChanged = { info, checked ->
                     when (info.theme) {
@@ -265,6 +290,47 @@ class MainActivity : BaseComposeActivity() {
                     }
                 },
             )
+            pendingDeleteTheme?.let { info ->
+                DeleteSourceDialog(
+                    info = info,
+                    isDeleting = isDeletingSource,
+                    progressText = deleteProgressText,
+                    onConfirm = {
+                        if (!isDeletingSource) {
+                            isDeletingSource = true
+                            deleteProgressText = "准备删除"
+                            coroutineScope.launch {
+                                val result = runCatching {
+                                    deleteSourceItem(
+                                        info = info,
+                                        onProgress = { message ->
+                                            deleteProgressText = message
+                                        },
+                                    )
+                                }
+                                isDeletingSource = false
+                                pendingDeleteTheme = null
+                                deleteProgressText = ""
+                                result.onSuccess {
+                                    homeRefreshVersion += 1
+                                    showToast(message = "已删除 ${info.title}")
+                                }.onFailure { throwable ->
+                                    showToast(
+                                        message = throwable.message
+                                            ?.takeIf { it.isNotBlank() }
+                                            ?: "删除失败",
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    onDismiss = {
+                        if (!isDeletingSource) {
+                            pendingDeleteTheme = null
+                        }
+                    },
+                )
+            }
             if (showThemeStyleDialog) {
                 ThemeStyleDialog(
                     onDismiss = {
@@ -290,8 +356,12 @@ class MainActivity : BaseComposeActivity() {
         onExportSourceDataClick: () -> Unit,
         onExportFavoritePythonClick: () -> Unit,
         onImportSourceDataClick: () -> Unit,
+        onManualImportSourceClick: () -> Unit,
     ) {
-        ModalDrawerSheet {
+        val drawerWidth = (LocalConfiguration.current.screenWidthDp * 2 / 3).dp
+        ModalDrawerSheet(
+            modifier = Modifier.width(drawerWidth),
+        ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Spacer(modifier = Modifier.height(24.dp))
                 DrawerSectionTitle(text = "导出数据")
@@ -308,21 +378,26 @@ class MainActivity : BaseComposeActivity() {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 DrawerSectionTitle(text = "导入数据")
                 NavigationDrawerItem(
-                    label = { Text(text = "来源数据") },
+                    label = { Text(text = "JSON数据") },
                     selected = false,
                     onClick = onImportSourceDataClick,
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = "手动添加") },
+                    selected = false,
+                    onClick = onManualImportSourceClick,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 DrawerSectionTitle(text = "其他")
                 NavigationDrawerItem(
-                    label = { Text(text = "主题风格") },
-                    selected = false,
-                    onClick = onThemeStyleClick,
-                )
-                NavigationDrawerItem(
                     label = { Text(text = "实验室") },
                     selected = false,
                     onClick = onLabClick,
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = "主题风格") },
+                    selected = false,
+                    onClick = onThemeStyleClick,
                 )
                 NavigationDrawerItem(
                     label = { Text(text = "关于") },
@@ -342,6 +417,60 @@ class MainActivity : BaseComposeActivity() {
             color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
+        )
+    }
+
+    @Composable
+    private fun DeleteSourceDialog(
+        info: MainThemeSelectInfo,
+        isDeleting: Boolean,
+        progressText: String,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isDeleting) {
+                    onDismiss()
+                }
+            },
+            title = {
+                Text(text = "删除来源")
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(text = "确认删除「${info.title}」？会同时删除该来源的数据、收藏记录、本地 HTML 缓存和下载目录。")
+                    if (isDeleting) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(
+                            text = progressText.ifBlank { "正在删除" },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isDeleting,
+                    onClick = onConfirm,
+                ) {
+                    Text(
+                        text = if (isDeleting) "删除中" else "删除",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isDeleting,
+                    onClick = onDismiss,
+                ) {
+                    Text(text = "取消")
+                }
+            },
         )
     }
 
@@ -486,6 +615,69 @@ class MainActivity : BaseComposeActivity() {
         if (parentPath.isNotBlank()) {
             CommonDownloadedActivity.start(context = this, parentPath = parentPath)
         }
+    }
+
+    private suspend fun deleteSourceItem(
+        info: MainThemeSelectInfo,
+        onProgress: (String) -> Unit,
+    ) {
+        val targetId = info.sourceTargetId()
+        if (targetId.isBlank()) {
+            return
+        }
+
+        onProgress("删除来源数据")
+        withContext(Dispatchers.IO) {
+            SourceLocalDataStore.removeSourceJson(targetId = targetId)
+            HttpHeaderConfigStore.removeTargetConfig(targetId = targetId)
+        }
+        info.localHtmlDirName().takeIf { it.isNotBlank() }?.let { dirName ->
+            onProgress("删除本地 HTML 缓存")
+            withContext(Dispatchers.IO) {
+                File(FileUtil.getPrivateHtmlDir(), dirName).deleteRecursively()
+            }
+        }
+        info.downloadDirName().takeIf { it.isNotBlank() }?.let { dirName ->
+            onProgress("删除下载目录")
+            withContext(Dispatchers.IO) {
+                File(FileUtil.getDownloadPath(), dirName).deleteRecursively()
+            }
+        }
+        onProgress("刷新首页")
+    }
+
+    private fun MainThemeSelectInfo.sourceTargetId(): String {
+        return sourceKey.trim().ifBlank {
+            HttpHeaderConfigStore.getHeaderTargetId(sourceType = theme)
+        }
+    }
+
+    private fun MainThemeSelectInfo.localHtmlDirName(): String {
+        return sourceKey.trim().ifBlank {
+            when (theme) {
+                Constants.THEME_TYPE_XIUREN -> FileUtil.NAME_XIUREN
+                Constants.THEME_TYPE_MEIZI5 -> FileUtil.NAME_MEIZI5
+                Constants.THEME_TYPE_TAOTU -> FileUtil.NAME_TAOTU
+                Constants.THEME_TYPE_TRENDSZINE -> FileUtil.NAME_TRENDSZINE
+                else -> ""
+            }
+        }
+    }
+
+    private fun MainThemeSelectInfo.downloadDirName(): String {
+        return sourceKey.trim().ifBlank {
+            when (theme) {
+                Constants.THEME_TYPE_XIUREN -> FileUtil.PICTURE_XIUREN
+                Constants.THEME_TYPE_MEIZI5 -> FileUtil.PICTURE_MEIZI5
+                Constants.THEME_TYPE_TAOTU -> FileUtil.PICTURE_TAOTU
+                Constants.THEME_TYPE_TRENDSZINE -> FileUtil.PICTURE_TRENDSZINE
+                else -> ""
+            }
+        }
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun getHomeCover(sourceType: Int, fallback: String): String {
