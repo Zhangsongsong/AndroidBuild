@@ -10,6 +10,7 @@ object SourceProcessMethodStore {
     private const val KEY_PARSER = "parser"
     private const val KEY_LIST = "list"
     private const val KEY_DETAIL = "detail"
+    private const val TRENDSZINE_DETAIL_TAG_SELECTOR = ".cat-links a, .tags-links a"
     private const val TRENDSZINE_DETAIL_CONTENT_SELECTOR = ".entry-content"
     private const val OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR = ".entry-content, article"
 
@@ -38,11 +39,23 @@ object SourceProcessMethodStore {
             return methods
         }
         val parse = methods.optJSONObject(KEY_DETAIL)?.optJSONObject("parse") ?: return methods
+        var changed = false
         if (parse.optString("contentSelector").trim() != OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR) {
-            return methods
+            if (parse.optString("contentSelector").trim().isBlank()) {
+                parse.put("contentSelector", TRENDSZINE_DETAIL_CONTENT_SELECTOR)
+                changed = true
+            }
+        } else {
+            parse.put("contentSelector", TRENDSZINE_DETAIL_CONTENT_SELECTOR)
+            changed = true
         }
-        parse.put("contentSelector", TRENDSZINE_DETAIL_CONTENT_SELECTOR)
-        SourceLocalDataStore.saveProcessMethods(sourceType = sourceType, methods = methods)
+        if (parse.optString("tagSelector").trim().isBlank()) {
+            parse.put("tagSelector", TRENDSZINE_DETAIL_TAG_SELECTOR)
+            changed = true
+        }
+        if (changed) {
+            SourceLocalDataStore.saveProcessMethods(sourceType = sourceType, methods = methods)
+        }
         return methods
     }
 

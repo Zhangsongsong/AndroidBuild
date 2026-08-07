@@ -28,6 +28,8 @@ import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialogState
 import com.zasko.imageloads.ui.common.FavoriteBulkDownloadPlan
 import com.zasko.imageloads.ui.common.PreparedFavoriteItemDownload
 import com.zasko.imageloads.ui.common.SourceImageDownloadHelper
+import com.zasko.imageloads.ui.trendszine.TrendszineCategory
+import com.zasko.imageloads.ui.trendszine.TrendszineTitleCategorySelector
 import com.zasko.imageloads.utils.FileUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -60,6 +62,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
 
     private val images = mutableStateListOf<ImageLoadsInfo>()
     private val favoriteImages = mutableStateListOf<ImageLoadsInfo>()
+    private val categories = mutableStateListOf<TrendszineCategory>()
     private val pageLabels = mutableStateMapOf<Int, Int>()
     private val favoriteDownloadProgress = mutableStateMapOf<String, String>()
     private val favoriteDownloadJobs = mutableMapOf<String, Job>()
@@ -67,6 +70,8 @@ class GenericSourceFragment : ComposeBaseFragment() {
 
     private var dataInfo: MainThemeSelectInfo? = null
     private var sourceConfig: DynamicSourceConfig? = null
+    private var selectedParentCategory by mutableStateOf(TrendszineCategory())
+    private var selectedCategory by mutableStateOf(TrendszineCategory())
     private var nextPage = 1
     private var isRefreshing by mutableStateOf(false)
     private var isLoadingMoreState by mutableStateOf(false)
@@ -115,7 +120,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
                 isRefreshing = !showFavoritesOnly && isRefreshing,
                 isLoadingMore = !showFavoritesOnly && isLoadingMoreState,
                 onBack = ::handleBack,
-                onOpenWeb = { openUrl(dataInfo?.baseUrl.orEmpty()) },
+                onOpenWeb = { openUrl(currentCategoryUrl()) },
                 onLoadMore = {
                     if (!showFavoritesOnly) {
                         loadMoreData()
@@ -126,6 +131,19 @@ class GenericSourceFragment : ComposeBaseFragment() {
                     { _, _ -> null }
                 } else {
                     ::pageLabelFor
+                },
+                titleContent = if (showFavoritesOnly || categories.size <= 1) {
+                    null
+                } else {
+                    {
+                        TrendszineTitleCategorySelector(
+                            categories = categories,
+                            selectedParentCategory = selectedParentCategory,
+                            selectedCategory = selectedCategory,
+                            onParentCategorySelected = ::selectParentCategory,
+                            onChildCategorySelected = ::selectChildCategory,
+                        )
+                    }
                 },
                 imageModelProvider = { it.url.toGenericImageModel() },
                 imageRatioProvider = { it.genericDisplayRatio() },
@@ -197,8 +215,10 @@ class GenericSourceFragment : ComposeBaseFragment() {
     private fun screenTitle(): String {
         return if (showFavoritesOnly) {
             "${dataInfo?.title.orEmpty()} 收藏"
-        } else {
+        } else if (selectedCategory.url.isBlank() || selectedCategory.url == currentHomeCategoryUrl()) {
             dataInfo?.title.orEmpty()
+        } else {
+            selectedCategory.title.ifBlank { dataInfo?.title.orEmpty() }
         }
     }
 
@@ -219,6 +239,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
     private fun requestImages(mode: LoadMode, targetPage: Int? = null) {
         val scope = composeRequestScope ?: return
         val config = sourceConfig ?: return
+        val categoryUrl = currentCategoryUrl()
         val page = when (mode) {
             LoadMode.Refresh -> targetPage?.coerceAtLeast(1) ?: 1
             LoadMode.More -> nextPage
@@ -232,6 +253,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
                     config = config,
                     dataUseFrom = dataInfo?.dataUseFrom,
                     page = page,
+                    categoryUrl = categoryUrl,
                 )
                 if (isActiveRequest(requestId = requestId, scope = scope)) {
                     applyLoadedImages(mode = mode, page = page, result = result)
@@ -276,6 +298,21 @@ class GenericSourceFragment : ComposeBaseFragment() {
     }
 
     private fun applyLoadedImages(mode: LoadMode, page: Int, result: GenericSourcePageResult) {
+        if (result.categories.isNotEmpty()) {
+            val selectedParentUrl = selectedParentCategory.url
+            val selectedCategoryUrl = selectedCategory.url
+            categories.clear()
+            categories.addAll(result.categories)
+            selectedParentCategory = categories.firstOrNull { it.url == selectedParentUrl }
+                ?: categories.firstOrNull()
+                ?: homeCategory()
+            selectedCategory = if (selectedParentCategory.url == selectedCategoryUrl) {
+                selectedParentCategory
+            } else {
+                selectedParentCategory.children.firstOrNull { it.url == selectedCategoryUrl }
+                    ?: selectedParentCategory
+            }
+        }
         when (mode) {
             LoadMode.Refresh -> {
                 pageLabels.clear()
@@ -306,6 +343,55 @@ class GenericSourceFragment : ComposeBaseFragment() {
 
     private fun currentFirstPage(): Int {
         return pageLabels[0] ?: maxOf(1, nextPage - 1)
+    }
+
+    private fun currentCategoryUrl(): String {
+        return selectedCategory.url.ifBlank { currentHomeCategoryUrl() }
+    }
+
+    private fun currentHomeCategoryUrl(): String {
+        return sourceConfig?.baseUrl?.trimEnd('/')
+            ?: dataInfo?.baseUrl?.trimEnd('/')
+            ?: ""
+    }
+
+    private fun homeCategory(): TrendszineCategory {
+        return TrendszineCategory(
+            title = "全部",
+            url = currentHomeCategoryUrl(),
+        )
+    }
+
+    private fun selectParentCategory(category: TrendszineCategory) {
+        if ((selectedParentCategory == category && selectedCategory == category) || isRefreshing || isLoadingMore.get()) {
+            return
+        }
+        selectedParentCategory = category
+        selectCategory(category = category)
+    }
+
+    private fun selectChildCategory(category: TrendszineCategory) {
+        val parentCategory = findParentCategory(category = category)
+        if ((selectedParentCategory == parentCategory && selectedCategory == category) || isRefreshing || isLoadingMore.get()) {
+            return
+        }
+        selectedParentCategory = parentCategory
+        selectCategory(category = category)
+    }
+
+    private fun findParentCategory(category: TrendszineCategory): TrendszineCategory {
+        return categories.firstOrNull {
+            it.url == category.url || it.children.any { childCategory -> childCategory.url == category.url }
+        } ?: category
+    }
+
+    private fun selectCategory(category: TrendszineCategory) {
+        selectedCategory = category
+        images.clear()
+        pageLabels.clear()
+        nextPage = 1
+        isLoadEnd.set(false)
+        requestImages(mode = LoadMode.Refresh)
     }
 
     private fun jumpToPage(page: Int) {

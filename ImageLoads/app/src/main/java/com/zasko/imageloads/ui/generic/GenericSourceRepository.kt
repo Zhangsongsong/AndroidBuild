@@ -6,6 +6,7 @@ import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.ui.common.CommonImageDetailInfo
 import com.zasko.imageloads.ui.common.DynamicSourceConfig
+import com.zasko.imageloads.ui.trendszine.TrendszineCategory
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.MJson
 import kotlinx.coroutines.CancellationException
@@ -15,10 +16,13 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.Document
 import java.io.File
+import kotlin.math.absoluteValue
 
 data class GenericSourcePageResult(
     val images: List<ImageLoadsInfo> = emptyList(),
+    val categories: List<TrendszineCategory> = emptyList(),
     val nextPage: Int? = null,
 )
 
@@ -29,15 +33,21 @@ object GenericSourceRepository {
     private const val DEFAULT_IMAGE_HEIGHT = 600
     private const val MAX_DETAIL_PAGE_COUNT = 50
     private const val OLD_TRENDSZINE_DETAIL_CONTENT_SELECTOR = ".entry-content, article"
+    private const val TRENDSZINE_DETAIL_TAG_SELECTOR = ".cat-links a, .tags-links a"
 
     private val defaultClient by lazy { HttpComponent.createHeaderAwareClient() }
     private val compatibleClient by lazy { HttpComponent.createCompatibleHeaderAwareClient() }
 
-    suspend fun getImages(config: DynamicSourceConfig, dataUseFrom: Int?, page: Int): GenericSourcePageResult {
+    suspend fun getImages(
+        config: DynamicSourceConfig,
+        dataUseFrom: Int?,
+        page: Int,
+        categoryUrl: String = config.baseUrl,
+    ): GenericSourcePageResult {
         return if (dataUseFrom == DataUseFrom.PRIVATE_FILE.value) {
-            getLocalImages(config = config, page = page)
+            getLocalImages(config = config, page = page, categoryUrl = categoryUrl)
         } else {
-            getNetworkImages(config = config, page = page)
+            getNetworkImages(config = config, page = page, categoryUrl = categoryUrl)
         }
     }
 
@@ -79,25 +89,41 @@ object GenericSourceRepository {
         return currentDetail
     }
 
-    private suspend fun getNetworkImages(config: DynamicSourceConfig, page: Int): GenericSourcePageResult {
-        val url = config.buildPageUrl(page = page)
+    private suspend fun getNetworkImages(
+        config: DynamicSourceConfig,
+        page: Int,
+        categoryUrl: String,
+    ): GenericSourcePageResult {
+        val url = config.buildPageUrl(page = page, categoryUrl = categoryUrl)
         val html = requestHtml(url = url)
         return withContext(Dispatchers.IO) {
-            saveListHtml(config = config, page = page, html = html)
+            saveListHtml(config = config, categoryUrl = categoryUrl, page = page, html = html)
             transformHome(config = config, data = html, page = page)
         }
     }
 
-    private suspend fun getLocalImages(config: DynamicSourceConfig, page: Int): GenericSourcePageResult {
+    private suspend fun getLocalImages(
+        config: DynamicSourceConfig,
+        page: Int,
+        categoryUrl: String,
+    ): GenericSourcePageResult {
         val localResult = withContext(Dispatchers.IO) {
-            val file = File(getListHtmlDir(config = config), page.toString())
+            val file = File(getListHtmlDir(config = config, categoryUrl = categoryUrl), page.toString())
             if (file.exists()) {
                 transformHome(config = config, data = FileUtil.getFileToHtml(file)?.toString().orEmpty(), page = page)
+            } else if (isHomeCategoryUrl(categoryUrl = categoryUrl, baseUrl = config.baseUrl)) {
+                val legacyFile = File(getLegacyListHtmlDir(config = config), page.toString())
+                if (legacyFile.exists()) {
+                    transformHome(config = config, data = FileUtil.getFileToHtml(legacyFile)?.toString().orEmpty(), page = page)
+                } else {
+                    GenericSourcePageResult()
+                }
             } else {
                 GenericSourcePageResult()
             }
         }
-        return localResult.takeIf { it.images.isNotEmpty() } ?: getNetworkImages(config = config, page = page)
+        return localResult.takeIf { it.images.isNotEmpty() || it.categories.isNotEmpty() }
+            ?: getNetworkImages(config = config, page = page, categoryUrl = categoryUrl)
     }
 
     private suspend fun getNetworkDetail(config: DynamicSourceConfig, url: String): CommonImageDetailInfo {
@@ -151,6 +177,13 @@ object GenericSourceRepository {
         }
         return GenericSourcePageResult(
             images = resultList.distinctBy { it.url },
+            categories = extractCategories(
+                doc = doc,
+                config = config,
+                categorySelector = parse.optString("categorySelector"),
+                categoryLinkSelector = parse.optString("categoryLinkSelector"),
+                childrenCategorySelector = parse.optString("childrenCategorySelector"),
+            ),
             nextPage = if (hasNextPage(doc = doc, listConfig = listConfig, images = resultList, page = page)) page + 1 else null,
         )
     }
@@ -162,10 +195,12 @@ object GenericSourceRepository {
         val title = doc.selectFirstOrNull(parse.optString("titleSelector"))?.text()?.trim().orEmpty()
         val subtitles = buildList {
             doc.selectFirstOrNull(parse.optString("dateSelector"))?.text()?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
-            val tags = doc.selectOrEmpty(parse.optString("tagSelector"))
-                .map { it.text().trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
+            val tags = extractDetailTags(
+                doc = doc,
+                tagSelector = parse.optString("tagSelector"),
+                sourceKey = config.key,
+                baseUrl = config.baseUrl,
+            )
             if (tags.isNotEmpty()) {
                 add("标签: ${tags.joinToString(" / ")}")
             }
@@ -250,6 +285,28 @@ object GenericSourceRepository {
         }
     }
 
+    internal fun extractDetailTags(
+        doc: org.jsoup.nodes.Document,
+        tagSelector: String,
+        sourceKey: String,
+        baseUrl: String,
+    ): List<String> {
+        val configuredTags = doc.selectOrEmpty(tagSelector)
+            .map { it.text().trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (configuredTags.isNotEmpty()) {
+            return configuredTags
+        }
+        if (!isTrendszineLike(sourceKey = sourceKey, baseUrl = baseUrl)) {
+            return emptyList()
+        }
+        return doc.selectOrEmpty(TRENDSZINE_DETAIL_TAG_SELECTOR)
+            .map { it.text().trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+    }
+
     private fun hasNextPage(
         doc: org.jsoup.nodes.Document,
         listConfig: JSONObject,
@@ -264,18 +321,51 @@ object GenericSourceRepository {
         return images.isNotEmpty() && page < 10000 && !pagination.optString("nextPageValue").equals("none", ignoreCase = true)
     }
 
-    private fun DynamicSourceConfig.buildPageUrl(page: Int): String {
+    private fun DynamicSourceConfig.buildPageUrl(page: Int, categoryUrl: String): String {
         val listConfig = processMethods.optJSONObject("list") ?: JSONObject()
         val pageUrl = listConfig.optJSONObject("pageUrl") ?: JSONObject()
         val firstPage = pageUrl.optString("firstPage")
             .ifBlank { listConfig.optJSONObject("request")?.optString("homeUrl").orEmpty() }
             .ifBlank { baseUrl }
         val nextPage = pageUrl.optString("nextPage").ifBlank { firstPage }
+        val normalizedBaseUrl = baseUrl.trimEnd('/')
+        val normalizedCategoryUrl = categoryUrl.trimEnd('/').ifBlank { normalizedBaseUrl }
         return (if (page <= 1) firstPage else nextPage)
             .replace("{page}", page.toString())
-            .replace("{baseUrl}", baseUrl.trimEnd('/'))
+            .replace("{baseUrl}", normalizedBaseUrl)
             .replace("{homeUrl}", baseUrl)
-            .replace("{categoryUrl}", baseUrl.trimEnd('/'))
+            .replace("{categoryUrl}", normalizedCategoryUrl)
+    }
+
+    internal fun extractCategories(
+        doc: Document,
+        config: DynamicSourceConfig,
+        categorySelector: String,
+        categoryLinkSelector: String,
+        childrenCategorySelector: String,
+    ): List<TrendszineCategory> {
+        val categorySelector = categorySelector.trim()
+        val categoryLinkSelector = categoryLinkSelector.trim()
+        if (categorySelector.isBlank() || categoryLinkSelector.isBlank()) {
+            return emptyList()
+        }
+        val normalizedBaseUrl = config.baseUrl.trimEnd('/')
+        val categories = mutableListOf<TrendszineCategory>()
+        doc.selectOrEmpty(categorySelector).forEach { item ->
+            val topLink = item.selectFirstOrNull(categoryLinkSelector) ?: return@forEach
+            val topCategory = topLink.toCategoryOrNull(config = config) ?: return@forEach
+            val children = item.selectOrEmpty(childrenCategorySelector)
+                .mapNotNull { it.toCategoryOrNull(config = config) }
+                .distinctBy { it.url }
+            categories.add(topCategory.copy(children = children))
+        }
+        if (categories.isEmpty()) {
+            return emptyList()
+        }
+        return buildList {
+            add(TrendszineCategory(title = "全部", url = normalizedBaseUrl))
+            addAll(categories.distinctBy { it.url })
+        }.distinctBy { it.url }
     }
 
     private suspend fun requestHtml(url: String): String {
@@ -302,8 +392,8 @@ object GenericSourceRepository {
         }
     }
 
-    private fun saveListHtml(config: DynamicSourceConfig, page: Int, html: String) {
-        File(getListHtmlDir(config = config), page.toString()).writeText(html, Charsets.UTF_8)
+    private fun saveListHtml(config: DynamicSourceConfig, categoryUrl: String, page: Int, html: String) {
+        File(getListHtmlDir(config = config, categoryUrl = categoryUrl), page.toString()).writeText(html, Charsets.UTF_8)
         LogComponent.printD(tag = TAG, message = "saveListHtml source:${config.key} page:$page html:${html.length}")
     }
 
@@ -312,7 +402,12 @@ object GenericSourceRepository {
         LogComponent.printD(tag = TAG, message = "saveDetailHtml source:${config.key} url:$url html:${html.length}")
     }
 
-    private fun getListHtmlDir(config: DynamicSourceConfig): File {
+    private fun getListHtmlDir(config: DynamicSourceConfig, categoryUrl: String): File {
+        return File(FileUtil.getPrivateHtmlDir(), "${config.key}/list/${categoryUrl.toCacheDirName(baseUrl = config.baseUrl)}")
+            .also { it.mkdirs() }
+    }
+
+    private fun getLegacyListHtmlDir(config: DynamicSourceConfig): File {
         return File(FileUtil.getPrivateHtmlDir(), "${config.key}/list").also { it.mkdirs() }
     }
 
@@ -379,6 +474,33 @@ object GenericSourceRepository {
         return attr(spec)
     }
 
+    private fun isTrendszineLike(sourceKey: String, baseUrl: String): Boolean {
+        return sourceKey.equals("trendszine", ignoreCase = true) ||
+            baseUrl.contains("trendszine.com", ignoreCase = true)
+    }
+
+    private fun isHomeCategoryUrl(categoryUrl: String, baseUrl: String): Boolean {
+        val normalizedCategoryUrl = categoryUrl.trimEnd('/')
+        val normalizedBaseUrl = baseUrl.trimEnd('/')
+        return normalizedCategoryUrl.isBlank() || normalizedCategoryUrl == normalizedBaseUrl
+    }
+
+    private fun String.toCacheDirName(baseUrl: String): String {
+        val normalizedValue = trim().trimEnd('/')
+        val normalizedBaseUrl = baseUrl.trimEnd('/')
+        if (normalizedValue.isBlank() || normalizedValue == normalizedBaseUrl) {
+            return "home"
+        }
+        val relativeValue = if (normalizedBaseUrl.isBlank()) {
+            normalizedValue
+        } else {
+            normalizedValue.substringAfter(normalizedBaseUrl, normalizedValue)
+        }
+        return relativeValue
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .ifBlank { normalizedValue.hashCode().absoluteValue.toString() }
+    }
+
     private fun JSONArray.toStringList(): List<String> {
         return buildList {
             for (index in 0 until length()) {
@@ -395,6 +517,24 @@ object GenericSourceRepository {
             url.startsWith("/") -> config.baseUrl.trimEnd('/') + url
             url.isBlank() -> ""
             else -> config.baseUrl.trimEnd('/') + "/" + url.removePrefix("/")
+        }
+    }
+
+    private fun Element.toCategoryOrNull(config: DynamicSourceConfig): TrendszineCategory? {
+        val rawHref = attr("href").trim()
+        if (rawHref.isBlank() || rawHref == "#" || rawHref.startsWith("javascript:", ignoreCase = true)) {
+            return null
+        }
+        val title = text().trim()
+        val href = rawHref.toAbsoluteUrl(config = config).trimEnd('/')
+        val normalizedBaseUrl = config.baseUrl.trimEnd('/')
+        if (normalizedBaseUrl.isBlank()) {
+            return null
+        }
+        return if (title.isNotBlank() && href.startsWith(normalizedBaseUrl) && href != normalizedBaseUrl) {
+            TrendszineCategory(title = title, url = href)
+        } else {
+            null
         }
     }
 
