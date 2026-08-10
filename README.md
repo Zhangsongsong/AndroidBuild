@@ -8,7 +8,8 @@
 - 版本号：`1.0`
 - versionCode：`1`
 - minSdk：`25`
-- APK 文件：`ImageLoads/app/build/outputs/apk/release/app-release.apk`
+- APK 文件：`docs/apk/app-release.apk`
+- APK 下载地址：[下载 app-release.apk](docs/apk/app-release.apk)
 - APK 大小：约 `12.5 MB`
 - 构建时间：`2026-08-10 12:17:04 CST`
 
@@ -19,14 +20,14 @@
 在 `/Users/songzhouzhang/Mine/Github/AndroidBuild` 目录下执行：
 
 ```bash
-adb install -r ImageLoads/app/build/outputs/apk/release/app-release.apk
+adb install -r docs/apk/app-release.apk
 ```
 
 如果设备上已经安装了不同签名的同包名应用，需要先卸载旧包：
 
 ```bash
 adb uninstall com.zasko.imageloads
-adb install -r ImageLoads/app/build/outputs/apk/release/app-release.apk
+adb install -r docs/apk/app-release.apk
 ```
 
 ## 使用文档位置
