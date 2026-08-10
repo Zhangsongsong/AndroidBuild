@@ -104,7 +104,7 @@ ImageLoads 是一个按“来源”浏览图片列表、查看详情、收藏和
 - 可切换来源，查看该来源的处理方法。
 - 点击“来源 Header”可编辑当前来源的请求 Header。
 - 点击“公共 Header”可编辑公共 Header。
-- 公共 Header 默认包含 User-Agent、Accept、Accept-Language。
+- 测试包的公共 Header 默认包含 User-Agent、Accept、Accept-Language；正式包默认不展示这些内置数据。
 - 来源 Header 中同名项会覆盖公共 Header。
 - 每项处理方法可以单独测试，适合排查列表或详情解析失败的问题。
 

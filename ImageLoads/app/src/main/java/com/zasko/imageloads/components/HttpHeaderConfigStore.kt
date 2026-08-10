@@ -1,6 +1,7 @@
 package com.zasko.imageloads.components
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.zasko.imageloads.MApplication
 import com.zasko.imageloads.utils.Constants
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -210,20 +211,24 @@ object HttpHeaderConfigStore {
 
     private fun getDefaultHeaders(targetId: String): List<HttpHeaderItem> {
         return when (targetId) {
-            TARGET_COMMON -> listOf(
-                HttpHeaderItem(
-                    name = "User-Agent",
-                    value = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-                ),
-                HttpHeaderItem(
-                    name = "Accept",
-                    value = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                ),
-                HttpHeaderItem(
-                    name = "Accept-Language",
-                    value = "zh-CN,zh;q=0.9,en;q=0.8",
-                ),
-            )
+            TARGET_COMMON -> if (isDebuggablePackage()) {
+                listOf(
+                    HttpHeaderItem(
+                        name = "User-Agent",
+                        value = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+                    ),
+                    HttpHeaderItem(
+                        name = "Accept",
+                        value = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                    ),
+                    HttpHeaderItem(
+                        name = "Accept-Language",
+                        value = "zh-CN,zh;q=0.9,en;q=0.8",
+                    ),
+                )
+            } else {
+                emptyList()
+            }
 
             TARGET_TRENDSZINE -> listOf(
                 HttpHeaderItem(name = "Referer", value = "https://trendszine.com/"),
@@ -320,6 +325,10 @@ object HttpHeaderConfigStore {
 
     private fun String.toCommonHeadersEnabledPreferenceKey(): String {
         return "${KEY_USE_COMMON_HEADERS}_$this"
+    }
+
+    private fun isDebuggablePackage(): Boolean {
+        return MApplication.application.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
     }
 
     private fun getPreferences() = MApplication.application.getSharedPreferences(
