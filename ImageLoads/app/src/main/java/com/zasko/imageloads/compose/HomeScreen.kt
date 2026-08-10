@@ -416,15 +416,19 @@ private fun MainThemeSelectInfo.isAvailable(): Boolean {
     }
 }
 
-private fun MainThemeSelectInfo.coverModel(): Any {
+private fun MainThemeSelectInfo.coverModel(): Any? {
+    val coverUrl = cover.trim()
+    if (coverUrl.isBlank()) {
+        return null
+    }
     return when (theme) {
-        Constants.THEME_TYPE_MEIZI5 -> cover.toMeizi5ImageModel()
-        Constants.THEME_TYPE_TAOTU -> cover.toTaoTuImageModel()
-        Constants.THEME_TYPE_TRENDSZINE -> cover.toTrendszineImageModel()
-        else -> if (sourceKey.isNotBlank() && cover.isNotBlank()) {
-            cover.toGenericImageModel()
+        Constants.THEME_TYPE_MEIZI5 -> coverUrl.toMeizi5ImageModel()
+        Constants.THEME_TYPE_TAOTU -> coverUrl.toTaoTuImageModel()
+        Constants.THEME_TYPE_TRENDSZINE -> coverUrl.toTrendszineImageModel()
+        else -> if (sourceKey.isNotBlank()) {
+            coverUrl.toGenericImageModel()
         } else {
-            cover
+            coverUrl
         }
     }
 }
