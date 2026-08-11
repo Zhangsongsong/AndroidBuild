@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "exportedAt": 1786442400000,
+  "sources": {
+    "djawa": {
+      "key": "djawa",
+      "type": 16949,
+      "title": "DJAWA",
+      "cover": "https://djawaphoto.com/wp-content/uploads/2026/07/thumbnail-7.jpg",
+      "baseUrl": "https://djawaphoto.com/portfolio/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://djawaphoto.com/portfolio/"
+          },
+          "pageUrl": {
+            "firstPage": "https://djawaphoto.com/portfolio/",
+            "nextPage": "https://djawaphoto.com/portfolio/page/{page}/"
+          },
+          "parse": {
+            "itemSelector": ".archive-list > section.archive-item, .masonry-list > section.grid-item.sea-grid-item:not(.grid-item--width2)",
+            "detailLinkSelector": ".archive-image[href], .archive-tit a[href], a.grid-item-mask-link[href], .grid-item-tit-a[href]",
+            "coverSelector": "img.archive-img, img.grid-item-img",
+            "coverAttrOrder": [
+              "data-src",
+              "src"
+            ],
+            "titleSelector": ".archive-tit a, .grid-item-tit-a, .grid-item-tit"
+          },
+          "pagination": {
+            "nextPageSelector": "a.next.page-numbers[href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": "article .text_block_centered h3, h1, h2",
+            "tagSelector": "article .grid-item-cate-a, article a[href*=\"/portfolio-cat/\"]",
+            "contentSelector": "article",
+            "imageLinkSelector": ".lightbox-photoswipe a.lightbox-item[href], a.lightbox-item[href]",
+            "imageAttr": "href"
+          }
+        }
+      }
+    }
+  }
+}
