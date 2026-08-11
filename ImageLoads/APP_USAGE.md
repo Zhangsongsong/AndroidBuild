@@ -97,6 +97,22 @@ ImageLoads 是一个按“来源”浏览图片列表、查看详情、收藏和
 
 导入 JSON 时当前实现一次只导入一个来源。
 
+## 测试 JSON
+
+仓库内提供了一个 DJAWA 测试来源 JSON：
+
+```text
+docs/JSON/imageloads_source_djawa.json
+```
+
+测试步骤：
+
+1. 打开 App 首页左上角菜单，选择“导入数据”下的“JSON数据”。
+2. 点击“选文件”，选择 `docs/JSON/imageloads_source_djawa.json`，或直接复制该文件内容粘贴到输入框。
+3. 点击“导入”，首页出现 `DJAWA` 来源卡片。
+4. 进入 `DJAWA` 来源，列表首屏应能显示作品封面；继续上拉接近底部时会按 `https://djawaphoto.com/portfolio/page/{page}/` 加载后续分页。
+5. 点击任意作品进入详情页，详情图片会从页面的原图链接解析并展示。
+
 ## 实验室和 Header 设置
 
 首页左上角菜单中的“实验室”用于调试来源。
@@ -107,6 +123,10 @@ ImageLoads 是一个按“来源”浏览图片列表、查看详情、收藏和
 - 测试包的公共 Header 默认包含 User-Agent、Accept、Accept-Language；正式包默认不展示这些内置数据。
 - 来源 Header 中同名项会覆盖公共 Header。
 - 每项处理方法可以单独测试，适合排查列表或详情解析失败的问题。
+- 测试 DJAWA 时，先导入 `docs/JSON/imageloads_source_djawa.json`，再在实验室选择 `DJAWA` 来源：
+  - 测试列表解析：列表应返回作品标题、封面 URL 和详情链接。
+  - 测试列表分页：第 2 页请求地址应为 `https://djawaphoto.com/portfolio/page/2/`。
+  - 测试详情解析：详情应返回图集标题和多张 `wp-content/uploads` 图片链接。
 
 <p>
   <img src="docs/images/lab.png" alt="实验室页面" width="320" />
