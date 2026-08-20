@@ -19,6 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -84,6 +89,8 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     protected abstract val logTag: String
     protected abstract val defaultTitle: String
     protected abstract val referer: String
+    protected open val detailImageColumnCount: Int
+        get() = 1
 
     private var detailInfo by mutableStateOf(CommonImageDetailInfo())
     private var isLoading by mutableStateOf(false)
@@ -115,6 +122,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                 CommonImageDetailScreen(
                     detailInfo = detailInfo,
                     defaultTitle = defaultTitle,
+                    detailImageColumnCount = detailImageColumnCount,
                     isLoading = isLoading,
                     isLoadingMore = isLoadingMore,
                     isLoadMoreEnabled = detailInfo.nextPageUrl.isNotBlank() &&
@@ -388,6 +396,7 @@ private fun CommonImageDetailInfo.mergePage(pageInfo: CommonImageDetailInfo): Co
 fun CommonImageDetailScreen(
     detailInfo: CommonImageDetailInfo,
     defaultTitle: String,
+    detailImageColumnCount: Int = 1,
     isLoading: Boolean,
     isLoadingMore: Boolean,
     isLoadMoreEnabled: Boolean,
@@ -462,6 +471,7 @@ fun CommonImageDetailScreen(
                 else -> CommonDetailContent(
                     detailInfo = detailInfo,
                     defaultTitle = defaultTitle,
+                    detailImageColumnCount = detailImageColumnCount,
                     isLoadingMore = isLoadingMore,
                     isLoadMoreEnabled = isLoadMoreEnabled,
                     logTag = logTag,
@@ -508,6 +518,48 @@ fun DownloadOverwriteDialog(
 private fun CommonDetailContent(
     detailInfo: CommonImageDetailInfo,
     defaultTitle: String,
+    detailImageColumnCount: Int,
+    isLoadingMore: Boolean,
+    isLoadMoreEnabled: Boolean,
+    logTag: String,
+    imageModelProvider: (ImageLoadsInfo) -> Any?,
+    onLoadMore: () -> Unit,
+    onCurrentImageIndexChanged: (Int) -> Unit,
+    onImageClick: (ImageLoadsInfo, Int) -> Unit,
+) {
+    val imageColumnCount = detailImageColumnCount.coerceAtLeast(1)
+    if (imageColumnCount == 1) {
+        CommonDetailListContent(
+            detailInfo = detailInfo,
+            defaultTitle = defaultTitle,
+            isLoadingMore = isLoadingMore,
+            isLoadMoreEnabled = isLoadMoreEnabled,
+            logTag = logTag,
+            imageModelProvider = imageModelProvider,
+            onLoadMore = onLoadMore,
+            onCurrentImageIndexChanged = onCurrentImageIndexChanged,
+            onImageClick = onImageClick,
+        )
+    } else {
+        CommonDetailGridContent(
+            detailInfo = detailInfo,
+            defaultTitle = defaultTitle,
+            imageColumnCount = imageColumnCount,
+            isLoadingMore = isLoadingMore,
+            isLoadMoreEnabled = isLoadMoreEnabled,
+            logTag = logTag,
+            imageModelProvider = imageModelProvider,
+            onLoadMore = onLoadMore,
+            onCurrentImageIndexChanged = onCurrentImageIndexChanged,
+            onImageClick = onImageClick,
+        )
+    }
+}
+
+@Composable
+private fun CommonDetailListContent(
+    detailInfo: CommonImageDetailInfo,
+    defaultTitle: String,
     isLoadingMore: Boolean,
     isLoadMoreEnabled: Boolean,
     logTag: String,
@@ -517,7 +569,6 @@ private fun CommonDetailContent(
     onImageClick: (ImageLoadsInfo, Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val colorScheme = MaterialTheme.colorScheme
     val shouldLoadMore by remember(listState, detailInfo.pictures.size, isLoadMoreEnabled) {
         derivedStateOf {
             if (!isLoadMoreEnabled || detailInfo.pictures.size <= 2) {
@@ -564,22 +615,12 @@ private fun CommonDetailContent(
             CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
         }
         itemsIndexed(detailInfo.pictures) { index, imageInfo ->
-            val imageModel = imageModelProvider(imageInfo)
-            LaunchedEffect(index, imageInfo.url) {
-                LogComponent.printD(
-                    tag = logTag,
-                    message = "detail preview image index:${index + 1} url:${imageInfo.url} model:$imageModel",
-                )
-            }
-            GlideImage(
-                model = imageModel,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(imageInfo.displayRatio())
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(colorScheme.surfaceVariant)
-                    .clickable { onImageClick(imageInfo, index) },
-                scaleType = ImageView.ScaleType.FIT_CENTER,
+            CommonDetailImageItem(
+                imageInfo = imageInfo,
+                index = index,
+                logTag = logTag,
+                imageModelProvider = imageModelProvider,
+                onImageClick = onImageClick,
             )
         }
         item {
@@ -588,6 +629,112 @@ private fun CommonDetailContent(
             }
         }
     }
+}
+
+@Composable
+private fun CommonDetailGridContent(
+    detailInfo: CommonImageDetailInfo,
+    defaultTitle: String,
+    imageColumnCount: Int,
+    isLoadingMore: Boolean,
+    isLoadMoreEnabled: Boolean,
+    logTag: String,
+    imageModelProvider: (ImageLoadsInfo) -> Any?,
+    onLoadMore: () -> Unit,
+    onCurrentImageIndexChanged: (Int) -> Unit,
+    onImageClick: (ImageLoadsInfo, Int) -> Unit,
+) {
+    val gridState = rememberLazyGridState()
+    val shouldLoadMore by remember(gridState, detailInfo.pictures.size, isLoadMoreEnabled) {
+        derivedStateOf {
+            if (!isLoadMoreEnabled || detailInfo.pictures.size <= 2) {
+                false
+            } else {
+                val lastVisible = gridState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+                lastVisible >= detailInfo.pictures.size
+            }
+        }
+    }
+    val currentImageIndex by remember(gridState, detailInfo.pictures.size) {
+        derivedStateOf {
+            val imageCount = detailInfo.pictures.size
+            if (imageCount == 0) {
+                0
+            } else {
+                gridState.layoutInfo.visibleItemsInfo
+                    .asSequence()
+                    .map { it.index }
+                    .filter { it in 1..imageCount }
+                    .minOrNull()
+                    ?.coerceIn(1, imageCount)
+                    ?: 1
+            }
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore, detailInfo.pictures.size) {
+        if (shouldLoadMore) {
+            onLoadMore()
+        }
+    }
+    LaunchedEffect(currentImageIndex) {
+        onCurrentImageIndexChanged(currentImageIndex)
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(imageColumnCount),
+        modifier = Modifier.fillMaxSize(),
+        state = gridState,
+        contentPadding = PaddingValues(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
+        }
+        gridItemsIndexed(detailInfo.pictures) { index, imageInfo ->
+            CommonDetailImageItem(
+                imageInfo = imageInfo,
+                index = index,
+                logTag = logTag,
+                imageModelProvider = imageModelProvider,
+                onImageClick = onImageClick,
+            )
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            if (isLoadingMore) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommonDetailImageItem(
+    imageInfo: ImageLoadsInfo,
+    index: Int,
+    logTag: String,
+    imageModelProvider: (ImageLoadsInfo) -> Any?,
+    onImageClick: (ImageLoadsInfo, Int) -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val imageModel = imageModelProvider(imageInfo)
+    LaunchedEffect(index, imageInfo.url) {
+        LogComponent.printD(
+            tag = logTag,
+            message = "detail preview image index:${index + 1} url:${imageInfo.url} model:$imageModel",
+        )
+    }
+    GlideImage(
+        model = imageModel,
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(imageInfo.displayRatio())
+            .clip(RoundedCornerShape(4.dp))
+            .background(colorScheme.surfaceVariant)
+            .clickable { onImageClick(imageInfo, index) },
+        scaleType = ImageView.ScaleType.FIT_CENTER,
+    )
 }
 
 @Composable

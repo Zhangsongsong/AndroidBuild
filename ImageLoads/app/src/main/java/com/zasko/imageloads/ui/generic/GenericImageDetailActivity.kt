@@ -41,6 +41,9 @@ class GenericImageDetailActivity : CommonImageDetailActivity() {
     override val referer: String
         get() = dataInfo.baseUrl
 
+    override val detailImageColumnCount: Int
+        get() = 2
+
     override suspend fun requestDetail(dataUseFrom: Int?, url: String): CommonImageDetailInfo {
         val config = sourceConfig ?: return CommonImageDetailInfo(url = url)
         return GenericSourceRepository.getDetail(config = config, dataUseFrom = dataUseFrom, url = url)

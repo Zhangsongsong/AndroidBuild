@@ -1,6 +1,7 @@
 package com.zasko.imageloads.ui.common
 
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,8 +34,26 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
     }
 
     private val downloads = mutableStateListOf<HasDownloadInfo>()
+    private val selectedDownloadPaths = mutableStateListOf<String>()
     private var isLoading by mutableStateOf(false)
-    private var pendingDeleteDownload by mutableStateOf<HasDownloadInfo?>(null)
+    private var isSelectionMode by mutableStateOf(false)
+    private var pendingDeleteDownloads by mutableStateOf<List<HasDownloadInfo>>(emptyList())
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        requireActivity().onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (isSelectionMode) {
+                        clearSelection()
+                    } else {
+                        activity?.finish()
+                    }
+                }
+            },
+        )
+    }
 
     @Composable
     override fun FragmentContent() {
@@ -50,22 +69,28 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
                     )
                 },
                 onItemDelete = { info ->
-                    pendingDeleteDownload = info
+                    pendingDeleteDownloads = listOf(info)
                 },
+                isSelectionMode = isSelectionMode,
+                selectedItemKeys = selectedDownloadPaths.toSet(),
+                onSelectAll = ::selectAllDownloads,
+                onClearSelection = ::clearSelection,
+                onItemSelectToggle = ::toggleDownloadSelection,
+                onDeleteSelected = ::confirmDeleteSelectedDownloads,
             )
-            pendingDeleteDownload?.let { info ->
+            pendingDeleteDownloads.takeIf { it.isNotEmpty() }?.let { pendingDownloads ->
                 AlertDialog(
                     onDismissRequest = {
-                        pendingDeleteDownload = null
+                        pendingDeleteDownloads = emptyList()
                     },
                     text = {
-                        Text(text = "确认删除「${info.name}」？会直接删除本地文件。")
+                        Text(text = pendingDownloads.toDeleteConfirmText())
                     },
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                pendingDeleteDownload = null
-                                deleteDownload(info)
+                                pendingDeleteDownloads = emptyList()
+                                deleteDownloads(pendingDownloads)
                             },
                         ) {
                             Text(text = "删除")
@@ -74,7 +99,7 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
                     dismissButton = {
                         TextButton(
                             onClick = {
-                                pendingDeleteDownload = null
+                                pendingDeleteDownloads = emptyList()
                             },
                         ) {
                             Text(text = "取消")
@@ -99,6 +124,10 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
             }
             downloads.clear()
             downloads.addAll(list)
+            selectedDownloadPaths.removeAll { selectedPath -> list.none { it.path == selectedPath } }
+            if (downloads.isEmpty()) {
+                clearSelection()
+            }
             isLoading = false
         }
     }
@@ -123,20 +152,58 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
             ?: emptyList()
     }
 
-    private fun deleteDownload(info: HasDownloadInfo) {
+    private fun selectAllDownloads() {
+        selectedDownloadPaths.clear()
+        selectedDownloadPaths.addAll(downloads.map { it.path })
+        isSelectionMode = true
+    }
+
+    private fun clearSelection() {
+        selectedDownloadPaths.clear()
+        isSelectionMode = false
+    }
+
+    private fun toggleDownloadSelection(info: HasDownloadInfo) {
+        isSelectionMode = true
+        if (selectedDownloadPaths.contains(info.path)) {
+            selectedDownloadPaths.remove(info.path)
+        } else {
+            selectedDownloadPaths.add(info.path)
+        }
+    }
+
+    private fun confirmDeleteSelectedDownloads() {
+        val pendingDownloads = downloads.filter { selectedDownloadPaths.contains(it.path) }
+        if (pendingDownloads.isEmpty()) {
+            return
+        }
+        pendingDeleteDownloads = pendingDownloads
+    }
+
+    private fun deleteDownloads(items: List<HasDownloadInfo>) {
         val scope = composeRequestScope ?: return
         val parentDir = File(readParentPath())
-        val downloadDir = File(info.path)
         scope.launch {
-            val deleted = withContext(Dispatchers.IO) {
-                SourceImageDownloadHelper.deleteDownloadedDetailFolder(
-                    parentDir = parentDir,
-                    detailDownloadDir = downloadDir,
-                )
+            val deletedPaths = withContext(Dispatchers.IO) {
+                items.mapNotNull { info ->
+                    val deleted = SourceImageDownloadHelper.deleteDownloadedDetailFolder(
+                        parentDir = parentDir,
+                        detailDownloadDir = File(info.path),
+                    )
+                    info.path.takeIf { deleted }
+                }
             }
-            if (deleted) {
-                downloads.removeAll { it.path == info.path }
-                showToast("已删除")
+            if (deletedPaths.isNotEmpty()) {
+                downloads.removeAll { it.path in deletedPaths }
+                selectedDownloadPaths.removeAll { it in deletedPaths }
+            }
+            if (selectedDownloadPaths.isEmpty()) {
+                isSelectionMode = false
+            }
+            if (deletedPaths.size == items.size) {
+                showToast("已删除 ${deletedPaths.size} 个")
+            } else if (deletedPaths.isNotEmpty()) {
+                showToast("已删除 ${deletedPaths.size}/${items.size} 个")
             } else {
                 showToast("删除失败")
             }
@@ -150,6 +217,14 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
     private fun showToast(message: String) {
         if (isAdded) {
             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun List<HasDownloadInfo>.toDeleteConfirmText(): String {
+        return if (size == 1) {
+            "确认删除「${first().name}」？会直接删除本地文件。"
+        } else {
+            "确认删除选中的 $size 个下载？会直接删除本地文件。"
         }
     }
 }
