@@ -1,24 +1,12 @@
 package com.zasko.imageloads.compose
 
 import android.widget.ImageView
-import androidx.compose.foundation.ExperimentalFoundationApi
+import android.graphics.Rect
+import android.view.View
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,33 +14,30 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.data.ImageLoadsInfo
-import kotlin.math.max
+import kotlin.math.roundToInt
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageListScreen(
     title: String,
@@ -98,20 +83,29 @@ fun ImageListScreen(
     onCancelSelection: () -> Unit = {},
     onDownloadSelected: () -> Unit = {},
 ) {
-    val gridState = rememberLazyStaggeredGridState()
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
     var showPageJumpDialog by remember { mutableStateOf(false) }
-    val shouldLoadMore by remember(gridState, images.size) {
-        derivedStateOf {
-            val lastVisible = gridState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
-            images.size > 5 && lastVisible >= max(0, images.size - 3)
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore, images.size) {
-        if (shouldLoadMore) {
-            onLoadMore()
-        }
+    val currentImageModelProvider by rememberUpdatedState(imageModelProvider)
+    val currentImageRatioProvider by rememberUpdatedState(imageRatioProvider)
+    val currentPageLabelProvider by rememberUpdatedState(pageLabelProvider)
+    val currentImageKeyProvider by rememberUpdatedState(imageKeyProvider)
+    val currentOnLoadMore by rememberUpdatedState(onLoadMore)
+    val currentOnImageClick by rememberUpdatedState(onImageClick)
+    val currentOnFavoriteClick by rememberUpdatedState(onFavoriteClick)
+    val currentOnDownloadClick by rememberUpdatedState(onItemDownloadClick)
+    val recyclerAdapter = remember {
+        ImageListRecyclerAdapter(
+            imageModelProvider = { currentImageModelProvider(it) },
+            imageRatioProvider = { currentImageRatioProvider(it) },
+            imageScaleType = imageScaleType,
+            pageLabelProvider = { index, image -> currentPageLabelProvider(index, image) },
+            imageKeyProvider = { currentImageKeyProvider(it) },
+            onLoadMore = { currentOnLoadMore() },
+            onImageClick = { currentOnImageClick(it) },
+            onFavoriteClick = { currentOnFavoriteClick(it) },
+            onDownloadClick = { currentOnDownloadClick(it) },
+        )
     }
 
     Scaffold(
@@ -190,64 +184,54 @@ fun ImageListScreen(
             if (images.isEmpty() && !isRefreshing && topContent == null) {
                 EmptyContent(text = "暂无图片")
             } else {
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Fixed(2),
+                AndroidView(
                     modifier = Modifier.fillMaxSize(),
-                    state = gridState,
-                    contentPadding = PaddingValues(start = 4.dp, top = 4.dp, end = 4.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalItemSpacing = 4.dp,
-                ) {
-                    topContent?.let { content ->
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            content()
-                        }
-                    }
-                    if (images.isEmpty() && !isRefreshing) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            EmptyContent(
-                                text = "暂无图片",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(240.dp),
+                    factory = {
+                        RecyclerView(context).apply {
+                            itemAnimator = null
+                            clipToPadding = false
+                            setPadding(
+                                4.dp(context.resources.displayMetrics.density),
+                                4.dp(context.resources.displayMetrics.density),
+                                4.dp(context.resources.displayMetrics.density),
+                                12.dp(context.resources.displayMetrics.density),
                             )
-                        }
-                    }
-                    images.forEachIndexed { index, imageInfo ->
-                        pageLabelProvider(index, imageInfo)?.let { pageLabel ->
-                            item(span = StaggeredGridItemSpan.FullLine) {
-                                ImageListPageLabel(text = pageLabel)
-                            }
-                        }
-                        item {
-                            val imageKey = imageKeyProvider(imageInfo)
-                            val imageTitle = imageInfo.displayTitle()
-                            ImageLoadTile(
-                                info = imageInfo,
-                                model = imageModelProvider(imageInfo),
-                                title = imageTitle,
-                                ratio = imageRatioProvider(imageInfo),
-                                scaleType = imageScaleType,
-                                isSelectionMode = isSelectionMode,
-                                isSelected = selectedImageKeys.contains(imageKey),
-                                showFavoriteAction = showFavoriteAction && !isSelectionMode,
-                                isFavorite = favoriteImageKeys.contains(imageKey),
-                                showDownloadAction = showItemDownloadAction && !isSelectionMode,
-                                isItemDownloading = downloadingImageKeys.contains(imageKey),
-                                isItemDownloaded = downloadedImageKeys.contains(imageKey),
-                                downloadProgressText = itemDownloadProgressProvider(imageInfo),
-                                onClick = onImageClick,
-                                onFavoriteClick = onFavoriteClick,
-                                onDownloadClick = onItemDownloadClick,
+                            layoutManager = StaggeredGridLayoutManager(
+                                2,
+                                StaggeredGridLayoutManager.VERTICAL,
                             )
+                            addItemDecoration(ImageListGridSpacingDecoration(recyclerAdapter, 2.dp(context.resources.displayMetrics.density)))
+                            adapter = recyclerAdapter
                         }
-                    }
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        if (isLoadingMore) {
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        }
-                    }
-                }
+                    },
+                    update = {
+                        recyclerAdapter.updateCallbacks(
+                            imageModelProvider = { currentImageModelProvider(it) },
+                            imageRatioProvider = { currentImageRatioProvider(it) },
+                            imageScaleType = imageScaleType,
+                            pageLabelProvider = { index, image -> currentPageLabelProvider(index, image) },
+                            imageKeyProvider = { currentImageKeyProvider(it) },
+                            onLoadMore = { currentOnLoadMore() },
+                            onImageClick = { currentOnImageClick(it) },
+                            onFavoriteClick = { currentOnFavoriteClick(it) },
+                            onDownloadClick = { currentOnDownloadClick(it) },
+                        )
+                        recyclerAdapter.submit(
+                            images = images,
+                            isRefreshing = isRefreshing,
+                            isLoadingMore = isLoadingMore,
+                            topContent = topContent,
+                            selectedImageKeys = selectedImageKeys,
+                            isSelectionMode = isSelectionMode,
+                            showFavoriteAction = showFavoriteAction,
+                            favoriteImageKeys = favoriteImageKeys,
+                            showItemDownloadAction = showItemDownloadAction,
+                            downloadingImageKeys = downloadingImageKeys,
+                            downloadedImageKeys = downloadedImageKeys,
+                            itemDownloadProgressProvider = itemDownloadProgressProvider,
+                        )
+                    },
+                )
             }
             if (isRefreshing && images.isEmpty()) {
                 CircularProgressIndicator(
@@ -267,28 +251,6 @@ fun ImageListScreen(
             onDismiss = {
                 showPageJumpDialog = false
             },
-        )
-    }
-}
-
-@Composable
-private fun ImageListPageLabel(text: String) {
-    val colorScheme = MaterialTheme.colorScheme
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(colorScheme.surfaceVariant)
-                .padding(horizontal = 12.dp, vertical = 5.dp),
-            color = colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
         )
     }
 }
@@ -427,212 +389,6 @@ private fun PageJumpDialog(
     )
 }
 
-@Composable
-private fun ImageLoadTile(
-    info: ImageLoadsInfo,
-    model: Any?,
-    title: String,
-    ratio: Float,
-    scaleType: ImageView.ScaleType,
-    isSelectionMode: Boolean,
-    isSelected: Boolean,
-    showFavoriteAction: Boolean,
-    isFavorite: Boolean,
-    showDownloadAction: Boolean,
-    isItemDownloading: Boolean,
-    isItemDownloaded: Boolean,
-    downloadProgressText: String?,
-    onClick: (ImageLoadsInfo) -> Unit,
-    onFavoriteClick: (ImageLoadsInfo) -> Unit,
-    onDownloadClick: (ImageLoadsInfo) -> Unit,
-) {
-    val displayRatio = remember(ratio) { ratio.coerceIn(0.2f, 5f) }
-    val colorScheme = MaterialTheme.colorScheme
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(displayRatio)
-            .clip(RoundedCornerShape(4.dp))
-            .background(colorScheme.surfaceVariant)
-            .clickable(enabled = !isItemDownloading) { onClick(info) },
-    ) {
-        GlideImage(
-            model = model,
-            modifier = Modifier.fillMaxSize(),
-            scaleType = scaleType,
-        )
-        if (title.isNotBlank()) {
-            CoverTitleOverlay(
-                title = title,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
-        if (isSelectionMode) {
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0x33000000)),
-                )
-            }
-            SelectionIndicator(
-                isSelected = isSelected,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp),
-            )
-        }
-        if (isItemDownloading) {
-            DownloadProgressOverlay(text = downloadProgressText.orEmpty().ifBlank { "下载中" })
-        }
-        if (showDownloadAction && !isItemDownloading) {
-            DownloadIndicator(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp),
-                isDownloaded = isItemDownloaded,
-                onClick = { onDownloadClick(info) },
-            )
-        }
-        if (showFavoriteAction) {
-            FavoriteIndicator(
-                isFavorite = isFavorite,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp),
-                onClick = { onFavoriteClick(info) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun CoverTitleOverlay(
-    title: String,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color(0x3D000000))
-            .padding(horizontal = 8.dp, vertical = 7.dp),
-    ) {
-        Text(
-            text = title,
-            color = Color.White,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun DownloadIndicator(
-    modifier: Modifier = Modifier,
-    isDownloaded: Boolean,
-    onClick: () -> Unit,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    IconButton(
-        modifier = modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(
-                if (isDownloaded) {
-                    Color(0xDDE6F4EA)
-                } else {
-                    colorScheme.surface.copy(alpha = 0.78f)
-                },
-            ),
-        onClick = onClick,
-    ) {
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_cloud_download_24),
-            contentDescription = null,
-            tint = if (isDownloaded) Color(0xFF137333) else colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-@Composable
-private fun DownloadProgressOverlay(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0x55000000)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xCC202124))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            color = Color.White,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun FavoriteIndicator(
-    isFavorite: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    IconButton(
-        modifier = modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(colorScheme.surface.copy(alpha = 0.78f)),
-        onClick = onClick,
-    ) {
-        Icon(
-            painter = painterResource(
-                id = if (isFavorite) {
-                    R.drawable.baseline_favorite_24
-                } else {
-                    R.drawable.baseline_favorite_border_24
-                },
-            ),
-            contentDescription = null,
-            tint = if (isFavorite) Color(0xFFE91E63) else colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-@Composable
-private fun SelectionIndicator(
-    isSelected: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Box(
-        modifier = modifier
-            .size(24.dp)
-            .clip(CircleShape)
-            .background(if (isSelected) colorScheme.primary else colorScheme.surface.copy(alpha = 0.78f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (isSelected) {
-            Text(
-                text = "✓",
-                color = Color.White,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
-}
-
 private fun ImageLoadsInfo.defaultDisplayRatio(): Float {
     return if (width > 0 && height > 0) {
         (width.toFloat() / height.toFloat()).coerceIn(0.45f, 1.8f)
@@ -641,14 +397,26 @@ private fun ImageLoadsInfo.defaultDisplayRatio(): Float {
     }
 }
 
-private fun ImageLoadsInfo.displayTitle(): String {
-    return title.trim()
-        .ifBlank {
-            href.trim()
-                .trimEnd('/')
-                .substringAfterLast('/')
-                .substringBefore('?')
-                .replace(Regex("[-_]+"), " ")
-                .trim()
+private class ImageListGridSpacingDecoration(
+    private val adapter: ImageListRecyclerAdapter,
+    private val spacing: Int,
+) : RecyclerView.ItemDecoration() {
+    override fun getItemOffsets(
+        outRect: Rect,
+        view: View,
+        parent: RecyclerView,
+        state: RecyclerView.State,
+    ) {
+        val position = parent.getChildAdapterPosition(view)
+        if (position == RecyclerView.NO_POSITION || adapter.isFullSpan(position)) {
+            return
         }
+        val layoutParams = view.layoutParams as? StaggeredGridLayoutManager.LayoutParams
+        val spanIndex = layoutParams?.spanIndex ?: 0
+        outRect.left = if (spanIndex == 0) 0 else spacing / 2
+        outRect.right = if (spanIndex == 0) spacing / 2 else 0
+        outRect.bottom = spacing
+    }
 }
+
+private fun Int.dp(density: Float): Int = (this * density).roundToInt()

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -40,14 +41,21 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
 import com.zasko.imageloads.components.LogComponent
@@ -65,6 +73,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.io.copyTo
+import kotlin.math.roundToInt
 
 object CommonImageDetailExtras {
     const val KEY_INFO = "common_key_info"
@@ -528,32 +537,111 @@ private fun CommonDetailContent(
     onImageClick: (ImageLoadsInfo, Int) -> Unit,
 ) {
     val imageColumnCount = detailImageColumnCount.coerceAtLeast(1)
-    if (imageColumnCount == 1) {
-        CommonDetailListContent(
-            detailInfo = detailInfo,
-            defaultTitle = defaultTitle,
-            isLoadingMore = isLoadingMore,
-            isLoadMoreEnabled = isLoadMoreEnabled,
-            logTag = logTag,
-            imageModelProvider = imageModelProvider,
-            onLoadMore = onLoadMore,
-            onCurrentImageIndexChanged = onCurrentImageIndexChanged,
-            onImageClick = onImageClick,
-        )
-    } else {
-        CommonDetailGridContent(
-            detailInfo = detailInfo,
-            defaultTitle = defaultTitle,
+    CommonDetailRecyclerContent(
+        detailInfo = detailInfo,
+        imageColumnCount = imageColumnCount,
+        isLoadingMore = isLoadingMore,
+        isLoadMoreEnabled = isLoadMoreEnabled,
+        imageModelProvider = imageModelProvider,
+        onLoadMore = onLoadMore,
+        onCurrentImageIndexChanged = onCurrentImageIndexChanged,
+        onImageClick = onImageClick,
+    )
+}
+
+@Composable
+private fun CommonDetailRecyclerContent(
+    detailInfo: CommonImageDetailInfo,
+    imageColumnCount: Int,
+    isLoadingMore: Boolean,
+    isLoadMoreEnabled: Boolean,
+    imageModelProvider: (ImageLoadsInfo) -> Any?,
+    onLoadMore: () -> Unit,
+    onCurrentImageIndexChanged: (Int) -> Unit,
+    onImageClick: (ImageLoadsInfo, Int) -> Unit,
+) {
+    val currentImageModelProvider = rememberUpdatedState(imageModelProvider)
+    val currentOnLoadMore = rememberUpdatedState(onLoadMore)
+    val currentOnImageClick = rememberUpdatedState(onImageClick)
+    val currentOnIndexChanged = rememberUpdatedState(onCurrentImageIndexChanged)
+    val currentLoadMoreEnabled = rememberUpdatedState(isLoadMoreEnabled)
+    val currentLoadingMore = rememberUpdatedState(isLoadingMore)
+    val adapter = remember(imageColumnCount) {
+        CommonDetailRecyclerAdapter(
             imageColumnCount = imageColumnCount,
-            isLoadingMore = isLoadingMore,
-            isLoadMoreEnabled = isLoadMoreEnabled,
-            logTag = logTag,
-            imageModelProvider = imageModelProvider,
-            onLoadMore = onLoadMore,
-            onCurrentImageIndexChanged = onCurrentImageIndexChanged,
-            onImageClick = onImageClick,
+            imageModelProvider = { currentImageModelProvider.value(it) },
+            onLoadMore = { currentOnLoadMore.value() },
+            onImageClick = { image, index -> currentOnImageClick.value(image, index) },
         )
     }
+
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            RecyclerView(context).apply {
+                itemAnimator = null
+                setPadding(
+                    (8 * context.resources.displayMetrics.density).roundToInt(),
+                    (8 * context.resources.displayMetrics.density).roundToInt(),
+                    (8 * context.resources.displayMetrics.density).roundToInt(),
+                    (16 * context.resources.displayMetrics.density).roundToInt(),
+                )
+                clipToPadding = false
+                val manager = if (imageColumnCount == 1) {
+                    LinearLayoutManager(context)
+                } else {
+                    GridLayoutManager(context, imageColumnCount).apply {
+                        spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                            override fun getSpanSize(position: Int): Int {
+                                return if (adapter.isFullSpan(position)) spanCount else 1
+                            }
+                        }
+                    }
+                }
+                layoutManager = manager
+                addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                    override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
+                        val firstVisible = layoutManager.findFirstVisibleItemPosition()
+                        val imageCount = adapter.pictureCount()
+                        if (imageCount > 0) {
+                            currentOnIndexChanged.value(firstVisible.coerceIn(1, imageCount))
+                        }
+                        val lastVisible = layoutManager.findLastVisibleItemPosition()
+                        if (currentLoadMoreEnabled.value &&
+                            !currentLoadingMore.value &&
+                            imageCount > 2 &&
+                            lastVisible >= imageCount - 1
+                        ) {
+                            currentOnLoadMore.value()
+                        }
+                    }
+                })
+                this.adapter = adapter
+            }
+        },
+        update = { recyclerView ->
+            adapter.updateCallbacks(
+                imageModelProvider = { currentImageModelProvider.value(it) },
+                onLoadMore = { currentOnLoadMore.value() },
+                onImageClick = { image, index -> currentOnImageClick.value(image, index) },
+            )
+            adapter.submit(
+                detailInfo = detailInfo,
+                isLoadingMore = isLoadingMore,
+                isLoadMoreEnabled = isLoadMoreEnabled,
+            )
+            recyclerView.post {
+                val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return@post
+                val imageCount = detailInfo.pictures.size
+                if (imageCount > 0) {
+                    currentOnIndexChanged.value(
+                        layoutManager.findFirstVisibleItemPosition().coerceIn(1, imageCount),
+                    )
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -611,10 +699,13 @@ private fun CommonDetailListContent(
         contentPadding = PaddingValues(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item {
+        item(key = "detail_header") {
             CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
         }
-        itemsIndexed(detailInfo.pictures) { index, imageInfo ->
+        itemsIndexed(
+            items = detailInfo.pictures,
+            key = { index, imageInfo -> "detail_image_${imageInfo.url}_$index" },
+        ) { index, imageInfo ->
             CommonDetailImageItem(
                 imageInfo = imageInfo,
                 index = index,
@@ -623,8 +714,8 @@ private fun CommonDetailListContent(
                 onImageClick = onImageClick,
             )
         }
-        item {
-            if (isLoadingMore) {
+        if (isLoadingMore) {
+            item(key = "detail_loading_more") {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         }
@@ -689,10 +780,16 @@ private fun CommonDetailGridContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(
+            key = "detail_header",
+            span = { GridItemSpan(maxLineSpan) },
+        ) {
             CommonDetailHeader(detailInfo = detailInfo, defaultTitle = defaultTitle)
         }
-        gridItemsIndexed(detailInfo.pictures) { index, imageInfo ->
+        gridItemsIndexed(
+            items = detailInfo.pictures,
+            key = { index, imageInfo -> "detail_image_${imageInfo.url}_$index" },
+        ) { index, imageInfo ->
             CommonDetailImageItem(
                 imageInfo = imageInfo,
                 index = index,
@@ -701,8 +798,11 @@ private fun CommonDetailGridContent(
                 onImageClick = onImageClick,
             )
         }
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            if (isLoadingMore) {
+        if (isLoadingMore) {
+            item(
+                key = "detail_loading_more",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         }
@@ -725,16 +825,27 @@ private fun CommonDetailImageItem(
             message = "detail preview image index:${index + 1} url:${imageInfo.url} model:$imageModel",
         )
     }
-    GlideImage(
-        model = imageModel,
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(imageInfo.displayRatio())
             .clip(RoundedCornerShape(4.dp))
             .background(colorScheme.surfaceVariant)
             .clickable { onImageClick(imageInfo, index) },
-        scaleType = ImageView.ScaleType.FIT_CENTER,
-    )
+    ) {
+        val imageWidthPx = with(LocalDensity.current) {
+            maxWidth.roundToPx()
+        }
+        val imageHeightPx = (imageWidthPx / imageInfo.displayRatio()).roundToInt()
+        GlideImage(
+            model = imageModel,
+            modifier = Modifier.fillMaxSize(),
+            scaleType = ImageView.ScaleType.FIT_CENTER,
+            requestWidth = imageWidthPx,
+            requestHeight = imageHeightPx,
+            diskCacheStrategy = DiskCacheStrategy.RESOURCE,
+        )
+    }
 }
 
 @Composable

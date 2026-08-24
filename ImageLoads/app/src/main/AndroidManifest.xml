@@ -34,11 +34,15 @@
         <activity
             android:name=".activity.PersonDetailActivity"
             android:screenOrientation="portrait" />
+        <activity
+            android:name=".activity.PersonDetailRecyclerActivity"
+            android:screenOrientation="portrait" />
 
         <activity android:name=".ui.xiuren.activity.XiuRenActivity" />
         <activity android:name=".ui.xiuren.activity.XiuRenWebViewActivity" />
         <activity android:name=".ui.common.CommonDownloadedActivity" />
         <activity android:name=".ui.common.SourceImageDetailActivity" />
+        <activity android:name=".ui.common.CommonImageDetailRecyclerActivity" />
         <activity android:name=".ui.generic.GenericImageDetailActivity" />
         <activity android:name=".ui.generic.GenericSourceActivity" />
         <activity android:name=".ui.meizi5.Meizi5Activity" />
