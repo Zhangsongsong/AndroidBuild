@@ -70,7 +70,7 @@ private fun FavoriteImportScreen(
     var jsonText by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val importFileLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
+        contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         if (uri != null) {
             importJsonFromFile(
@@ -133,7 +133,7 @@ private fun FavoriteImportScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp),
                     onClick = {
-                        importFileLauncher.launch(arrayOf("application/json", "text/*"))
+                        importFileLauncher.launch("*/*")
                     },
                 ) {
                     Text(text = "选文件", maxLines = 1)

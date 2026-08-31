@@ -113,6 +113,14 @@ docs/JSON/imageloads_source_djawa.json
 4. 进入 `DJAWA` 来源，列表首屏应能显示作品封面；继续上拉接近底部时会按 `https://djawaphoto.com/portfolio/page/{page}/` 加载后续分页。
 5. 点击任意作品进入详情页，详情图片会从页面的原图链接解析并展示。
 
+仓库内还提供了一个 Buondua 来源 JSON：
+
+```text
+docs/JSON/imageloads_source_buondua.json
+```
+
+对应测试时，列表第二页应请求 `https://buondua.com/?start=20`，详情页应继续按 `?page=2`、`?page=3` 这类分页链接读取后续图片。
+
 ## 实验室和 Header 设置
 
 首页左上角菜单中的“实验室”用于调试来源。
@@ -127,6 +135,10 @@ docs/JSON/imageloads_source_djawa.json
   - 测试列表解析：列表应返回作品标题、封面 URL 和详情链接。
   - 测试列表分页：第 2 页请求地址应为 `https://djawaphoto.com/portfolio/page/2/`。
   - 测试详情解析：详情应返回图集标题和多张 `wp-content/uploads` 图片链接。
+- 测试 Buondua 时，先导入 `docs/JSON/imageloads_source_buondua.json`，再在实验室选择 `Buondua` 来源：
+  - 测试列表解析：列表应返回作品标题、封面 URL 和详情链接。
+  - 测试列表分页：第 2 页请求地址应为 `https://buondua.com/?start=20`。
+  - 测试详情解析：详情应返回图集标题、标签和多张原图链接。
 
 <p>
   <img src="docs/images/lab.png" alt="实验室页面" width="320" />

@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "exportedAt": 1788165828000,
+  "sources": {
+    "buondua": {
+      "key": "buondua",
+      "type": 55854,
+      "title": "Buondua",
+      "cover": "https://i2.buondua.com/2026/56285/AI-Enhanced-Dongeuran-round-Green-MissKON.com-003.jpeg?fe4e88f9a983f8267ff32a473bbdeb57",
+      "baseUrl": "https://buondua.com/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://buondua.com/"
+          },
+          "pageUrl": {
+            "firstPage": "https://buondua.com/",
+            "nextPage": "https://buondua.com/?start={pageOffset}",
+            "pageOffsetStep": 20
+          },
+          "parse": {
+            "itemSelector": ".main-body .items-row[data-id]",
+            "detailLinkSelector": ".item-thumb a.item-link[href]",
+            "coverSelector": ".item-thumb img[src], .item-thumb img[data-src], .item-thumb img[data-lazy-src]",
+            "titleSelector": ".page-header a.item-link"
+          },
+          "pagination": {
+            "nextPageSelector": "nav.pagination a.pagination-next[next][href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": ".article-header h1",
+            "dateSelector": ".article-info > small:last-child",
+            "tagSelector": ".article-tags a.tag",
+            "contentSelector": ".article-fulltext",
+            "imageSelector": ".article-fulltext p > img[src], .article-fulltext p > img[data-src], .article-fulltext p > img[data-lazy-src]"
+          },
+          "pagination": {
+            "containerSelector": "nav.pagination",
+            "linkSelector": "a.pagination-link[href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        }
+      }
+    }
+  }
+}

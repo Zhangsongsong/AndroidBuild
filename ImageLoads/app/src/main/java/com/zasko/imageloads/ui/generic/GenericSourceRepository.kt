@@ -264,7 +264,7 @@ object GenericSourceRepository {
         if (links.isEmpty()) {
             return ""
         }
-        val currentPage = currentUrl.trimEnd('/').substringAfterLast('/').toIntOrNull() ?: 1
+        val currentPage = resolveCurrentPage(currentUrl = currentUrl)
         val nextLink = links.mapNotNull { link ->
             val page = link.text().trim().toIntOrNull()
                 ?: link.attr("href").trimEnd('/').substringAfterLast('/').toIntOrNull()
@@ -330,8 +330,11 @@ object GenericSourceRepository {
         val nextPage = pageUrl.optString("nextPage").ifBlank { firstPage }
         val normalizedBaseUrl = baseUrl.trimEnd('/')
         val normalizedCategoryUrl = categoryUrl.trimEnd('/').ifBlank { normalizedBaseUrl }
+        val pageOffsetStep = pageUrl.optInt("pageOffsetStep", 1).coerceAtLeast(1)
+        val pageOffset = if (page <= 1) 0 else (page - 1) * pageOffsetStep
         return (if (page <= 1) firstPage else nextPage)
             .replace("{page}", page.toString())
+            .replace("{pageOffset}", pageOffset.toString())
             .replace("{baseUrl}", normalizedBaseUrl)
             .replace("{homeUrl}", baseUrl)
             .replace("{categoryUrl}", normalizedCategoryUrl)
@@ -539,6 +542,12 @@ object GenericSourceRepository {
     }
 
     private fun buildDetailPageUrl(currentUrl: String, nextPage: Int): String {
+        val queryPageUrl = Regex("""([?&]page=)\d+""").replace(currentUrl) { matchResult ->
+            "${matchResult.groupValues[1]}$nextPage"
+        }
+        if (queryPageUrl != currentUrl) {
+            return queryPageUrl
+        }
         val trimmedUrl = currentUrl.trimEnd('/')
         val currentSegment = trimmedUrl.substringAfterLast('/')
         return if (currentSegment.toIntOrNull() != null) {
@@ -546,6 +555,15 @@ object GenericSourceRepository {
         } else {
             "$trimmedUrl/$nextPage"
         }
+    }
+
+    private fun resolveCurrentPage(currentUrl: String): Int {
+        Regex("""[?&]page=(\d+)""").find(currentUrl)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?.let { return it }
+        return currentUrl.trimEnd('/').substringAfterLast('/').toIntOrNull() ?: 1
     }
 
     private fun CommonImageDetailInfo.mergePage(pageInfo: CommonImageDetailInfo): CommonImageDetailInfo {
