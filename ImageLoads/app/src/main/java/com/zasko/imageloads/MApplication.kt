@@ -8,6 +8,7 @@ import android.os.Process
 import androidx.core.content.getSystemService
 import com.zasko.imageloads.components.HttpComponent
 import com.zasko.imageloads.components.LogComponent
+import com.zasko.imageloads.manager.DownloadQueueManager
 
 class MApplication : Application() {
 
@@ -29,6 +30,7 @@ class MApplication : Application() {
             return
         }
         HttpComponent.init(this)
+        DownloadQueueManager.bootstrap()
     }
 
     private fun isMainProcess(): Boolean {

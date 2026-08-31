@@ -9,6 +9,8 @@ import com.zasko.imageloads.components.LogComponent
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.PermissionUtil
+import com.zasko.imageloads.manager.DownloadQueueManager
+import com.zasko.imageloads.manager.DownloadTaskStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -154,9 +156,6 @@ object SourceImageDownloadHelper {
             return
         }
         FileUtil.createExternalDir()
-
-        val context = hostActivity.applicationContext
-        val logTag = SourceImageDetailDelegate.logTag(sourceType = sourceType)
         progressMap[imageKey] = "获取中"
         val job = requestScope.launch {
             try {
@@ -169,13 +168,11 @@ object SourceImageDownloadHelper {
                     showToast("暂无详情图片")
                     return@launch
                 }
-                val downloadParentDir = SourceImageDetailDelegate.getDownloadParentDir(sourceType = sourceType)
-                val detailDownloadDir = getDetailDownloadDir(
-                    parentDir = downloadParentDir,
-                    detailInfo = detailInfo,
-                )
                 val alreadyDownloaded = !forceOverwrite && withContext(Dispatchers.IO) {
-                    hasDownloaded(parentDir = downloadParentDir, detailInfo = detailInfo)
+                    hasDownloaded(
+                        parentDir = SourceImageDetailDelegate.getDownloadParentDir(sourceType = sourceType),
+                        detailInfo = detailInfo,
+                    )
                 }
                 if (alreadyDownloaded) {
                     progressMap.remove(imageKey)
@@ -188,38 +185,35 @@ object SourceImageDownloadHelper {
                     )
                     return@launch
                 }
-                val completeDetailInfo = SourceImageDetailDelegate.requestRemainingDetailPages(
+                val taskId = DownloadQueueManager.enqueueCommonDownload(
                     sourceType = sourceType,
+                    sourceKey = "",
+                    sourceLabel = SourceImageDetailDelegate.defaultTitle(sourceType = sourceType).removeSuffix("详情"),
                     dataUseFrom = dataUseFrom,
-                    detailInfo = detailInfo,
+                    detailUrl = detailUrl,
+                    detailTitle = detailInfo.title.ifBlank { imageInfo.title.ifBlank { detailUrl } },
+                    preparedDetailInfo = detailInfo,
+                    forceOverwrite = forceOverwrite,
                 )
-                progressMap[imageKey] = "0/${completeDetailInfo.pictures.size}"
-                val savedCount = withContext(Dispatchers.IO) {
-                    downloadDetailImages(
-                        context = context,
-                        detailInfo = completeDetailInfo,
-                        parentDir = detailDownloadDir,
-                        imageModelProvider = { sourceImage ->
-                            SourceImageDetailDelegate.imageModel(
-                                sourceType = sourceType,
-                                imageInfo = sourceImage,
-                            )
-                        },
-                        logTag = logTag,
-                        replaceExisting = forceOverwrite,
-                        onProgress = { progress ->
-                            progressMap[imageKey] = "$progress/${completeDetailInfo.pictures.size}"
-                        },
-                    )
+                val terminalState = DownloadQueueManager.awaitTaskFinalState(taskId) { state ->
+                    progressMap[imageKey] = state.progressText
                 }
-                if (savedCount > 0) {
-                    onDownloadFinished(imageInfo)
+                when (terminalState?.status) {
+                    DownloadTaskStatus.SUCCEEDED -> {
+                        onDownloadFinished(imageInfo)
+                        showToast("已下载 ${terminalState.finishedCount}/${terminalState.totalCount} 张图片")
+                    }
+
+                    DownloadTaskStatus.FAILED -> {
+                        showToast("下载失败")
+                    }
+
+                    else -> Unit
                 }
-                showToast("已下载 $savedCount/${completeDetailInfo.pictures.size} 张图片")
             } catch (e: CancellationException) {
                 throw e
             } catch (throwable: Throwable) {
-                LogComponent.printE(tag = logTag, message = "download favorite detail failed:$throwable")
+                LogComponent.printE(tag = SourceImageDetailDelegate.logTag(sourceType = sourceType), message = "download favorite detail failed:$throwable")
                 showToast("下载失败")
             } finally {
                 progressMap.remove(imageKey)
@@ -239,7 +233,6 @@ object SourceImageDownloadHelper {
         onItemFinished: suspend (Int, ImageLoadsInfo, Boolean) -> Unit = { _, _, _ -> },
     ): FavoriteBulkDownloadResult {
         val logTag = SourceImageDetailDelegate.logTag(sourceType = sourceType)
-        val downloadParentDir = SourceImageDetailDelegate.getDownloadParentDir(sourceType = sourceType)
         var successItemCount = 0
         var failedItemCount = 0
         var savedImageCount = 0
@@ -255,43 +248,35 @@ object SourceImageDownloadHelper {
                 } else if (isDetailHrefDownloaded(sourceType = sourceType, detailHref = detailUrl)) {
                     true
                 } else {
-                    val detailInfo = SourceImageDetailDelegate.requestDetail(
-                        sourceType = sourceType,
-                        dataUseFrom = dataUseFrom,
-                        url = detailUrl,
-                    )
+                    val detailInfo = withContext(Dispatchers.IO) {
+                        SourceImageDetailDelegate.requestDetail(
+                            sourceType = sourceType,
+                            dataUseFrom = dataUseFrom,
+                            url = detailUrl,
+                        )
+                    }
                     if (detailInfo.pictures.isEmpty()) {
                         LogComponent.printE(tag = logTag, message = "download favorite bulk failed: empty detail $detailUrl")
                         false
                     } else {
-                        val completeDetailInfo = SourceImageDetailDelegate.requestRemainingDetailPages(
+                        val taskId = DownloadQueueManager.enqueueCommonDownload(
                             sourceType = sourceType,
+                            sourceKey = "",
+                            sourceLabel = SourceImageDetailDelegate.defaultTitle(sourceType = sourceType).removeSuffix("详情"),
                             dataUseFrom = dataUseFrom,
-                            detailInfo = detailInfo,
+                            detailUrl = detailUrl,
+                            detailTitle = detailInfo.title.ifBlank { imageInfo.title.ifBlank { detailUrl } },
+                            preparedDetailInfo = detailInfo,
                         )
-                        onImageProgress(itemIndex, 0, completeDetailInfo.pictures.size)
-                        val savedCount = withContext(Dispatchers.IO) {
-                            downloadDetailImages(
-                                context = context,
-                                detailInfo = completeDetailInfo,
-                                parentDir = getDetailDownloadDir(
-                                    parentDir = downloadParentDir,
-                                    detailInfo = completeDetailInfo,
-                                ),
-                                imageModelProvider = { sourceImage ->
-                                    SourceImageDetailDelegate.imageModel(
-                                        sourceType = sourceType,
-                                        imageInfo = sourceImage,
-                                    )
-                                },
-                                logTag = logTag,
-                                onProgress = { progress ->
-                                    onImageProgress(itemIndex, progress, completeDetailInfo.pictures.size)
-                                },
-                            )
+                        val terminalState = DownloadQueueManager.awaitTaskFinalState(taskId) { state ->
+                            onImageProgress(itemIndex, state.finishedCount, state.totalCount)
                         }
-                        savedImageCount += savedCount
-                        savedCount > 0
+                        if (terminalState?.status == DownloadTaskStatus.SUCCEEDED) {
+                            savedImageCount += terminalState.finishedCount
+                            true
+                        } else {
+                            false
+                        }
                     }
                 }
             } catch (e: CancellationException) {

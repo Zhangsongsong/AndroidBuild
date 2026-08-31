@@ -57,6 +57,7 @@ import com.zasko.imageloads.compose.AppThemeStyleStore
 import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.data.DataUseFrom
 import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.ui.download.DownloadQueueActivity
 import com.zasko.imageloads.ui.common.CommonDownloadedActivity
 import com.zasko.imageloads.ui.common.DynamicSourceStore
 import com.zasko.imageloads.ui.common.SourceListSettingsStore
@@ -197,6 +198,12 @@ class MainActivity : BaseComposeActivity() {
                     themes = themes,
                     onHomeClick = {
                         coroutineScope.launch { drawerState.close() }
+                    },
+                    onDownloadQueueClick = {
+                        coroutineScope.launch {
+                            drawerState.close()
+                            DownloadQueueActivity.start(context = this@MainActivity)
+                        }
                     },
                     onThemeClick = { info ->
                         coroutineScope.launch { drawerState.close() }
@@ -353,6 +360,7 @@ class MainActivity : BaseComposeActivity() {
     private fun MainDrawerContent(
         themes: List<MainThemeSelectInfo>,
         onHomeClick: () -> Unit,
+        onDownloadQueueClick: () -> Unit,
         onThemeClick: (MainThemeSelectInfo) -> Unit,
         onLabClick: () -> Unit,
         onAboutClick: () -> Unit,
@@ -368,6 +376,13 @@ class MainActivity : BaseComposeActivity() {
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Spacer(modifier = Modifier.height(24.dp))
+                DrawerSectionTitle(text = "任务")
+                NavigationDrawerItem(
+                    label = { Text(text = "正在下载") },
+                    selected = false,
+                    onClick = onDownloadQueueClick,
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 DrawerSectionTitle(text = "导出数据")
                 NavigationDrawerItem(
                     label = { Text(text = "来源数据") },

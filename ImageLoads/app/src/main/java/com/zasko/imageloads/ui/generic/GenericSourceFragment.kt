@@ -27,6 +27,8 @@ import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialog
 import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialogState
 import com.zasko.imageloads.ui.common.FavoriteBulkDownloadPlan
 import com.zasko.imageloads.ui.common.PreparedFavoriteItemDownload
+import com.zasko.imageloads.manager.DownloadQueueManager
+import com.zasko.imageloads.manager.DownloadTaskStatus
 import com.zasko.imageloads.ui.common.SourceImageDownloadHelper
 import com.zasko.imageloads.ui.trendszine.TrendszineCategory
 import com.zasko.imageloads.ui.trendszine.TrendszineTitleCategorySelector
@@ -35,8 +37,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 class GenericSourceFragment : ComposeBaseFragment() {
@@ -492,30 +492,25 @@ class GenericSourceFragment : ComposeBaseFragment() {
                     dataUseFrom = dataInfo?.dataUseFrom,
                     url = detailUrl,
                 )
-                val completeDetailInfo = GenericSourceRepository.requestRemainingDetailPages(
-                    config = config,
+                val taskId = DownloadQueueManager.enqueueCommonDownload(
+                    sourceType = config.type,
+                    sourceKey = config.key,
+                    sourceLabel = (dataInfo?.title.orEmpty()).ifBlank { config.key },
                     dataUseFrom = dataInfo?.dataUseFrom,
-                    detailInfo = detailInfo,
+                    detailUrl = detailUrl,
+                    detailTitle = detailInfo.title.ifBlank { imageInfo.title.ifBlank { detailUrl } },
+                    preparedDetailInfo = detailInfo,
+                    forceOverwrite = forceOverwrite,
                 )
-                favoriteDownloadProgress[imageKey] = "0/${completeDetailInfo.pictures.size}"
-                val savedCount = withContext(Dispatchers.IO) {
-                    SourceImageDownloadHelper.downloadDetailImages(
-                        context = hostActivity.applicationContext,
-                        detailInfo = completeDetailInfo,
-                        parentDir = SourceImageDownloadHelper.getDetailDownloadDir(
-                            parentDir = getDownloadParentDir(),
-                            detailInfo = completeDetailInfo,
-                        ),
-                        imageModelProvider = { it.url.toGenericImageModel() },
-                        logTag = TAG,
-                        replaceExisting = forceOverwrite,
-                        onProgress = { progress ->
-                            favoriteDownloadProgress[imageKey] = "$progress/${completeDetailInfo.pictures.size}"
-                        },
-                    )
+                val terminalState = DownloadQueueManager.awaitTaskFinalState(taskId) { state ->
+                    favoriteDownloadProgress[imageKey] = state.progressText
                 }
-                refreshDownloadedFavoriteState()
-                showToast("已下载 $savedCount/${completeDetailInfo.pictures.size} 张图片")
+                if (terminalState?.status == DownloadTaskStatus.SUCCEEDED) {
+                    refreshDownloadedFavoriteState()
+                    showToast("已下载 ${terminalState.finishedCount}/${terminalState.totalCount} 张图片")
+                } else if (terminalState?.status == DownloadTaskStatus.FAILED) {
+                    showToast("下载失败")
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (throwable: Throwable) {
@@ -580,29 +575,26 @@ class GenericSourceFragment : ComposeBaseFragment() {
                             dataUseFrom = dataInfo?.dataUseFrom,
                             url = imageInfo.href,
                         )
-                        val completeDetailInfo = GenericSourceRepository.requestRemainingDetailPages(
-                            config = config,
+                        val taskId = DownloadQueueManager.enqueueCommonDownload(
+                            sourceType = config.type,
+                            sourceKey = config.key,
+                            sourceLabel = (dataInfo?.title.orEmpty()).ifBlank { config.key },
                             dataUseFrom = dataInfo?.dataUseFrom,
-                            detailInfo = detailInfo,
+                            detailUrl = imageInfo.href,
+                            detailTitle = detailInfo.title.ifBlank { imageInfo.title.ifBlank { imageInfo.href } },
+                            preparedDetailInfo = detailInfo,
                         )
-                        withContext(Dispatchers.IO) {
-                            SourceImageDownloadHelper.downloadDetailImages(
-                                context = hostActivity.applicationContext,
-                                detailInfo = completeDetailInfo,
-                                parentDir = SourceImageDownloadHelper.getDetailDownloadDir(
-                                    parentDir = getDownloadParentDir(),
-                                    detailInfo = completeDetailInfo,
-                                ),
-                                imageModelProvider = { it.url.toGenericImageModel() },
-                                logTag = TAG,
-                                onProgress = { progress ->
-                                    favoriteDownloadProgress[imageInfo.url] = "$progress/${completeDetailInfo.pictures.size}"
-                                    favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
-                                        currentImageProgress = "图片 $progress/${completeDetailInfo.pictures.size}",
-                                    )
+                        val terminalState = DownloadQueueManager.awaitTaskFinalState(taskId) { state ->
+                            favoriteDownloadProgress[imageInfo.url] = state.progressText
+                            favoriteBulkDownloadState = favoriteBulkDownloadState.copy(
+                                currentImageProgress = if (state.totalCount > 0) {
+                                    "图片 ${state.finishedCount}/${state.totalCount}"
+                                } else {
+                                    state.progressText
                                 },
                             )
-                        } > 0
+                        }
+                        terminalState?.status == DownloadTaskStatus.SUCCEEDED
                     }.getOrElse { throwable ->
                         LogComponent.printE(tag = TAG, message = "bulk download failed:$throwable")
                         false
@@ -639,10 +631,6 @@ class GenericSourceFragment : ComposeBaseFragment() {
     }
 
     private fun handleBack() {
-        if (isFavoriteBulkDownloading) {
-            showToast("正在下载中")
-            return
-        }
         if (showBulkDownloadDialog) {
             showBulkDownloadDialog = false
             return

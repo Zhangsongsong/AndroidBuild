@@ -183,6 +183,12 @@ class SourceImageDetailActivity : CommonImageDetailActivity() {
     override val referer: String
         get() = SourceImageDetailDelegate.referer(sourceType = sourceType)
 
+    override val downloadQueueSourceType: Int
+        get() = sourceType
+
+    override val downloadQueueSourceLabel: String
+        get() = SourceImageDetailDelegate.defaultTitle(sourceType = sourceType).removeSuffix("详情")
+
     override suspend fun requestDetail(dataUseFrom: Int?, url: String): CommonImageDetailInfo {
         return SourceImageDetailDelegate.requestDetail(sourceType = sourceType, dataUseFrom = dataUseFrom, url = url)
     }

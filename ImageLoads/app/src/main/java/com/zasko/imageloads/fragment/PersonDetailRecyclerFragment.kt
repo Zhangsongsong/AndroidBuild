@@ -1,6 +1,7 @@
 package com.zasko.imageloads.fragment
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -10,13 +11,18 @@ import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.dialog.CenterDefaultDialog
 import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.dialog.WarningDialog
+import com.zasko.imageloads.manager.DownloadQueueManager
+import com.zasko.imageloads.manager.DownloadTaskStatus
 import com.zasko.imageloads.ui.xiuren.XiuRenViewDetailModel
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick
 import com.zasko.imageloads.utils.switchThread
-import com.zasko.imageloads.listener.DownloadListenerAbs
-import com.zasko.imageloads.listener.GettingImageListener
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -36,6 +42,7 @@ class PersonDetailRecyclerFragment : DetailBaseFragment() {
     private lateinit var adapter: DetailImagesAdapter
     private var loadMoreIndex = 1
     private var isInitialLoading = false
+    private var downloadObserveJob: Job? = null
     private val isDownloading = AtomicBoolean(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +51,13 @@ class PersonDetailRecyclerFragment : DetailBaseFragment() {
             initBindLife(this@PersonDetailRecyclerFragment)
             setLoadInfo(imageLoadsInfo)
         }
+    }
+
+    override fun onDestroyView() {
+        downloadObserveJob?.cancel()
+        downloadObserveJob = null
+        downloadDialog?.dismiss()
+        super.onDestroyView()
     }
 
     override fun bindStart() {
@@ -149,43 +163,64 @@ class PersonDetailRecyclerFragment : DetailBaseFragment() {
         binding.downloadIv.isSelected = viewModel.checkHasDownload()
     }
 
-    private fun startDownload() {
-        if (!isAdded) {
+    private fun startDownload(forceOverwrite: Boolean = false) {
+        if (!isAdded || isDownloading.get()) {
             return
         }
         if (downloadDialog == null) {
             downloadDialog = DownloadTipDialog(activity = requireActivity())
         }
         downloadDialog?.show()
-        viewModel.downloadPic(
-            context = requireContext(),
-            gettingListener = object : GettingImageListener {
-                override fun onGettingPage(page: Int) {
-                    downloadDialog?.addGettingText(text = "page:$page")
-                }
-            },
-            listener = object : DownloadListenerAbs() {
-                override fun onStartGettingMaxPage() {
-                    isDownloading.set(true)
-                    downloadDialog?.setTitleText(text = getString(R.string.getting_max_page_list))
-                }
-
-                override fun onStartDownload(all: Int, dir: String) {
-                    downloadDialog?.setTitleText(text = getString(R.string.downloading_tip))
-                }
-
-                override fun onOneEndDownLoad(index: Int, all: Int, dir: String, fileName: String) {
-                    val progress = if (all <= 0) 1f else index.toFloat() / all
-                    downloadDialog?.updateProgress(progress = progress, text = "$index/$all")
-                }
-
-                override fun onEndDownload(all: Int, dir: String) {
-                    isDownloading.set(false)
-                    downloadDialog?.dismiss()
-                    updateHasDownloadView()
-                }
-            },
+        val taskId = DownloadQueueManager.enqueueXiurenDownload(
+            sourceLabel = getString(R.string.xiuren),
+            detailUrl = imageLoadsInfo.href,
+            detailTitle = imageLoadsInfo.title.ifBlank { "详情" },
+            preparedDetailInfo = null,
+            forceOverwrite = forceOverwrite,
         )
+        isDownloading.set(true)
+        downloadObserveJob?.cancel()
+        val observerJob = CoroutineScope(Dispatchers.Main.immediate).launch {
+            try {
+                val terminalState = DownloadQueueManager.awaitTaskFinalState(taskId) { state ->
+                    isDownloading.set(true)
+                    downloadDialog?.setTitleText(
+                        text = when (state.status) {
+                            DownloadTaskStatus.PREPARING -> getString(R.string.getting_max_page_list)
+                            DownloadTaskStatus.DOWNLOADING -> getString(R.string.downloading_tip)
+                            else -> getString(R.string.downloading_tip)
+                        },
+                    )
+                    downloadDialog?.updateProgress(
+                        progress = state.progressFraction ?: 0f,
+                        text = state.progressText,
+                    )
+                }
+                when (terminalState?.status) {
+                    DownloadTaskStatus.SUCCEEDED -> {
+                        updateHasDownloadView()
+                        if (isAdded) {
+                            Toast.makeText(requireContext(), "下载完成", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    DownloadTaskStatus.FAILED -> {
+                        if (isAdded) {
+                            Toast.makeText(requireContext(), "下载失败", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    else -> Unit
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } finally {
+                isDownloading.set(false)
+                downloadDialog?.dismiss()
+                downloadObserveJob = null
+            }
+        }
+        downloadObserveJob = observerJob
     }
 
     private fun showDownloadWarning(positive: () -> Unit) {

@@ -43,6 +43,12 @@ class GenericImageDetailActivity : CommonImageDetailActivity() {
 
     override val detailImageColumnCount: Int
         get() = 2
+    override val downloadQueueSourceType: Int
+        get() = dataInfo.theme
+    override val downloadQueueSourceKey: String
+        get() = dataInfo.sourceKey
+    override val downloadQueueSourceLabel: String
+        get() = dataInfo.title.ifBlank { defaultTitle.removeSuffix("详情") }
 
     override suspend fun requestDetail(dataUseFrom: Int?, url: String): CommonImageDetailInfo {
         val config = sourceConfig ?: return CommonImageDetailInfo(url = url)

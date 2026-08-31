@@ -65,10 +65,13 @@ import com.zasko.imageloads.compose.ImageLoadsTheme
 import com.zasko.imageloads.compose.ImageLoadsTopBar
 import com.zasko.imageloads.data.ImageLoadsInfo
 import com.zasko.imageloads.fragment.ImagePreviewFragment
+import com.zasko.imageloads.manager.DownloadQueueManager
+import com.zasko.imageloads.manager.DownloadTaskStatus
 import com.zasko.imageloads.utils.FileUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -100,6 +103,12 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     protected abstract val referer: String
     protected open val detailImageColumnCount: Int
         get() = 1
+    protected open val downloadQueueSourceType: Int
+        get() = -1
+    protected open val downloadQueueSourceKey: String
+        get() = ""
+    protected open val downloadQueueSourceLabel: String
+        get() = defaultTitle.removeSuffix("详情").ifBlank { defaultTitle }
 
     private var detailInfo by mutableStateOf(CommonImageDetailInfo())
     private var isLoading by mutableStateOf(false)
@@ -112,6 +121,7 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     private var isFavorite by mutableStateOf(false)
     private var errorMessage by mutableStateOf("")
     private var coverInfo = ImageLoadsInfo()
+    private var downloadObserveJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -256,34 +266,50 @@ abstract class CommonImageDetailActivity : BaseActivity() {
         if (isDownloading || detailInfo.pictures.isEmpty()) {
             return
         }
-        val context = applicationContext
-        var currentDetail = detailInfo
+        if (downloadQueueSourceType < 0 && downloadQueueSourceKey.isBlank()) {
+            showToast("无法下载")
+            return
+        }
+        val currentDetail = detailInfo
+        val detailUrl = currentDetail.url.ifBlank { coverInfo.href }
+        if (detailUrl.isBlank()) {
+            showToast("缺少详情地址")
+            return
+        }
+        downloadObserveJob?.cancel()
         downloadTotalCount = currentDetail.pictures.size
         downloadFinishedCount = 0
         isDownloading = true
-        CoroutineScope(Dispatchers.Main.immediate).launch {
+        val observerJob = CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
-                currentDetail = loadRemainingDetailPages(currentDetail)
-                detailInfo = currentDetail
-                downloadTotalCount = currentDetail.pictures.size
-                val savedCount = withContext(Dispatchers.IO) {
-                    SourceImageDownloadHelper.downloadDetailImages(
-                        context = context,
-                        detailInfo = currentDetail,
-                        parentDir = SourceImageDownloadHelper.getDetailDownloadDir(
-                            parentDir = getDownloadParentDir(),
-                            detailInfo = currentDetail,
-                        ),
-                        imageModelProvider = ::imageModel,
-                        logTag = logTag,
-                        replaceExisting = forceOverwrite,
-                        onProgress = { progress ->
-                            downloadFinishedCount = progress
-                        },
-                    )
+                val taskId = DownloadQueueManager.enqueueCommonDownload(
+                    sourceType = downloadQueueSourceType,
+                    sourceKey = downloadQueueSourceKey,
+                    sourceLabel = downloadQueueSourceLabel,
+                    dataUseFrom = readDataUseFrom(),
+                    detailUrl = detailUrl,
+                    detailTitle = currentDetail.title.ifBlank { defaultTitle },
+                    preparedDetailInfo = currentDetail,
+                    forceOverwrite = forceOverwrite,
+                )
+                val terminalState = DownloadQueueManager.awaitTaskFinalState(taskId) { state ->
+                    isDownloading = true
+                    downloadTotalCount = state.totalCount.takeIf { it > 0 } ?: currentDetail.pictures.size
+                    downloadFinishedCount = state.finishedCount
                 }
-                hasDownloaded = savedCount > 0
-                showToast("已下载 $savedCount/${currentDetail.pictures.size} 张图片")
+                when (terminalState?.status) {
+                    DownloadTaskStatus.SUCCEEDED -> {
+                        hasDownloaded = true
+                        updateHasDownloadState()
+                        showToast("已下载 ${terminalState.finishedCount}/${terminalState.totalCount} 张图片")
+                    }
+
+                    DownloadTaskStatus.FAILED -> {
+                        showToast("下载失败")
+                    }
+
+                    else -> Unit
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (throwable: Throwable) {
@@ -291,8 +317,11 @@ abstract class CommonImageDetailActivity : BaseActivity() {
                 showToast("下载失败")
             } finally {
                 isDownloading = false
+                downloadObserveJob = null
             }
-        }.let(::addJobBindLife)
+        }
+        downloadObserveJob = observerJob
+        addJobBindLife(observerJob)
     }
 
     private suspend fun loadRemainingDetailPages(initialDetail: CommonImageDetailInfo): CommonImageDetailInfo {
@@ -342,10 +371,6 @@ abstract class CommonImageDetailActivity : BaseActivity() {
     private fun handleBack() {
         if (showOverwriteDialog) {
             showOverwriteDialog = false
-            return
-        }
-        if (isDownloading) {
-            showToast("正在下载中")
             return
         }
         finish()

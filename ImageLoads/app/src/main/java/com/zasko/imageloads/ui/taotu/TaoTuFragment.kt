@@ -357,10 +357,6 @@ class TaoTuFragment : ComposeBaseFragment() {
     }
 
     private fun handleBack() {
-        if (isFavoriteBulkDownloading) {
-            showToast("正在下载中")
-            return
-        }
         if (showBulkDownloadDialog) {
             showBulkDownloadDialog = false
             return
