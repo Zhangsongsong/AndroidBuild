@@ -114,6 +114,12 @@ object DownloadQueueManager {
         }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
+    fun bootstrapAsync() {
+        scope.launch {
+            bootstrap()
+        }
+    }
+
     fun bootstrap() {
         synchronized(lock) {
             if (initialized) {
@@ -123,11 +129,17 @@ object DownloadQueueManager {
         }
         val persistedRecords = readPersistedRecords()
             .filter { it.status.isActive() }
-        synchronized(lock) {
-            taskRecords.value = persistedRecords
-            persistLocked(persistedRecords)
+        val nextRecords = synchronized(lock) {
+            val currentRecords = taskRecords.value
+            val currentById = currentRecords.associateBy { it.id }
+            val mergedRecords = persistedRecords
+                .map { persisted -> currentById[persisted.id] ?: persisted }
+                .plus(currentRecords.filter { current -> persistedRecords.none { it.id == current.id } })
+            taskRecords.value = mergedRecords
+            persistLocked(mergedRecords)
+            mergedRecords
         }
-        persistedRecords.forEach { record ->
+        nextRecords.forEach { record ->
             launchTaskIfNeeded(record = record, preparedCommonDetailInfo = null, preparedXiurenDetailInfo = null)
         }
     }

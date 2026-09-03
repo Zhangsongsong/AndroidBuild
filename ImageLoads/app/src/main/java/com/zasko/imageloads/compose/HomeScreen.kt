@@ -24,10 +24,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedIconButton
@@ -71,6 +73,7 @@ import com.zasko.imageloads.utils.Constants
 @Composable
 fun HomeScreen(
     themes: List<MainThemeSelectInfo>,
+    isLoading: Boolean = false,
     commonHeadersEnabledProvider: (MainThemeSelectInfo) -> Boolean = { true },
     onOpenDrawer: () -> Unit = {},
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
@@ -145,73 +148,93 @@ fun HomeScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .pointerInput(dragInputKey) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { offset ->
-                            draggingItemKey = findTouchedItem(offset.y)?.key as? String
-                            draggingItemOffset = 0f
-                            orderChangedDuringDrag = false
-                        },
-                        onDragEnd = {
-                            finishDragging()
-                        },
-                        onDragCancel = {
-                            finishDragging()
-                        },
-                        onDrag = { _, dragAmount ->
-                            val itemKey = draggingItemKey ?: return@detectDragGesturesAfterLongPress
-                            draggingItemOffset += dragAmount.y
-                            val currentItem = listState.layoutInfo.visibleItemsInfo
-                                .firstOrNull { it.key == itemKey }
-                                ?: return@detectDragGesturesAfterLongPress
-                            val draggedTop = currentItem.offset + draggingItemOffset
-                            val draggedMiddle = draggedTop + currentItem.size / 2
-                            val targetItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
-                                item.key != itemKey && draggedMiddle.toInt() in item.offset..(item.offset + item.size)
-                            } ?: return@detectDragGesturesAfterLongPress
-                            val fromIndex = displayedThemes.indexOfFirst { it.homeThemeKey() == itemKey }
-                            val toIndex = displayedThemes.indexOfFirst { it.homeThemeKey() == targetItem.key }
-                            if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) {
-                                return@detectDragGesturesAfterLongPress
-                            }
-                            moveTheme(fromIndex = fromIndex, toIndex = toIndex)
-                            draggingItemOffset = draggedTop - targetItem.offset
-                        },
-                    )
-                },
-            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .fillMaxSize(),
         ) {
-            items(
-                items = displayedThemes,
-                key = { theme -> theme.homeThemeKey() },
-                contentType = { "home_theme" },
-            ) { theme ->
-                val isDragging = draggingItemKey == theme.homeThemeKey()
-                ThemeSelectCard(
+            if (displayedThemes.isNotEmpty()) {
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .zIndex(if (isDragging) 1f else 0f)
-                        .graphicsLayer {
-                            if (isDragging) {
-                                translationY = draggingItemOffset
-                                scaleX = 1.01f
-                                scaleY = 1.01f
-                                shadowElevation = 8.dp.toPx()
-                            }
+                        .fillMaxSize()
+                        .pointerInput(dragInputKey) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { offset ->
+                                    draggingItemKey = findTouchedItem(offset.y)?.key as? String
+                                    draggingItemOffset = 0f
+                                    orderChangedDuringDrag = false
+                                },
+                                onDragEnd = {
+                                    finishDragging()
+                                },
+                                onDragCancel = {
+                                    finishDragging()
+                                },
+                                onDrag = { _, dragAmount ->
+                                    val itemKey = draggingItemKey ?: return@detectDragGesturesAfterLongPress
+                                    draggingItemOffset += dragAmount.y
+                                    val currentItem = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { it.key == itemKey }
+                                        ?: return@detectDragGesturesAfterLongPress
+                                    val draggedTop = currentItem.offset + draggingItemOffset
+                                    val draggedMiddle = draggedTop + currentItem.size / 2
+                                    val targetItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                                        item.key != itemKey && draggedMiddle.toInt() in item.offset..(item.offset + item.size)
+                                    } ?: return@detectDragGesturesAfterLongPress
+                                    val fromIndex = displayedThemes.indexOfFirst { it.homeThemeKey() == itemKey }
+                                    val toIndex = displayedThemes.indexOfFirst { it.homeThemeKey() == targetItem.key }
+                                    if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) {
+                                        return@detectDragGesturesAfterLongPress
+                                    }
+                                    moveTheme(fromIndex = fromIndex, toIndex = toIndex)
+                                    draggingItemOffset = draggedTop - targetItem.offset
+                                },
+                            )
                         },
-                    info = theme,
-                    useCommonHeaders = commonHeadersEnabledProvider(theme),
-                    onOpenTheme = onOpenTheme,
-                    onOpenFavorites = onOpenFavorites,
-                    onOpenDownloads = onOpenDownloads,
-                    onDeleteTheme = onDeleteTheme,
-                    onUseLocalChanged = onUseLocalChanged,
-                    onUseCommonHeadersChanged = onUseCommonHeadersChanged,
+                    contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    items(
+                        items = displayedThemes,
+                        key = { theme -> theme.homeThemeKey() },
+                        contentType = { "home_theme" },
+                    ) { theme ->
+                        val isDragging = draggingItemKey == theme.homeThemeKey()
+                        ThemeSelectCard(
+                            modifier = Modifier
+                                .zIndex(if (isDragging) 1f else 0f)
+                                .graphicsLayer {
+                                    if (isDragging) {
+                                        translationY = draggingItemOffset
+                                        scaleX = 1.01f
+                                        scaleY = 1.01f
+                                        shadowElevation = 8.dp.toPx()
+                                    }
+                                },
+                            info = theme,
+                            useCommonHeaders = commonHeadersEnabledProvider(theme),
+                            onOpenTheme = onOpenTheme,
+                            onOpenFavorites = onOpenFavorites,
+                            onOpenDownloads = onOpenDownloads,
+                            onDeleteTheme = onDeleteTheme,
+                            onUseLocalChanged = onUseLocalChanged,
+                            onUseCommonHeadersChanged = onUseCommonHeadersChanged,
+                        )
+                    }
+                }
+            }
+            if (isLoading && displayedThemes.isEmpty()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = colorScheme.primary,
+                )
+            } else if (isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter),
+                    color = colorScheme.primary,
                 )
             }
         }

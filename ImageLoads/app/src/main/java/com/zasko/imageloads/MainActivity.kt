@@ -44,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.zasko.imageloads.activity.PersonListActivity
@@ -74,7 +73,9 @@ import com.zasko.imageloads.ui.trendszine.TrendszineActivity
 import com.zasko.imageloads.ui.xiuren.activity.XiuRenActivity
 import com.zasko.imageloads.utils.Constants
 import com.zasko.imageloads.utils.FileUtil
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -82,7 +83,16 @@ import java.io.File
 
 class MainActivity : BaseComposeActivity() {
 
-    private var homeRefreshVersion by mutableStateOf(0)
+    private data class HomeUiState(
+        val themes: List<MainThemeSelectInfo> = emptyList(),
+        val commonHeadersEnabledByTarget: Map<String, Boolean> = emptyMap(),
+        val isLoading: Boolean = true,
+    )
+
+    private var homeUiState by mutableStateOf(HomeUiState())
+    private var homeLoadJob: Job? = null
+    private var homeLoadRequestId = 0
+    private var skipNextResumeReload = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,39 +109,20 @@ class MainActivity : BaseComposeActivity() {
                 MainRoute()
             }
         }
+        loadHomeData()
     }
 
     override fun onResume() {
         super.onResume()
-        homeRefreshVersion += 1
+        if (skipNextResumeReload) {
+            skipNextResumeReload = false
+            return
+        }
+        loadHomeData()
     }
 
     @Composable
     private fun MainRoute() {
-        var useXiuRenLocalData by rememberSaveable {
-            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_XIUREN))
-        }
-        var useMeizi5LocalData by rememberSaveable {
-            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_MEIZI5))
-        }
-        var useTaoTuLocalData by rememberSaveable {
-            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_TAOTU))
-        }
-        var useTrendszineLocalData by rememberSaveable {
-            mutableStateOf(SourceListSettingsStore.isLocalDataEnabled(Constants.THEME_TYPE_TRENDSZINE))
-        }
-        var useXiuRenCommonHeaders by rememberSaveable {
-            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_XIUREN))
-        }
-        var useMeizi5CommonHeaders by rememberSaveable {
-            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_MEIZI5))
-        }
-        var useTaoTuCommonHeaders by rememberSaveable {
-            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_TAOTU))
-        }
-        var useTrendszineCommonHeaders by rememberSaveable {
-            mutableStateOf(HttpHeaderConfigStore.isCommonHeadersEnabled(Constants.THEME_TYPE_TRENDSZINE))
-        }
         var showThemeStyleDialog by rememberSaveable {
             mutableStateOf(false)
         }
@@ -144,56 +135,8 @@ class MainActivity : BaseComposeActivity() {
         var deleteProgressText by rememberSaveable {
             mutableStateOf("")
         }
-        val xiuRenTheme = MainThemeSelectInfo(
-            cover = getHomeCover(sourceType = Constants.THEME_TYPE_XIUREN, fallback = XIUREN_COVER),
-            title = stringResource(id = R.string.xiuren),
-            dataUseFrom = if (useXiuRenLocalData) {
-                DataUseFrom.PRIVATE_FILE.value
-            } else {
-                DataUseFrom.NETWORK.value
-            },
-            theme = Constants.THEME_TYPE_XIUREN,
-        )
-        val meizi5Theme = MainThemeSelectInfo(
-            cover = getHomeCover(sourceType = Constants.THEME_TYPE_MEIZI5, fallback = MEIZI5_COVER),
-            title = "Meizi5",
-            dataUseFrom = if (useMeizi5LocalData) {
-                DataUseFrom.PRIVATE_FILE.value
-            } else {
-                DataUseFrom.NETWORK.value
-            },
-            theme = Constants.THEME_TYPE_MEIZI5,
-        )
-        val taoTuTheme = MainThemeSelectInfo(
-            cover = getHomeCover(sourceType = Constants.THEME_TYPE_TAOTU, fallback = TAOTU_COVER),
-            title = "TaoTu",
-            dataUseFrom = if (useTaoTuLocalData) {
-                DataUseFrom.PRIVATE_FILE.value
-            } else {
-                DataUseFrom.NETWORK.value
-            },
-            theme = Constants.THEME_TYPE_TAOTU,
-        )
-        val trendszineTheme = MainThemeSelectInfo(
-            cover = getHomeCover(sourceType = Constants.THEME_TYPE_TRENDSZINE, fallback = TRENDSZINE_COVER),
-            title = "Trendszine",
-            dataUseFrom = if (useTrendszineLocalData) {
-                DataUseFrom.PRIVATE_FILE.value
-            } else {
-                DataUseFrom.NETWORK.value
-            },
-            theme = Constants.THEME_TYPE_TRENDSZINE,
-        )
-        val refreshVersion = homeRefreshVersion
-        val dynamicThemes = remember(refreshVersion) {
-            DynamicSourceStore.getDynamicThemes()
-        }
-        var themeOrderVersion by rememberSaveable {
-            mutableStateOf(0)
-        }
-        val themes = remember(dynamicThemes, themeOrderVersion) {
-            applyHomeThemeOrder(dynamicThemes)
-        }
+        val homeState = homeUiState
+        val themes = homeState.themes
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val coroutineScope = rememberCoroutineScope()
 
@@ -241,18 +184,9 @@ class MainActivity : BaseComposeActivity() {
         ) {
             HomeScreen(
                 themes = themes,
+                isLoading = homeState.isLoading,
                 commonHeadersEnabledProvider = { info ->
-                    if (info.sourceKey.isNotBlank()) {
-                        HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(info.sourceKey)
-                    } else {
-                        when (info.theme) {
-                            Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders
-                            Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders
-                            Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders
-                            Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders
-                            else -> true
-                        }
-                    }
+                    homeState.commonHeadersEnabledByTarget[info.sourceTargetId()] ?: true
                 },
                 onOpenDrawer = {
                     coroutineScope.launch { drawerState.open() }
@@ -273,42 +207,14 @@ class MainActivity : BaseComposeActivity() {
                     }
                 },
                 onUseLocalChanged = { info, checked ->
-                    if (info.sourceKey.isBlank()) {
-                        when (info.theme) {
-                            Constants.THEME_TYPE_XIUREN -> useXiuRenLocalData = checked
-                            Constants.THEME_TYPE_MEIZI5 -> useMeizi5LocalData = checked
-                            Constants.THEME_TYPE_TAOTU -> useTaoTuLocalData = checked
-                            Constants.THEME_TYPE_TRENDSZINE -> useTrendszineLocalData = checked
-                        }
-                        SourceListSettingsStore.setLocalDataEnabled(
-                            sourceType = info.theme,
-                            enabled = checked,
-                        )
-                    } else {
-                        SourceListSettingsStore.setLocalDataEnabled(sourceKey = info.sourceKey, enabled = checked)
-                        homeRefreshVersion += 1
-                    }
+                    updateHomeLocalData(info = info, enabled = checked)
                 },
                 onUseCommonHeadersChanged = { info, checked ->
-                    if (info.sourceKey.isBlank()) {
-                        when (info.theme) {
-                            Constants.THEME_TYPE_XIUREN -> useXiuRenCommonHeaders = checked
-                            Constants.THEME_TYPE_MEIZI5 -> useMeizi5CommonHeaders = checked
-                            Constants.THEME_TYPE_TAOTU -> useTaoTuCommonHeaders = checked
-                            Constants.THEME_TYPE_TRENDSZINE -> useTrendszineCommonHeaders = checked
-                        }
-                        HttpHeaderConfigStore.setCommonHeadersEnabled(
-                            sourceType = info.theme,
-                            enabled = checked,
-                        )
-                    } else {
-                        HttpHeaderConfigStore.setCommonHeadersEnabledForTarget(targetId = info.sourceKey, enabled = checked)
-                        homeRefreshVersion += 1
-                    }
+                    updateHomeCommonHeaders(info = info, enabled = checked)
                 },
                 onThemeOrderChanged = { orderedThemes ->
                     saveHomeThemeOrder(orderedThemes)
-                    themeOrderVersion += 1
+                    homeUiState = homeUiState.copy(themes = orderedThemes)
                 },
             )
             pendingDeleteTheme?.let { info ->
@@ -333,7 +239,7 @@ class MainActivity : BaseComposeActivity() {
                                 pendingDeleteTheme = null
                                 deleteProgressText = ""
                                 result.onSuccess {
-                                    homeRefreshVersion += 1
+                                    loadHomeData()
                                     showToast(message = "已删除 ${info.title}")
                                 }.onFailure { throwable ->
                                     showToast(
@@ -648,6 +554,92 @@ class MainActivity : BaseComposeActivity() {
         }
     }
 
+    private fun loadHomeData() {
+        homeLoadJob?.cancel()
+        val requestId = ++homeLoadRequestId
+        homeUiState = homeUiState.copy(isLoading = true)
+        val job = CoroutineScope(Dispatchers.Main.immediate).launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    buildHomeUiState()
+                }
+            }
+            if (requestId != homeLoadRequestId) {
+                return@launch
+            }
+            result.onSuccess { state ->
+                homeUiState = state.copy(isLoading = false)
+            }.onFailure { throwable ->
+                homeUiState = homeUiState.copy(isLoading = false)
+                showToast(
+                    message = throwable.message
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "首页加载失败",
+                )
+            }
+        }
+        homeLoadJob = job
+        addJobBindLife(job)
+    }
+
+    private fun buildHomeUiState(): HomeUiState {
+        val themes = applyHomeThemeOrder(DynamicSourceStore.getDynamicThemes())
+        return HomeUiState(
+            themes = themes,
+            commonHeadersEnabledByTarget = themes.associate { info ->
+                info.sourceTargetId() to readCommonHeadersEnabled(info = info)
+            },
+            isLoading = false,
+        )
+    }
+
+    private fun updateHomeLocalData(info: MainThemeSelectInfo, enabled: Boolean) {
+        val orderKey = info.homeThemeOrderKey()
+        val dataUseFrom = if (enabled) {
+            DataUseFrom.PRIVATE_FILE.value
+        } else {
+            DataUseFrom.NETWORK.value
+        }
+        homeUiState = homeUiState.copy(
+            themes = homeUiState.themes.map { theme ->
+                if (theme.homeThemeOrderKey() == orderKey) {
+                    theme.copy(dataUseFrom = dataUseFrom)
+                } else {
+                    theme
+                }
+            },
+        )
+        val job = CoroutineScope(Dispatchers.IO).launch {
+            if (info.sourceKey.isBlank()) {
+                SourceListSettingsStore.setLocalDataEnabled(
+                    sourceType = info.theme,
+                    enabled = enabled,
+                )
+            } else {
+                SourceListSettingsStore.setLocalDataEnabled(sourceKey = info.sourceKey, enabled = enabled)
+            }
+        }
+        addJobBindLife(job)
+    }
+
+    private fun updateHomeCommonHeaders(info: MainThemeSelectInfo, enabled: Boolean) {
+        val targetId = info.sourceTargetId()
+        homeUiState = homeUiState.copy(
+            commonHeadersEnabledByTarget = homeUiState.commonHeadersEnabledByTarget + (targetId to enabled),
+        )
+        val job = CoroutineScope(Dispatchers.IO).launch {
+            if (info.sourceKey.isBlank()) {
+                HttpHeaderConfigStore.setCommonHeadersEnabled(
+                    sourceType = info.theme,
+                    enabled = enabled,
+                )
+            } else {
+                HttpHeaderConfigStore.setCommonHeadersEnabledForTarget(targetId = info.sourceKey, enabled = enabled)
+            }
+        }
+        addJobBindLife(job)
+    }
+
     private suspend fun deleteSourceItem(
         info: MainThemeSelectInfo,
         onProgress: (String) -> Unit,
@@ -677,6 +669,14 @@ class MainActivity : BaseComposeActivity() {
         }
     }
 
+    private fun readCommonHeadersEnabled(info: MainThemeSelectInfo): Boolean {
+        return if (info.sourceKey.isBlank()) {
+            HttpHeaderConfigStore.isCommonHeadersEnabled(sourceType = info.theme)
+        } else {
+            HttpHeaderConfigStore.isCommonHeadersEnabledForTarget(targetId = info.sourceKey)
+        }
+    }
+
     private fun MainThemeSelectInfo.localHtmlDirName(): String {
         return sourceKey.trim().ifBlank {
             when (theme) {
@@ -691,10 +691,6 @@ class MainActivity : BaseComposeActivity() {
 
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun getHomeCover(sourceType: Int, fallback: String): String {
-        return SourceLocalDataStore.getCover(sourceType = sourceType) ?: fallback
     }
 
     private fun applyHomeThemeOrder(themes: List<MainThemeSelectInfo>): List<MainThemeSelectInfo> {
@@ -746,10 +742,5 @@ class MainActivity : BaseComposeActivity() {
     private companion object {
         const val PREF_NAME = "main_activity"
         const val KEY_HOME_THEME_ORDER = "home_theme_order"
-        const val XIUREN_COVER = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg"
-        const val MEIZI5_COVER = "https://meizi5.com/wp-content/uploads/2026/04/VOL_350_face.jpg"
-        const val TAOTU_COVER =
-            "https://res.taotu.org/hot-girls/%e5%b0%8f%e8%94%a1%e5%a4%b4%e5%96%b5%e5%96%b5%e5%96%b5/00069-%e9%bb%91%e4%b8%9d%e8%be%85%e5%af%bc%e5%91%98-29p/thumbnail/0020.jpg"
-        const val TRENDSZINE_COVER = "https://trendszine.com/wp-content/uploads/2026/07/33603291310201.webp.webp"
     }
 }

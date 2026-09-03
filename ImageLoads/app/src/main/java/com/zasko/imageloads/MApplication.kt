@@ -30,7 +30,7 @@ class MApplication : Application() {
             return
         }
         HttpComponent.init(this)
-        DownloadQueueManager.bootstrap()
+        DownloadQueueManager.bootstrapAsync()
     }
 
     private fun isMainProcess(): Boolean {

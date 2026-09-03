@@ -27,6 +27,10 @@ object SourceLocalDataStore {
     private const val KEY_USE_COMMON_HEADERS = "useCommonHeaders"
     private const val KEY_USE_LOCAL_DATA = "useLocalData"
 
+    private val rootLock = Any()
+    private var cachedRawData: String? = null
+    private var cachedRoot: JSONObject? = null
+
     fun getHeaders(targetId: String): List<HttpHeaderItem>? {
         return getTargetJson(targetId = targetId, createIfMissing = false)
             ?.optJSONArray(KEY_HEADERS)
@@ -230,13 +234,18 @@ object SourceLocalDataStore {
     }
 
     private fun editRoot(block: (JSONObject) -> Unit) {
-        val root = readRoot()
-        block(root)
-        saveRoot(root)
+        synchronized(rootLock) {
+            val root = readRootLocked()
+            block(root)
+            saveRootLocked(root)
+        }
     }
 
     private fun getTargetJson(targetId: String, createIfMissing: Boolean): JSONObject? {
-        return getTargetJson(root = readRoot(), targetId = targetId, createIfMissing = createIfMissing)
+        return synchronized(rootLock) {
+            getTargetJson(root = readRootLocked(), targetId = targetId, createIfMissing = createIfMissing)
+                ?.let { JSONObject(it.toString()) }
+        }
     }
 
     private fun getTargetJson(root: JSONObject, targetId: String, createIfMissing: Boolean): JSONObject? {
@@ -276,8 +285,17 @@ object SourceLocalDataStore {
     }
 
     private fun readRoot(): JSONObject {
+        return synchronized(rootLock) {
+            JSONObject(readRootLocked().toString())
+        }
+    }
+
+    private fun readRootLocked(): JSONObject {
         val rawData = getPreferences().getString(KEY_DATA, null).orEmpty()
-        return runCatching {
+        cachedRoot?.takeIf { cachedRawData == rawData }?.let { cached ->
+            return cached
+        }
+        val root = runCatching {
             if (rawData.isBlank()) {
                 createEmptyRoot()
             } else {
@@ -293,14 +311,26 @@ object SourceLocalDataStore {
                 put(KEY_SOURCES, JSONObject())
             }
         }
+        cachedRawData = rawData
+        cachedRoot = root
+        return root
     }
 
     private fun saveRoot(root: JSONObject) {
+        synchronized(rootLock) {
+            saveRootLocked(root)
+        }
+    }
+
+    private fun saveRootLocked(root: JSONObject) {
         root.put(KEY_VERSION, VERSION)
+        val rawData = root.toString()
         getPreferences()
             .edit()
-            .putString(KEY_DATA, root.toString())
+            .putString(KEY_DATA, rawData)
             .apply()
+        cachedRawData = rawData
+        cachedRoot = root
     }
 
     private fun createEmptyRoot(): JSONObject {
