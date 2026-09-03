@@ -4,6 +4,7 @@ import android.widget.ImageView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -34,11 +37,18 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -46,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.zasko.imageloads.R
 import com.zasko.imageloads.data.DataUseFrom
@@ -68,8 +79,45 @@ fun HomeScreen(
     onDeleteTheme: (MainThemeSelectInfo) -> Unit = {},
     onUseLocalChanged: (MainThemeSelectInfo, Boolean) -> Unit,
     onUseCommonHeadersChanged: (MainThemeSelectInfo, Boolean) -> Unit,
+    onThemeOrderChanged: (List<MainThemeSelectInfo>) -> Unit = {},
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val listState = rememberLazyListState()
+    val displayedThemes = remember(themes) {
+        mutableStateListOf<MainThemeSelectInfo>().apply {
+            addAll(themes)
+        }
+    }
+    val dragInputKey = remember(themes) { Any() }
+    val currentOnThemeOrderChanged by rememberUpdatedState(onThemeOrderChanged)
+    var draggingItemKey by remember { mutableStateOf<String?>(null) }
+    var draggingItemOffset by remember { mutableStateOf(0f) }
+    var orderChangedDuringDrag by remember { mutableStateOf(false) }
+
+    fun findTouchedItem(y: Float): LazyListItemInfo? {
+        return listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+            y.toInt() in item.offset..(item.offset + item.size)
+        }
+    }
+
+    fun moveTheme(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex || fromIndex !in displayedThemes.indices || toIndex !in displayedThemes.indices) {
+            return
+        }
+        val item = displayedThemes.removeAt(fromIndex)
+        displayedThemes.add(toIndex, item)
+        orderChangedDuringDrag = true
+    }
+
+    fun finishDragging() {
+        if (orderChangedDuringDrag) {
+            currentOnThemeOrderChanged(displayedThemes.toList())
+        }
+        draggingItemKey = null
+        draggingItemOffset = 0f
+        orderChangedDuringDrag = false
+    }
+
     Scaffold(
         containerColor = colorScheme.background,
         topBar = {
@@ -98,18 +146,64 @@ fun HomeScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .pointerInput(dragInputKey) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { offset ->
+                            draggingItemKey = findTouchedItem(offset.y)?.key as? String
+                            draggingItemOffset = 0f
+                            orderChangedDuringDrag = false
+                        },
+                        onDragEnd = {
+                            finishDragging()
+                        },
+                        onDragCancel = {
+                            finishDragging()
+                        },
+                        onDrag = { _, dragAmount ->
+                            val itemKey = draggingItemKey ?: return@detectDragGesturesAfterLongPress
+                            draggingItemOffset += dragAmount.y
+                            val currentItem = listState.layoutInfo.visibleItemsInfo
+                                .firstOrNull { it.key == itemKey }
+                                ?: return@detectDragGesturesAfterLongPress
+                            val draggedTop = currentItem.offset + draggingItemOffset
+                            val draggedMiddle = draggedTop + currentItem.size / 2
+                            val targetItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                                item.key != itemKey && draggedMiddle.toInt() in item.offset..(item.offset + item.size)
+                            } ?: return@detectDragGesturesAfterLongPress
+                            val fromIndex = displayedThemes.indexOfFirst { it.homeThemeKey() == itemKey }
+                            val toIndex = displayedThemes.indexOfFirst { it.homeThemeKey() == targetItem.key }
+                            if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) {
+                                return@detectDragGesturesAfterLongPress
+                            }
+                            moveTheme(fromIndex = fromIndex, toIndex = toIndex)
+                            draggingItemOffset = draggedTop - targetItem.offset
+                        },
+                    )
+                },
             contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(
-                items = themes,
-                key = { theme -> theme.sourceKey.ifBlank { theme.theme.toString() } },
+                items = displayedThemes,
+                key = { theme -> theme.homeThemeKey() },
                 contentType = { "home_theme" },
             ) { theme ->
+                val isDragging = draggingItemKey == theme.homeThemeKey()
                 ThemeSelectCard(
+                    modifier = Modifier
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .graphicsLayer {
+                            if (isDragging) {
+                                translationY = draggingItemOffset
+                                scaleX = 1.01f
+                                scaleY = 1.01f
+                                shadowElevation = 8.dp.toPx()
+                            }
+                        },
                     info = theme,
                     useCommonHeaders = commonHeadersEnabledProvider(theme),
                     onOpenTheme = onOpenTheme,
@@ -126,6 +220,7 @@ fun HomeScreen(
 
 @Composable
 private fun ThemeSelectCard(
+    modifier: Modifier = Modifier,
     info: MainThemeSelectInfo,
     useCommonHeaders: Boolean,
     onOpenTheme: (MainThemeSelectInfo) -> Unit,
@@ -147,7 +242,7 @@ private fun ThemeSelectCard(
     }
 
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         colors = androidx.compose.material3.CardDefaults.outlinedCardColors(
             containerColor = colorScheme.surface,
@@ -431,6 +526,10 @@ private fun MainThemeSelectInfo.coverModel(): Any? {
             coverUrl
         }
     }
+}
+
+private fun MainThemeSelectInfo.homeThemeKey(): String {
+    return sourceKey.trim().ifBlank { theme.toString() }
 }
 
 @Preview(name = "Home", showBackground = true, widthDp = 360, heightDp = 640)

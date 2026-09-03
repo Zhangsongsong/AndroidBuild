@@ -77,6 +77,7 @@ import com.zasko.imageloads.utils.FileUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import java.io.File
 
 class MainActivity : BaseComposeActivity() {
@@ -187,7 +188,12 @@ class MainActivity : BaseComposeActivity() {
         val dynamicThemes = remember(refreshVersion) {
             DynamicSourceStore.getDynamicThemes()
         }
-        val themes = dynamicThemes
+        var themeOrderVersion by rememberSaveable {
+            mutableStateOf(0)
+        }
+        val themes = remember(dynamicThemes, themeOrderVersion) {
+            applyHomeThemeOrder(dynamicThemes)
+        }
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val coroutineScope = rememberCoroutineScope()
 
@@ -299,6 +305,10 @@ class MainActivity : BaseComposeActivity() {
                         HttpHeaderConfigStore.setCommonHeadersEnabledForTarget(targetId = info.sourceKey, enabled = checked)
                         homeRefreshVersion += 1
                     }
+                },
+                onThemeOrderChanged = { orderedThemes ->
+                    saveHomeThemeOrder(orderedThemes)
+                    themeOrderVersion += 1
                 },
             )
             pendingDeleteTheme?.let { info ->
@@ -687,7 +697,55 @@ class MainActivity : BaseComposeActivity() {
         return SourceLocalDataStore.getCover(sourceType = sourceType) ?: fallback
     }
 
+    private fun applyHomeThemeOrder(themes: List<MainThemeSelectInfo>): List<MainThemeSelectInfo> {
+        val order = readHomeThemeOrder()
+        if (order.isEmpty()) {
+            return themes
+        }
+        val orderIndex = order.withIndex().associate { it.value to it.index }
+        val originalIndex = themes.withIndex().associate { it.value.homeThemeOrderKey() to it.index }
+        return themes.sortedWith(
+            compareBy<MainThemeSelectInfo> { orderIndex[it.homeThemeOrderKey()] ?: Int.MAX_VALUE }
+                .thenBy { originalIndex[it.homeThemeOrderKey()] ?: Int.MAX_VALUE },
+        )
+    }
+
+    private fun saveHomeThemeOrder(themes: List<MainThemeSelectInfo>) {
+        val order = JSONArray()
+        themes.map { it.homeThemeOrderKey() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .forEach(order::put)
+        getPreferences()
+            .edit()
+            .putString(KEY_HOME_THEME_ORDER, order.toString())
+            .apply()
+    }
+
+    private fun readHomeThemeOrder(): List<String> {
+        val rawData = getPreferences().getString(KEY_HOME_THEME_ORDER, null).orEmpty()
+        if (rawData.isBlank()) {
+            return emptyList()
+        }
+        return runCatching {
+            val order = JSONArray(rawData)
+            buildList {
+                for (index in 0 until order.length()) {
+                    order.optString(index).trim().takeIf { it.isNotBlank() }?.let(::add)
+                }
+            }.distinct()
+        }.getOrDefault(emptyList())
+    }
+
+    private fun MainThemeSelectInfo.homeThemeOrderKey(): String {
+        return sourceKey.trim().ifBlank { theme.toString() }
+    }
+
+    private fun getPreferences() = getSharedPreferences(PREF_NAME, MODE_PRIVATE)
+
     private companion object {
+        const val PREF_NAME = "main_activity"
+        const val KEY_HOME_THEME_ORDER = "home_theme_order"
         const val XIUREN_COVER = "https://i.xiutaku.com/photo/uploadfile/202505/22/9810543470.jpg"
         const val MEIZI5_COVER = "https://meizi5.com/wp-content/uploads/2026/04/VOL_350_face.jpg"
         const val TAOTU_COVER =
