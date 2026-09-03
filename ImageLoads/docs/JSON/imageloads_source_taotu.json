@@ -1,0 +1,67 @@
+{
+  "version": 2,
+  "exportedAt": 1788364800000,
+  "sources": {
+    "taotu": {
+      "key": "taotu",
+      "type": 3,
+      "title": "TaoTu",
+      "cover": "https://res.taotu.org/hot-girls/%e5%b0%8f%e8%94%a1%e5%a4%b4%e5%96%b5%e5%96%b5%e5%96%b5/00069-%e9%bb%91%e4%b8%9d%e8%be%85%e5%af%bc%e5%91%98-29p/thumbnail/0020.jpg",
+      "baseUrl": "https://taotu.org/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://taotu.org/"
+          },
+          "pageUrl": {
+            "firstPage": "https://taotu.org/",
+            "nextPage": "https://taotu.org/page-{page}.html"
+          },
+          "parse": {
+            "itemSelector": "#MainContent_piclist > div",
+            "detailLinkSelector": "a[href]",
+            "coverSelector": "img[src]",
+            "coverAttrOrder": [
+              "src"
+            ],
+            "titleAttrOrder": [
+              "a.title",
+              "img.alt",
+              "a.text"
+            ]
+          },
+          "pagination": {
+            "currentPageSelector": ".page-nav .page-number",
+            "currentPagePattern": "(\\d+)\\s*/\\s*(\\d+)",
+            "nextPageValue": "currentPage - 1 when > 0"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": "#MainContent_suit_title h1",
+            "tagSelector": "#MainContent_info a",
+            "imageLinkSelector": "#MainContent_piclist a[data-fancybox][href]",
+            "imageAttr": "a.href",
+            "thumbSelector": "img[src]",
+            "thumbAttr": "src"
+          },
+          "pagination": {
+            "nextPageValue": "none"
+          }
+        }
+      }
+    }
+  }
+}

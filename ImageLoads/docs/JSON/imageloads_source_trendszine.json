@@ -1,0 +1,73 @@
+{
+  "version": 2,
+  "exportedAt": 1788364800000,
+  "sources": {
+    "trendszine": {
+      "key": "trendszine",
+      "type": 4,
+      "title": "Trendszine",
+      "cover": "https://trendszine.com/wp-content/uploads/2026/07/33603291310201.webp.webp",
+      "baseUrl": "https://trendszine.com/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://trendszine.com/"
+          },
+          "pageUrl": {
+            "firstPage": "{categoryUrl}",
+            "nextPage": "{categoryUrl}/page/{page}"
+          },
+          "parse": {
+            "itemSelector": "main article",
+            "detailLinkSelector": ".post-image a[href], a[href]:has(img)",
+            "coverSelector": "img[src], img[data-src], img[data-lazy-src]",
+            "coverAttrOrder": [
+              "src",
+              "data-src",
+              "data-lazy-src"
+            ],
+            "titleSelector": "h2.entry-title a, .entry-title a, .entry-title",
+            "categorySelector": "#mega-menu-primary > li",
+            "categoryLinkSelector": "a.mega-menu-link[href]",
+            "childrenCategorySelector": "ul.mega-sub-menu a.mega-menu-link[href]"
+          },
+          "pagination": {
+            "nextPageSelector": "a.next.page-numbers[href], #nav-below .nav-previous a[href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": "h1.entry-title",
+            "dateSelector": "time.entry-date",
+            "tagSelector": ".cat-links a, .tags-links a",
+            "contentSelector": ".entry-content",
+            "imageSelector": "img[src], img[data-src], img[data-lazy-src]",
+            "imageAttrOrder": [
+              "src",
+              "data-src",
+              "data-lazy-src"
+            ]
+          },
+          "pagination": {
+            "containerSelector": "div.page-links",
+            "linkSelector": "a[href]",
+            "nextPageValue": "next numeric page url, fallback currentUrl/{nextPage}"
+          }
+        }
+      }
+    }
+  }
+}
