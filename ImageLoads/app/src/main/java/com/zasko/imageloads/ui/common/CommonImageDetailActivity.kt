@@ -605,6 +605,7 @@ private fun CommonDetailRecyclerContent(
         factory = { context ->
             RecyclerView(context).apply {
                 itemAnimator = null
+                setHasFixedSize(true)
                 setPadding(
                     (8 * context.resources.displayMetrics.density).roundToInt(),
                     (8 * context.resources.displayMetrics.density).roundToInt(),
@@ -613,9 +614,12 @@ private fun CommonDetailRecyclerContent(
                 )
                 clipToPadding = false
                 val manager = if (imageColumnCount == 1) {
-                    LinearLayoutManager(context)
+                    LinearLayoutManager(context).apply {
+                        setInitialPrefetchItemCount(4)
+                    }
                 } else {
                     GridLayoutManager(context, imageColumnCount).apply {
+                        setInitialPrefetchItemCount((imageColumnCount * 4).coerceAtLeast(4))
                         spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                             override fun getSpanSize(position: Int): Int {
                                 return if (adapter.isFullSpan(position)) spanCount else 1
@@ -624,6 +628,7 @@ private fun CommonDetailRecyclerContent(
                     }
                 }
                 layoutManager = manager
+                adapter.configureRecyclerView(this)
                 addOnScrollListener(object : RecyclerView.OnScrollListener() {
                     override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return

@@ -8,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -31,9 +32,19 @@ class CommonDetailRecyclerAdapter(
         const val TAG_SUBTITLES = "detail_subtitles"
     }
 
+    private data class Entry(
+        val type: Int,
+        val stableKey: String,
+        val image: ImageLoadsInfo? = null,
+        val imageIndex: Int = -1,
+        val title: String = "",
+        val subtitles: List<String> = emptyList(),
+    )
+
     private var detailInfo = CommonImageDetailInfo()
     private var isLoadingMore = false
     private var isLoadMoreEnabled = false
+    private var entries: List<Entry> = buildEntries(detailInfo, isLoadingMore)
 
     init {
         setHasStableIds(true)
@@ -54,30 +65,18 @@ class CommonDetailRecyclerAdapter(
         isLoadingMore: Boolean,
         isLoadMoreEnabled: Boolean = false,
     ) {
-        val oldInfo = this.detailInfo
-        val oldLoading = this.isLoadingMore
-        val oldLoadMoreEnabled = this.isLoadMoreEnabled
+        val oldEntries = entries
+        val newEntries = buildEntries(detailInfo, isLoadingMore)
         this.detailInfo = detailInfo
         this.isLoadingMore = isLoadingMore
         this.isLoadMoreEnabled = isLoadMoreEnabled
 
-        if (oldInfo == detailInfo && oldLoading == isLoadingMore && oldLoadMoreEnabled == isLoadMoreEnabled) {
+        if (oldEntries == newEntries) {
             return
         }
-        if (oldLoading == isLoadingMore && oldLoadMoreEnabled == isLoadMoreEnabled && oldInfo.pictures.isNotEmpty() &&
-            detailInfo.pictures.size >= oldInfo.pictures.size &&
-            detailInfo.pictures.subList(0, oldInfo.pictures.size) == oldInfo.pictures
-        ) {
-            val addedCount = detailInfo.pictures.size - oldInfo.pictures.size
-            if (addedCount > 0) {
-                notifyItemRangeInserted(1 + oldInfo.pictures.size, addedCount)
-            }
-            if (addedCount == 0 && oldLoading == isLoadingMore) {
-                notifyItemChanged(0)
-            }
-        } else {
-            notifyDataSetChanged()
-        }
+        val diff = DiffUtil.calculateDiff(EntryDiffCallback(oldEntries = oldEntries, newEntries = newEntries))
+        entries = newEntries
+        diff.dispatchUpdatesTo(this)
     }
 
     fun isFullSpan(position: Int): Boolean {
@@ -86,27 +85,24 @@ class CommonDetailRecyclerAdapter(
 
     fun pictureCount(): Int = detailInfo.pictures.size
 
+    fun configureRecyclerView(recyclerView: RecyclerView) {
+        val cacheSize = (imageColumnCount * 6).coerceIn(8, 20)
+        recyclerView.setItemViewCacheSize(cacheSize)
+        recyclerView.recycledViewPool.setMaxRecycledViews(TYPE_IMAGE, cacheSize * 2)
+        recyclerView.recycledViewPool.setMaxRecycledViews(TYPE_HEADER, 2)
+        recyclerView.recycledViewPool.setMaxRecycledViews(TYPE_LOADING, 2)
+    }
+
     override fun getItemCount(): Int {
-        return 1 + detailInfo.pictures.size + if (isLoadingMore) 1 else 0
+        return entries.size
     }
 
     override fun getItemViewType(position: Int): Int {
-        return when {
-            position == 0 -> TYPE_HEADER
-            position <= detailInfo.pictures.lastIndex + 1 -> TYPE_IMAGE
-            else -> TYPE_LOADING
-        }
+        return entries[position].type
     }
 
     override fun getItemId(position: Int): Long {
-        return when (getItemViewType(position)) {
-            TYPE_HEADER -> Long.MIN_VALUE
-            TYPE_IMAGE -> {
-                val image = detailInfo.pictures[position - 1]
-                (image.url.hashCode().toLong() shl 32) xor (position - 1).toLong()
-            }
-            else -> Long.MAX_VALUE
-        }
+        return entries[position].stableKey.hashCode().toLong()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
@@ -127,16 +123,24 @@ class CommonDetailRecyclerAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val entry = entries[position]
         when (holder) {
             is HeaderHolder -> holder.bind(detailInfo)
             is ImageHolder -> {
-                val imageIndex = position - 1
-                holder.bind(detailInfo.pictures[imageIndex], imageIndex)
-                if (isLoadMoreEnabled && detailInfo.pictures.size > 2 && imageIndex >= detailInfo.pictures.size - 2) {
+                val image = entry.image ?: return
+                holder.bind(image)
+                if (isLoadMoreEnabled && detailInfo.pictures.size > 2 && entry.imageIndex >= detailInfo.pictures.size - 2) {
                     onLoadMore()
                 }
             }
         }
+    }
+
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        if (holder is ImageHolder) {
+            holder.clear()
+        }
+        super.onViewRecycled(holder)
     }
 
     private fun createHeaderView(parent: ViewGroup): LinearLayout {
@@ -180,6 +184,9 @@ class CommonDetailRecyclerAdapter(
     private inner class ImageHolder(
         private val binding: ItemDetailImageBinding,
     ) : RecyclerView.ViewHolder(binding.root) {
+        private var layoutKey: ImageLayoutKey? = null
+        private var loadedRequest: ImageRequestKey? = null
+
         init {
             binding.root.setOnClickListener {
                 val position = adapterPosition
@@ -190,7 +197,7 @@ class CommonDetailRecyclerAdapter(
             }
         }
 
-        fun bind(imageInfo: ImageLoadsInfo, index: Int) {
+        fun bind(imageInfo: ImageLoadsInfo) {
             val ratio = imageInfo.displayRatio()
             val recyclerView = binding.root.parent as? RecyclerView
             val contentWidth = recyclerView?.width
@@ -204,24 +211,121 @@ class CommonDetailRecyclerAdapter(
             }
             val imageWidth = ((contentWidth - spacing) / imageColumnCount).coerceAtLeast(1)
             val imageHeight = (imageWidth / ratio).roundToInt().coerceAtLeast(1)
+            updateImageLayout(imageWidth = imageWidth, imageHeight = imageHeight)
+            loadImage(
+                imageInfo = imageInfo,
+                imageModel = imageModelProvider(imageInfo),
+                imageWidth = imageWidth,
+                imageHeight = imageHeight,
+            )
+        }
+
+        fun clear() {
+            val coverView = binding.imageTv.getCoverView()
+            Glide.with(coverView).clear(coverView)
+            layoutKey = null
+            loadedRequest = null
+        }
+
+        private fun updateImageLayout(imageWidth: Int, imageHeight: Int) {
+            val newLayoutKey = ImageLayoutKey(width = imageWidth, height = imageHeight)
+            if (layoutKey == newLayoutKey) {
+                return
+            }
+            layoutKey = newLayoutKey
             (binding.imageTv.layoutParams as? ConstraintLayout.LayoutParams)?.let { params ->
-                params.dimensionRatio = "h,${imageWidth}:${imageHeight}"
+                params.dimensionRatio = "h,$imageWidth:$imageHeight"
                 binding.imageTv.layoutParams = params
             }
-            Glide.with(binding.imageTv.getCoverView())
-                .load(imageModelProvider(imageInfo))
+        }
+
+        private fun loadImage(
+            imageInfo: ImageLoadsInfo,
+            imageModel: Any?,
+            imageWidth: Int,
+            imageHeight: Int,
+        ) {
+            val requestKey = ImageRequestKey(
+                url = imageInfo.url,
+                model = imageModel,
+                width = imageWidth,
+                height = imageHeight,
+            )
+            if (loadedRequest == requestKey) {
+                return
+            }
+            loadedRequest = requestKey
+            val coverView = binding.imageTv.getCoverView()
+            Glide.with(coverView)
+                .load(imageModel)
                 .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                 .dontAnimate()
                 .override(imageWidth, imageHeight)
                 .placeholder(R.mipmap.icon_pic)
                 .centerInside()
-                .into(binding.imageTv.getCoverView())
+                .into(coverView)
         }
     }
 
     private class LoadingHolder(view: View) : RecyclerView.ViewHolder(view)
 
+    private fun buildEntries(detailInfo: CommonImageDetailInfo, isLoadingMore: Boolean): List<Entry> {
+        return buildList {
+            add(
+                Entry(
+                    type = TYPE_HEADER,
+                    stableKey = "header",
+                    title = detailInfo.title,
+                    subtitles = detailInfo.subtitles,
+                ),
+            )
+            detailInfo.pictures.forEachIndexed { index, imageInfo ->
+                add(
+                    Entry(
+                        type = TYPE_IMAGE,
+                        stableKey = "image:${imageInfo.url}:$index",
+                        image = imageInfo,
+                        imageIndex = index,
+                    ),
+                )
+            }
+            if (isLoadingMore) {
+                add(Entry(type = TYPE_LOADING, stableKey = "loading"))
+            }
+        }
+    }
+
+    private class EntryDiffCallback(
+        private val oldEntries: List<Entry>,
+        private val newEntries: List<Entry>,
+    ) : DiffUtil.Callback() {
+
+        override fun getOldListSize(): Int = oldEntries.size
+
+        override fun getNewListSize(): Int = newEntries.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldEntries[oldItemPosition].stableKey == newEntries[newItemPosition].stableKey
+        }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldEntries[oldItemPosition] == newEntries[newItemPosition]
+        }
+    }
+
 }
+
+private data class ImageLayoutKey(
+    val width: Int,
+    val height: Int,
+)
+
+private data class ImageRequestKey(
+    val url: String,
+    val model: Any?,
+    val width: Int,
+    val height: Int,
+)
 
 private fun Int.dp(density: Float): Int = (this * density).roundToInt()
 

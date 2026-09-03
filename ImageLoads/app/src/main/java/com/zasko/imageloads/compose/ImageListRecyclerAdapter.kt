@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -39,6 +40,7 @@ class ImageListRecyclerAdapter(
         const val TYPE_LABEL = 2
         const val TYPE_IMAGE = 3
         const val TYPE_LOADING = 4
+        const val PAYLOAD_IMAGE_STATE = "image_state"
     }
 
     private data class Entry(
@@ -93,6 +95,13 @@ class ImageListRecyclerAdapter(
         this.onDownloadClick = onDownloadClick
     }
 
+    fun configureRecyclerView(recyclerView: RecyclerView) {
+        recyclerView.setItemViewCacheSize(12)
+        recyclerView.recycledViewPool.setMaxRecycledViews(TYPE_IMAGE, 24)
+        recyclerView.recycledViewPool.setMaxRecycledViews(TYPE_LABEL, 8)
+        recyclerView.recycledViewPool.setMaxRecycledViews(TYPE_LOADING, 2)
+    }
+
     fun submit(
         images: List<ImageLoadsInfo>,
         isRefreshing: Boolean,
@@ -117,7 +126,7 @@ class ImageListRecyclerAdapter(
             loadMoreRequestedImageCount = -1
         }
 
-        entries = buildList {
+        val newEntries = buildList {
             if (topContent != null) {
                 add(Entry(TYPE_HEADER, "header"))
             }
@@ -154,10 +163,85 @@ class ImageListRecyclerAdapter(
             }
         }
 
-        if (oldEntries != entries) {
-            notifyDataSetChanged()
-        } else if (entries.firstOrNull()?.type == TYPE_HEADER) {
+        if (oldEntries == newEntries) {
+            entries = newEntries
+            if (entries.firstOrNull()?.type == TYPE_HEADER) {
+                notifyItemChanged(0)
+            }
+            return
+        }
+
+        val diff = DiffUtil.calculateDiff(EntryDiffCallback(oldEntries = oldEntries, newEntries = newEntries))
+        entries = newEntries
+        diff.dispatchUpdatesTo(this)
+        if (entries.firstOrNull()?.type == TYPE_HEADER) {
             notifyItemChanged(0)
+        }
+    }
+
+    private class EntryDiffCallback(
+        private val oldEntries: List<Entry>,
+        private val newEntries: List<Entry>,
+    ) : DiffUtil.Callback() {
+
+        override fun getOldListSize(): Int = oldEntries.size
+
+        override fun getNewListSize(): Int = newEntries.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldEntries[oldItemPosition].stableKey == newEntries[newItemPosition].stableKey
+        }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldEntries[oldItemPosition] == newEntries[newItemPosition]
+        }
+
+        override fun getChangePayload(oldItemPosition: Int, newItemPosition: Int): Any? {
+            val oldEntry = oldEntries[oldItemPosition]
+            val newEntry = newEntries[newItemPosition]
+            return if (oldEntry.canBindStateOnly(newEntry)) {
+                PAYLOAD_IMAGE_STATE
+            } else {
+                null
+            }
+        }
+
+        private fun Entry.canBindStateOnly(other: Entry): Boolean {
+            return type == TYPE_IMAGE &&
+                other.type == TYPE_IMAGE &&
+                image == other.image &&
+                imageIndex == other.imageIndex &&
+                ratio == other.ratio &&
+                title == other.title &&
+                imageModel == other.imageModel
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
+        val entry = entries[position]
+        if (holder is ImageHolder && payloads.contains(PAYLOAD_IMAGE_STATE)) {
+            holder.bindState(entry)
+            maybeRequestLoadMore(position)
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val entry = entries[position]
+        (holder.itemView.layoutParams as? androidx.recyclerview.widget.StaggeredGridLayoutManager.LayoutParams)
+            ?.let { it.isFullSpan = entry.type != TYPE_IMAGE }
+        when (holder) {
+            is HeaderHolder -> holder.bind(topContent)
+            is EmptyHolder -> Unit
+            is LabelHolder -> holder.bind(entry.label.orEmpty())
+            is LoadingHolder -> Unit
+            is ImageHolder -> {
+                entry.image?.let {
+                    holder.bind(entry)
+                    maybeRequestLoadMore(position)
+                }
+            }
         }
     }
 
@@ -204,22 +288,11 @@ class ImageListRecyclerAdapter(
         }
     }
 
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        val entry = entries[position]
-        (holder.itemView.layoutParams as? androidx.recyclerview.widget.StaggeredGridLayoutManager.LayoutParams)
-            ?.let { it.isFullSpan = entry.type != TYPE_IMAGE }
-        when (holder) {
-            is HeaderHolder -> holder.bind(topContent)
-            is EmptyHolder -> Unit
-            is LabelHolder -> holder.bind(entry.label.orEmpty())
-            is LoadingHolder -> Unit
-            is ImageHolder -> {
-                entry.image?.let { image ->
-                    holder.bind(entry)
-                    maybeRequestLoadMore(position)
-                }
-            }
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        if (holder is ImageHolder) {
+            holder.clear()
         }
+        super.onViewRecycled(holder)
     }
 
     private class HeaderHolder(private val composeView: ComposeView) : RecyclerView.ViewHolder(composeView) {
@@ -377,11 +450,22 @@ class ImageListRecyclerAdapter(
             imageInfo = entry.image
             model = entry.imageModel
             ratio = entry.ratio
-            root.isDownloading = entry.isItemDownloading
             root.setRatio(ratio)
-            imageView.scaleType = imageScaleType
+            if (imageView.scaleType != imageScaleType) {
+                imageView.scaleType = imageScaleType
+                loadedRequest = null
+            }
             titleView.text = entry.title
             titleView.visibility = if (entry.title.isBlank()) View.GONE else View.VISIBLE
+            bindState(entry)
+            if (root.width > 0 && root.height > 0) {
+                loadImage(root.width, root.height)
+            }
+        }
+
+        fun bindState(entry: Entry) {
+            imageInfo = entry.image
+            root.isDownloading = entry.isItemDownloading
             selectionShade.visibility = if (entry.isSelectionMode && entry.isSelected) View.VISIBLE else View.GONE
             selectionIndicator.visibility = if (entry.isSelectionMode) View.VISIBLE else View.GONE
             (selectionIndicator.background as? GradientDrawable)?.setColor(
@@ -395,9 +479,13 @@ class ImageListRecyclerAdapter(
             favoriteButton.setColorFilter(if (entry.isFavorite) 0xFFE91E63.toInt() else 0xFF49454F.toInt())
             progressOverlay.visibility = if (entry.isItemDownloading) View.VISIBLE else View.GONE
             progressText.text = entry.downloadProgressText.orEmpty().ifBlank { "下载中" }
-            if (root.width > 0 && root.height > 0) {
-                loadImage(root.width, root.height)
-            }
+        }
+
+        fun clear() {
+            Glide.with(imageView).clear(imageView)
+            loadedRequest = null
+            imageInfo = null
+            model = null
         }
 
         private fun loadImage(width: Int, height: Int) {

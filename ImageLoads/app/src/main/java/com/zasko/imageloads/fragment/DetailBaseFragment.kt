@@ -72,8 +72,14 @@ open class DetailBaseFragment : LoadBaseFragment() {
         })
 
         binding.coverIv.loadImageWithInside(url = imageLoadsInfo.url)
-        binding.pictureRecycler.layoutManager = GridLayoutManager(context, 2)
-        binding.pictureRecycler.adapter = mAdapter
+        binding.pictureRecycler.apply {
+            setHasFixedSize(true)
+            layoutManager = GridLayoutManager(context, 2).apply {
+                setInitialPrefetchItemCount(8)
+            }
+            mAdapter.configureRecyclerView(this)
+            adapter = mAdapter
+        }
     }
 
 

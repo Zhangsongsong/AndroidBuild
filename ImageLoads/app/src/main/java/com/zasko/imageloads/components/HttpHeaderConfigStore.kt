@@ -31,6 +31,10 @@ object HttpHeaderConfigStore {
     private const val KEY_PREFIX = "headers_"
     private const val KEY_USE_COMMON_HEADERS = "use_common_headers"
 
+    @Volatile
+    var version: Long = 0L
+        private set
+
     private val builtInTargets = listOf(
         HttpHeaderTarget(id = TARGET_COMMON, title = "公共"),
         HttpHeaderTarget(id = TARGET_TRENDSZINE, title = "Trendszine"),
@@ -80,6 +84,7 @@ object HttpHeaderConfigStore {
             .edit()
             .putString(targetId.toPreferenceKey(), headers.normalized().toHeaderJsonArray().toString())
             .apply()
+        markChanged()
     }
 
     fun resetHeaders(targetId: String) {
@@ -88,6 +93,7 @@ object HttpHeaderConfigStore {
             .edit()
             .remove(targetId.toPreferenceKey())
             .apply()
+        markChanged()
     }
 
     fun removeTargetConfig(targetId: String) {
@@ -97,6 +103,7 @@ object HttpHeaderConfigStore {
             .remove(targetId.toPreferenceKey())
             .remove(targetId.toCommonHeadersEnabledPreferenceKey())
             .apply()
+        markChanged()
     }
 
     fun isCommonHeadersEnabled(): Boolean {
@@ -116,6 +123,7 @@ object HttpHeaderConfigStore {
             .edit()
             .putBoolean(KEY_USE_COMMON_HEADERS, enabled)
             .apply()
+        markChanged()
     }
 
     fun isCommonHeadersEnabled(sourceType: Int): Boolean {
@@ -312,6 +320,11 @@ object HttpHeaderConfigStore {
             .edit()
             .putBoolean(targetId.toCommonHeadersEnabledPreferenceKey(), enabled)
             .apply()
+        markChanged()
+    }
+
+    private fun markChanged() {
+        version += 1L
     }
 
     private fun Int.toHeaderTargetPreferenceId(): String {

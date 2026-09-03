@@ -189,6 +189,7 @@ fun ImageListScreen(
                     factory = {
                         RecyclerView(context).apply {
                             itemAnimator = null
+                            setHasFixedSize(true)
                             clipToPadding = false
                             setPadding(
                                 4.dp(context.resources.displayMetrics.density),
@@ -199,8 +200,11 @@ fun ImageListScreen(
                             layoutManager = StaggeredGridLayoutManager(
                                 2,
                                 StaggeredGridLayoutManager.VERTICAL,
-                            )
+                            ).apply {
+                                gapStrategy = StaggeredGridLayoutManager.GAP_HANDLING_NONE
+                            }
                             addItemDecoration(ImageListGridSpacingDecoration(recyclerAdapter, 2.dp(context.resources.displayMetrics.density)))
+                            recyclerAdapter.configureRecyclerView(this)
                             adapter = recyclerAdapter
                         }
                     },

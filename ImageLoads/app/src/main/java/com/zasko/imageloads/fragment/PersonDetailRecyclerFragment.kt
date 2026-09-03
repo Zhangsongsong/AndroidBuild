@@ -80,9 +80,15 @@ class PersonDetailRecyclerFragment : DetailBaseFragment() {
             },
         )
         binding.coverIv.loadImageWithInside(url = imageLoadsInfo.url, placeId = R.mipmap.icon_pic)
-        binding.pictureRecycler.layoutManager = LinearLayoutManager(requireContext())
-        binding.pictureRecycler.itemAnimator = null
-        binding.pictureRecycler.adapter = adapter
+        binding.pictureRecycler.apply {
+            itemAnimator = null
+            setHasFixedSize(true)
+            layoutManager = LinearLayoutManager(requireContext()).apply {
+                setInitialPrefetchItemCount(4)
+            }
+            this@PersonDetailRecyclerFragment.adapter.configureRecyclerView(this)
+            this.adapter = this@PersonDetailRecyclerFragment.adapter
+        }
         binding.loadingBar.isVisible = false
     }
 
