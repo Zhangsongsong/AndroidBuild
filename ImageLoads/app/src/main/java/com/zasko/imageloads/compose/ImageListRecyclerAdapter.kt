@@ -41,6 +41,7 @@ class ImageListRecyclerAdapter(
         const val TYPE_IMAGE = 3
         const val TYPE_LOADING = 4
         const val PAYLOAD_IMAGE_STATE = "image_state"
+        const val FIXED_IMAGE_RATIO = 2f / 3f
     }
 
     private data class Entry(
@@ -144,7 +145,7 @@ class ImageListRecyclerAdapter(
                         stableKey = "image:$key:$index",
                         image = imageInfo,
                         imageIndex = index,
-                        ratio = imageRatioProvider(imageInfo).coerceIn(0.2f, 5f),
+                        ratio = FIXED_IMAGE_RATIO,
                         title = imageInfo.displayTitleForRecycler(),
                         imageModel = imageModelProvider(imageInfo),
                         isSelectionMode = isSelectionMode,
@@ -229,8 +230,6 @@ class ImageListRecyclerAdapter(
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val entry = entries[position]
-        (holder.itemView.layoutParams as? androidx.recyclerview.widget.StaggeredGridLayoutManager.LayoutParams)
-            ?.let { it.isFullSpan = entry.type != TYPE_IMAGE }
         when (holder) {
             is HeaderHolder -> holder.bind(topContent)
             is EmptyHolder -> Unit
@@ -247,6 +246,24 @@ class ImageListRecyclerAdapter(
 
     fun isFullSpan(position: Int): Boolean {
         return entries.getOrNull(position)?.type != TYPE_IMAGE
+    }
+
+    fun isPageLabel(position: Int): Boolean {
+        return entries.getOrNull(position)?.type == TYPE_LABEL
+    }
+
+    fun stickyPageLabelForPosition(position: Int): String? {
+        if (position == RecyclerView.NO_POSITION || entries.isEmpty()) {
+            return null
+        }
+        val start = position.coerceIn(0, entries.lastIndex)
+        for (index in start downTo 0) {
+            val entry = entries[index]
+            if (entry.type == TYPE_LABEL) {
+                return entry.label
+            }
+        }
+        return null
     }
 
     fun imageCount(): Int = images.size

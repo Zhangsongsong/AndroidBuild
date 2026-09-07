@@ -9,6 +9,7 @@ import android.os.Environment
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -28,6 +29,8 @@ import com.zasko.imageloads.ui.common.DownloadOverwriteDialog
 import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialog
 import com.zasko.imageloads.ui.common.FavoriteBulkDownloadDialogState
 import com.zasko.imageloads.ui.common.FavoriteBulkDownloadPlan
+import com.zasko.imageloads.ui.common.FavoriteBackupSource
+import com.zasko.imageloads.ui.common.FavoriteJsonTransfer
 import com.zasko.imageloads.ui.common.PreparedFavoriteItemDownload
 import com.zasko.imageloads.ui.common.SourceImageDetailActivity
 import com.zasko.imageloads.ui.common.SourceImageDownloadHelper
@@ -92,6 +95,16 @@ class TrendszineFragment : ComposeBaseFragment() {
     private var favoriteBulkDownloadPlan by mutableStateOf(FavoriteBulkDownloadPlan())
     private var favoriteBulkDownloadState by mutableStateOf(FavoriteBulkDownloadDialogState())
     private var requestVersion = 0
+    private val exportFavoritesLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri?.let(::exportFavoritesToFile)
+    }
+    private val importFavoritesLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri ->
+        uri?.let(::importFavoritesFromFile)
+    }
     private val isFavoriteBulkDownloading: Boolean
         get() = favoriteBulkDownloadState.isDownloading
 
@@ -123,6 +136,7 @@ class TrendszineFragment : ComposeBaseFragment() {
         } else {
             images
         }
+        val isFavoriteTransferEnabled = !isFavoriteBulkDownloading && favoriteDownloadProgress.isEmpty()
         ImageLoadsTheme {
             ImageListScreen(
                 title = screenTitle(),
@@ -163,6 +177,9 @@ class TrendszineFragment : ComposeBaseFragment() {
                 showDownloadMenuAction = !showFavoritesOnly,
                 showDownloadAllAction = showFavoritesOnly,
                 isDownloadAllActionEnabled = !isFavoriteBulkDownloading && favoriteImages.isNotEmpty(),
+                showFavoriteToolsMenu = showFavoritesOnly,
+                isFavoriteExportEnabled = isFavoriteTransferEnabled && favoriteImages.isNotEmpty(),
+                isFavoriteImportEnabled = isFavoriteTransferEnabled,
                 showPageJumpMenuAction = true,
                 pageJumpInitialPage = currentFirstPage(),
                 showFavoriteMenuAction = !showFavoritesOnly,
@@ -180,6 +197,8 @@ class TrendszineFragment : ComposeBaseFragment() {
                 itemDownloadProgressProvider = { favoriteDownloadProgress[it.url] },
                 onImageDownloadModeClick = ::enterSelectionMode,
                 onDownloadAllClick = ::showFavoriteBulkDownloadDialog,
+                onExportFavoritesClick = ::exportFavorites,
+                onImportFavoritesClick = ::importFavorites,
                 onPageJump = ::jumpToPage,
                 onFavoriteMenuClick = ::toggleFavoriteList,
                 onFavoriteClick = ::toggleFavorite,
@@ -499,6 +518,73 @@ class TrendszineFragment : ComposeBaseFragment() {
         favoriteImages.clear()
         favoriteImages.addAll(TrendszineFavoriteStore.getFavorites())
         refreshDownloadedFavoriteState()
+    }
+
+    private fun exportFavorites() {
+        if (!showFavoritesOnly || isFavoriteBulkDownloading || favoriteDownloadProgress.isNotEmpty()) {
+            return
+        }
+        val source = favoriteBackupSource() ?: run {
+            showToast("缺少来源信息")
+            return
+        }
+        if (favoriteImages.isEmpty()) {
+            showToast("暂无收藏可导出")
+            return
+        }
+        exportFavoritesLauncher.launch(FavoriteJsonTransfer.createExportFileName(source = source))
+    }
+
+    private fun exportFavoritesToFile(uri: Uri) {
+        val source = favoriteBackupSource() ?: return
+        val appContext = context?.applicationContext ?: return
+        val scope = composeRequestScope ?: return
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    FavoriteJsonTransfer.exportToUri(context = appContext, uri = uri, source = source)
+                }
+            }.onSuccess { count ->
+                showToast("已导出 $count 条收藏")
+            }.onFailure { throwable ->
+                LogComponent.printE(tag = TAG, message = "export favorites failed:$throwable")
+                showToast("导出收藏失败")
+            }
+        }
+    }
+
+    private fun importFavorites() {
+        if (!showFavoritesOnly || isFavoriteBulkDownloading || favoriteDownloadProgress.isNotEmpty()) {
+            return
+        }
+        if (favoriteBackupSource() == null) {
+            showToast("缺少来源信息")
+            return
+        }
+        importFavoritesLauncher.launch("*/*")
+    }
+
+    private fun importFavoritesFromFile(uri: Uri) {
+        val source = favoriteBackupSource() ?: return
+        val appContext = context?.applicationContext ?: return
+        val scope = composeRequestScope ?: return
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    FavoriteJsonTransfer.importFromUri(context = appContext, uri = uri, source = source)
+                }
+            }.onSuccess { result ->
+                refreshFavorites()
+                showToast("已导入 ${result.restoredItemCount} 条收藏")
+            }.onFailure { throwable ->
+                LogComponent.printE(tag = TAG, message = "import favorites failed:$throwable")
+                showToast(throwable.message?.takeIf { it.isNotBlank() } ?: "导入收藏失败")
+            }
+        }
+    }
+
+    private fun favoriteBackupSource(): FavoriteBackupSource? {
+        return FavoriteJsonTransfer.sourceFromTheme(theme = dataInfo)
     }
 
     private fun refreshDownloadedFavoriteState() {

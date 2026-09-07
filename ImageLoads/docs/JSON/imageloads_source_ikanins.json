@@ -1,0 +1,71 @@
+{
+  "version": 2,
+  "exportedAt": 1788710400000,
+  "sources": {
+    "ikanins": {
+      "key": "ikanins",
+      "type": 98127,
+      "title": "爱看INS",
+      "cover": "https://www.ikanins.com/wp-content/uploads/2025/07/www.ikanins.com-k2slt1-459948225-1429823391307040-3680935245377643683-n-520x650.jpg",
+      "baseUrl": "https://www.ikanins.com/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://www.ikanins.com/"
+          },
+          "pageUrl": {
+            "firstPage": "{categoryUrl}/",
+            "nextPage": "{categoryUrl}/page/{page}/"
+          },
+          "parse": {
+            "itemSelector": "article.masonry-item",
+            "detailLinkSelector": "a.entry-thumbnail[href], .entry-title a[href]",
+            "coverSelector": "a.entry-thumbnail img.wp-post-image[src], a.entry-thumbnail img[src], img.wp-post-image[src], img[data-src], img[data-lazy-src]",
+            "coverAttrOrder": [
+              "src",
+              "data-src",
+              "data-lazy-src"
+            ],
+            "titleSelector": "h2.entry-title a, .entry-title a, .entry-title",
+            "categorySelector": "#nav-header > li",
+            "categoryLinkSelector": "a[href]",
+            "childrenCategorySelector": ".sub-menu a[href], ul.children a[href]"
+          },
+          "pagination": {
+            "nextPageSelector": "nav.pagination a.nextpostslink[rel=next][href], .wp-pagenavi a.nextpostslink[href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": "h1.entry-title",
+            "dateSelector": ".entry-header .entry-date, article .entry-date",
+            "tagSelector": ".entry-header .entry-category a, .entry-meta .entry-category a",
+            "contentSelector": ".entry-content .entry.themeform, .entry-content",
+            "imageSelector": "img[src], img[data-src], img[data-lazy-src]",
+            "imageAttrOrder": [
+              "src",
+              "data-src",
+              "data-lazy-src"
+            ]
+          },
+          "pagination": {
+            "nextPageValue": "none"
+          }
+        }
+      }
+    }
+  }
+}

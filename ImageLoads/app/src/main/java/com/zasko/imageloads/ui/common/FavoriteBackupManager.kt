@@ -98,6 +98,28 @@ object FavoriteBackupManager {
         return "imageloads_source_${source.key}.json"
     }
 
+    fun createFavoritesExportFileName(source: FavoriteBackupSource): String {
+        return "imageloads_favorites_${source.key}.json"
+    }
+
+    fun sourceFromTheme(theme: MainThemeSelectInfo): FavoriteBackupSource? {
+        return theme.toBackupSource()
+    }
+
+    fun getFavoriteCount(source: FavoriteBackupSource): Int {
+        return getFavorites(source = source).size
+    }
+
+    fun createFavoritesBackupJson(source: FavoriteBackupSource): String {
+        val sources = JSONObject()
+            .put(source.key, getFavorites(source = source).toJsonArray(sourceType = source.type))
+        return JSONObject()
+            .put(KEY_VERSION, VERSION)
+            .put(KEY_EXPORTED_AT, System.currentTimeMillis())
+            .put(KEY_SOURCES, sources)
+            .toString(2)
+    }
+
     fun createBackupJson(
         source: FavoriteBackupSource,
         sourceOptions: List<FavoriteBackupSource> = this.sourceOptions,
@@ -120,6 +142,20 @@ object FavoriteBackupManager {
             .put(KEY_EXPORTED_AT, System.currentTimeMillis())
             .put(KEY_SOURCES, sources)
             .toString(2)
+    }
+
+    fun importFavoritesBackupJson(rawData: String, source: FavoriteBackupSource): FavoriteImportResult {
+        val favorites = rawData
+            .toFavoritesArrayForSource(source = source)
+            .toFavorites(sourceType = source.type)
+        replaceFavorites(source = source, favorites = favorites)
+        return FavoriteImportResult(
+            restoredSourceCount = 1,
+            restoredItemCount = favorites.size,
+            restoredHeaderGroupCount = 0,
+            restoredSettingsCount = 0,
+            missingSources = emptyList(),
+        )
     }
 
     fun importBackupJson(rawData: String): FavoriteImportResult {
@@ -181,6 +217,30 @@ object FavoriteBackupManager {
             restoredSettingsCount = restoredSettingsCount,
             missingSources = missingSources,
         )
+    }
+
+    private fun String.toFavoritesArrayForSource(source: FavoriteBackupSource): JSONArray {
+        val rawData = trim()
+        if (rawData.isBlank()) {
+            throw IllegalArgumentException("收藏备份不能为空")
+        }
+        if (rawData.startsWith("[")) {
+            return JSONArray(rawData)
+        }
+        val root = JSONObject(rawData)
+        root.optJSONArray(KEY_FAVORITES)?.let { return it }
+        val sourcesJson = root.optJSONObject(KEY_SOURCES)
+            ?: throw IllegalArgumentException("收藏备份格式错误")
+        val rawKey = sourcesJson.keys().asSequence().firstOrNull { key ->
+            key == source.key || key.normalizeBackupSourceKey() == source.key
+        } ?: throw IllegalArgumentException("JSON 中没有当前来源收藏数据")
+        return when (val sourceNode = sourcesJson.opt(rawKey)) {
+            is JSONArray -> sourceNode
+            is JSONObject -> sourceNode.optJSONArray(KEY_FAVORITES)
+                ?: throw IllegalArgumentException("JSON 中没有 favorites 数据")
+
+            else -> throw IllegalArgumentException("收藏备份格式错误")
+        }
     }
 
     private fun createImportSources(
