@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">AppPoint</string>
+    <string name="accessibility_service_label">AppPoint 自动化服务</string>
+    <string name="accessibility_service_description">用于在用户确认后执行游戏内的点击和滑动操作。</string>
+</resources>
