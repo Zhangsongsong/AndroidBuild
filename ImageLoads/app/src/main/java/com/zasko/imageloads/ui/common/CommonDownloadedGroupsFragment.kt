@@ -137,6 +137,7 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
         if (!parentFile.exists() || !parentFile.isDirectory) {
             return emptyList()
         }
+        migrateLegacyRootImages(parentFile = parentFile)
         return parentFile.listFiles()
             ?.filter { it.isDirectory }
             ?.sortedByDescending { it.lastModified() }
@@ -150,6 +151,28 @@ class CommonDownloadedGroupsFragment : ComposeBaseFragment() {
                 HasDownloadInfo(name = file.name, path = file.absolutePath, images = imageList)
             }
             ?: emptyList()
+    }
+
+    private fun migrateLegacyRootImages(parentFile: File) {
+        val legacyImages = parentFile.listFiles()
+            ?.filter { it.isFile && it.isDownloadedImageFile() }
+            ?: return
+        if (legacyImages.isEmpty()) {
+            return
+        }
+        val legacyDir = File(parentFile, "历史下载")
+        if (!legacyDir.exists() && !legacyDir.mkdirs()) {
+            return
+        }
+        legacyImages.forEach { imageFile ->
+            var targetFile = File(legacyDir, imageFile.name)
+            var suffix = 1
+            while (targetFile.exists()) {
+                targetFile = File(legacyDir, "${imageFile.nameWithoutExtension}_$suffix.${imageFile.extension}")
+                suffix += 1
+            }
+            imageFile.renameTo(targetFile)
+        }
     }
 
     private fun selectAllDownloads() {

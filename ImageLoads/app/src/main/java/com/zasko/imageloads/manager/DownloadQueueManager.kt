@@ -371,11 +371,15 @@ object DownloadQueueManager {
                     status = DownloadTaskStatus.DOWNLOADING,
                 )
             }
+            val detailDownloadDir = SourceImageDownloadHelper.getDetailDownloadDir(
+                parentDir = commonParentDir(record = record, detailInfo = completeDetailInfo),
+                detailInfo = completeDetailInfo,
+            )
             val savedCount = withContext(Dispatchers.IO) {
                 SourceImageDownloadHelper.downloadDetailImages(
                     context = MApplication.application.applicationContext,
                     detailInfo = completeDetailInfo,
-                    parentDir = commonParentDir(record = record, detailInfo = completeDetailInfo),
+                    parentDir = detailDownloadDir,
                     imageModelProvider = { imageInfo ->
                         commonImageModel(record = record, imageInfo = imageInfo)
                     },
@@ -429,11 +433,15 @@ object DownloadQueueManager {
                     status = DownloadTaskStatus.DOWNLOADING,
                 )
             }
+            val detailDownloadDir = SourceImageDownloadHelper.getDetailDownloadDir(
+                parentDir = commonDetailParentDir(record = record, detailInfo = commonDetailInfo),
+                detailInfo = commonDetailInfo,
+            )
             val savedCount = withContext(Dispatchers.IO) {
                 SourceImageDownloadHelper.downloadDetailImages(
                     context = MApplication.application.applicationContext,
                     detailInfo = commonDetailInfo,
-                    parentDir = commonDetailParentDir(record = record, detailInfo = commonDetailInfo),
+                    parentDir = detailDownloadDir,
                     imageModelProvider = { imageInfo -> imageInfo.url },
                     logTag = "XiuRenDownload",
                     replaceExisting = record.forceOverwrite,

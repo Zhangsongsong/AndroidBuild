@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "exportedAt": 1789360017000,
+  "sources": {
+    "meizi5": {
+      "key": "meizi5",
+      "type": 2,
+      "title": "Meizi5",
+      "cover": "https://meizi5.com/wp-content/uploads/2026/04/VOL_350_face.jpg",
+      "baseUrl": "https://meizi5.com/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://meizi5.com/"
+          },
+          "pageUrl": {
+            "firstPage": "{categoryUrl}/",
+            "nextPage": "{categoryUrl}/page/{page}"
+          },
+          "parse": {
+            "itemSelector": "article.masonry-item",
+            "detailLinkSelector": "a.entry-thumbnail[href]",
+            "coverSelector": "img.wp-post-image[src], img[data-src], img[data-lazy-src], img[src]",
+            "coverAttrOrder": [
+              "src",
+              "data-src",
+              "data-lazy-src"
+            ],
+            "titleSelector": ".entry-title a, h2.entry-title a, .entry-title",
+            "categorySelector": "#nav-header > li, #nav-header > li > ul.sub-menu > li",
+            "categoryLinkSelector": "a[href]"
+          },
+          "pagination": {
+            "nextPageSelector": "nav.pagination a[href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": "h1.entry-title",
+            "dateSelector": ".entry-header .entry-meta .entry-date",
+            "tagSelector": ".post-tags a",
+            "contentSelector": "div.entry.themeform",
+            "imageSelector": "img[src], img[data-src], img[data-lazy-src]",
+            "imageAttrOrder": [
+              "src",
+              "data-src",
+              "data-lazy-src"
+            ]
+          },
+          "pagination": {
+            "nextPageValue": "none"
+          }
+        }
+      }
+    }
+  }
+}
