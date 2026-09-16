@@ -71,7 +71,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
     private val pageLabels = mutableStateMapOf<Int, Int>()
     private val favoriteDownloadProgress = mutableStateMapOf<String, String>()
     private val favoriteDownloadJobs = mutableMapOf<String, Job>()
-    private val downloadedFavoriteImageUrls = mutableStateListOf<String>()
+    private val downloadedImageUrls = mutableStateListOf<String>()
 
     private var dataInfo: MainThemeSelectInfo? = null
     private var sourceConfig: DynamicSourceConfig? = null
@@ -179,9 +179,9 @@ class GenericSourceFragment : ComposeBaseFragment() {
                 pageJumpInitialPage = currentFirstPage(),
                 showFavoriteAction = true,
                 favoriteImageKeys = favoriteImages.map { it.url }.toSet(),
-                showItemDownloadAction = showFavoritesOnly && !isFavoriteBulkDownloading,
+                showItemDownloadAction = !isFavoriteBulkDownloading,
                 downloadingImageKeys = favoriteDownloadProgress.keys.toSet(),
-                downloadedImageKeys = downloadedFavoriteImageUrls.toSet(),
+                downloadedImageKeys = downloadedImageUrls.toSet(),
                 imageKeyProvider = { it.url },
                 itemDownloadProgressProvider = { favoriteDownloadProgress[it.url] },
                 onDownloadAllClick = ::showFavoriteBulkDownloadDialog,
@@ -357,6 +357,7 @@ class GenericSourceFragment : ComposeBaseFragment() {
         }
         nextPage = result.nextPage ?: nextPage
         isLoadEnd.set(result.images.isEmpty() || result.nextPage == null)
+        refreshDownloadedFavoriteState()
     }
 
     private fun pageLabelFor(index: Int, imageInfo: ImageLoadsInfo): String? {
@@ -533,9 +534,10 @@ class GenericSourceFragment : ComposeBaseFragment() {
     }
 
     private fun refreshDownloadedFavoriteState() {
-        downloadedFavoriteImageUrls.clear()
-        downloadedFavoriteImageUrls.addAll(
-            favoriteImages.filter {
+        val visibleImages = (images + favoriteImages).distinctBy { it.url }
+        downloadedImageUrls.clear()
+        downloadedImageUrls.addAll(
+            visibleImages.filter {
                 SourceImageDownloadHelper.isDetailHrefDownloaded(
                     parentDir = getDownloadParentDir(),
                     detailHref = it.href,
