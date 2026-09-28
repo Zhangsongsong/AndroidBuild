@@ -51,8 +51,8 @@ import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.load.model.LazyHeaders
 import com.zasko.imageloads.R
 import com.zasko.imageloads.components.HttpHeaderConfigStore
-import com.zasko.imageloads.compose.GlideImage
-import com.zasko.imageloads.compose.ImageLoadsTheme
+import com.zasko.imageloads.core.ui.GlideImage
+import com.zasko.imageloads.core.ui.ImageLoadsTheme
 import android.graphics.Color as AndroidColor
 
 private const val MAX_PREVIEW_SCALE = 5f

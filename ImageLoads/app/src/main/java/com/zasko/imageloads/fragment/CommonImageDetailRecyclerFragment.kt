@@ -17,12 +17,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.load.model.LazyHeaders
 import com.zasko.imageloads.components.HttpHeaderConfigStore
-import com.zasko.imageloads.compose.ImageLoadsTheme
-import com.zasko.imageloads.compose.ImageLoadsTopBar
-import com.zasko.imageloads.data.ImageInfo
-import com.zasko.imageloads.data.ImageLoadsInfo
-import com.zasko.imageloads.ui.common.CommonDetailRecyclerAdapter
-import com.zasko.imageloads.ui.common.CommonImageDetailInfo
+import com.zasko.imageloads.core.ui.ImageLoadsTheme
+import com.zasko.imageloads.core.ui.ImageLoadsTopBar
+import com.zasko.imageloads.data.model.ImageInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
+import com.zasko.imageloads.core.ui.common.CommonDetailRecyclerAdapter
+import com.zasko.imageloads.core.ui.common.CommonImageDetailInfo
 
 class CommonImageDetailRecyclerFragment : ComposeBaseFragment() {
 

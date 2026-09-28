@@ -7,13 +7,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
-import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
 import com.zasko.imageloads.dialog.CenterDefaultDialog
 import com.zasko.imageloads.dialog.DownloadTipDialog
 import com.zasko.imageloads.dialog.WarningDialog
-import com.zasko.imageloads.manager.DownloadQueueManager
-import com.zasko.imageloads.manager.DownloadTaskStatus
-import com.zasko.imageloads.ui.xiuren.XiuRenViewDetailModel
+import com.zasko.imageloads.core.download.DownloadQueueManager
+import com.zasko.imageloads.core.download.DownloadTaskStatus
+import com.zasko.imageloads.feature.xiuren.XiuRenViewDetailModel
 import com.zasko.imageloads.utils.FileUtil
 import com.zasko.imageloads.utils.loadImageWithInside
 import com.zasko.imageloads.utils.onClick

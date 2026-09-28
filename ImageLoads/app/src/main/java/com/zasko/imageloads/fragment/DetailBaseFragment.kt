@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.zasko.imageloads.R
 import com.zasko.imageloads.adapter.DetailImagesAdapter
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
 import com.zasko.imageloads.databinding.FragmentDetailImageBinding
 import com.zasko.imageloads.dialog.CenterDefaultDialog
 import com.zasko.imageloads.dialog.DownloadTipDialog

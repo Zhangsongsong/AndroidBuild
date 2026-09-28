@@ -10,7 +10,7 @@ import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.zasko.imageloads.R
-import com.zasko.imageloads.data.ImageInfo
+import com.zasko.imageloads.data.model.ImageInfo
 import com.zasko.imageloads.databinding.ItemDetailImageBinding
 import kotlin.math.roundToInt
 

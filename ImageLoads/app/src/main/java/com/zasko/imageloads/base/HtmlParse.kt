@@ -1,6 +1,6 @@
 package com.zasko.imageloads.base
 
-import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
 
 interface HtmlParse {
 

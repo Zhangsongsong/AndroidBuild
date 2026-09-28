@@ -2,7 +2,7 @@ package com.zasko.imageloads.components
 
 import android.content.Context
 import com.zasko.imageloads.MApplication
-import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
 import com.zasko.imageloads.utils.Constants
 import org.json.JSONArray
 import org.json.JSONObject

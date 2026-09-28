@@ -5,9 +5,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
-import com.zasko.imageloads.activity.PersonListActivity
-import com.zasko.imageloads.data.DataUseFrom
-import com.zasko.imageloads.data.MainThemeSelectInfo
+import com.zasko.imageloads.feature.xiuren.legacy.PersonListActivity
+import com.zasko.imageloads.data.model.DataUseFrom
+import com.zasko.imageloads.data.model.MainThemeSelectInfo
 import com.zasko.imageloads.databinding.ItemMainThemeSelectBinding
 import com.zasko.imageloads.utils.loadImage
 import com.zasko.imageloads.utils.onClick

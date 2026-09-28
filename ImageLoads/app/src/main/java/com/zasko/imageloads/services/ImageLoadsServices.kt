@@ -1,6 +1,6 @@
 package com.zasko.imageloads.services
 
-import com.zasko.imageloads.data.HeiSiInfo
+import com.zasko.imageloads.data.model.HeiSiInfo
 import io.reactivex.rxjava3.core.Single
 import retrofit2.http.GET
 import retrofit2.http.Query

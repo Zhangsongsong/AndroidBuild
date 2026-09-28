@@ -3,11 +3,11 @@ package com.zasko.imageloads.manager
 import com.zasko.imageloads.MApplication
 import com.zasko.imageloads.components.HttpComponent
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.HeiSiInfo
-import com.zasko.imageloads.data.ImageDetailInfo
-import com.zasko.imageloads.data.ImageInfo
-import com.zasko.imageloads.data.ImageLoadsInfo
-import com.zasko.imageloads.data.TagsInfo
+import com.zasko.imageloads.data.model.HeiSiInfo
+import com.zasko.imageloads.data.model.ImageDetailInfo
+import com.zasko.imageloads.data.model.ImageInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
+import com.zasko.imageloads.data.model.TagsInfo
 import com.zasko.imageloads.manager.html.HtmlParseManager
 import com.zasko.imageloads.services.ImageLoadsServices
 import com.zasko.imageloads.utils.BuildConfig

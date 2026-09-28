@@ -5,8 +5,8 @@ import android.content.Context
 import com.bumptech.glide.Glide
 import com.zasko.imageloads.base.BaseViewModel
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.ImageDetailInfo
-import com.zasko.imageloads.data.ImageInfo
+import com.zasko.imageloads.data.model.ImageDetailInfo
+import com.zasko.imageloads.data.model.ImageInfo
 import com.zasko.imageloads.listener.DownloadListener
 import com.zasko.imageloads.listener.GettingImageListener
 import com.zasko.imageloads.utils.FileUtil

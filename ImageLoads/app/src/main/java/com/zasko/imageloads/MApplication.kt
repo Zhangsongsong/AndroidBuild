@@ -8,7 +8,7 @@ import android.os.Process
 import androidx.core.content.getSystemService
 import com.zasko.imageloads.components.HttpComponent
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.manager.DownloadQueueManager
+import com.zasko.imageloads.core.download.DownloadQueueManager
 
 class MApplication : Application() {
 

@@ -30,33 +30,33 @@
         </activity>
 
 
-        <activity android:name=".activity.PersonListActivity" />
+        <activity android:name=".feature.xiuren.legacy.PersonListActivity" />
         <activity
-            android:name=".activity.PersonDetailActivity"
+            android:name=".feature.xiuren.legacy.PersonDetailActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activity.PersonDetailRecyclerActivity"
+            android:name=".feature.xiuren.legacy.PersonDetailRecyclerActivity"
             android:screenOrientation="portrait" />
 
-        <activity android:name=".ui.xiuren.activity.XiuRenActivity" />
-        <activity android:name=".ui.xiuren.activity.XiuRenWebViewActivity" />
-        <activity android:name=".ui.common.CommonDownloadedActivity" />
-        <activity android:name=".ui.download.DownloadQueueActivity" />
-        <activity android:name=".ui.common.SourceImageDetailActivity" />
-        <activity android:name=".ui.common.CommonImageDetailRecyclerActivity" />
-        <activity android:name=".ui.generic.GenericImageDetailActivity" />
-        <activity android:name=".ui.generic.GenericSourceActivity" />
-        <activity android:name=".ui.meizi5.Meizi5Activity" />
-        <activity android:name=".ui.settings.AboutActivity" />
-        <activity android:name=".ui.settings.FavoriteExportActivity" />
-        <activity android:name=".ui.settings.FavoriteImportActivity" />
-        <activity android:name=".ui.settings.FavoritePythonExportActivity" />
-        <activity android:name=".ui.settings.HttpHeadersSettingsActivity" />
-        <activity android:name=".ui.settings.LabActivity" />
-        <activity android:name=".ui.settings.ManualSourceImportActivity" />
-        <activity android:name=".ui.settings.ProcessMethodsSettingsActivity" />
-        <activity android:name=".ui.taotu.TaoTuActivity" />
-        <activity android:name=".ui.trendszine.TrendszineActivity" />
+        <activity android:name=".feature.xiuren.activity.XiuRenActivity" />
+        <activity android:name=".feature.xiuren.activity.XiuRenWebViewActivity" />
+        <activity android:name=".core.ui.common.CommonDownloadedActivity" />
+        <activity android:name=".feature.download.DownloadQueueActivity" />
+        <activity android:name=".core.ui.common.SourceImageDetailActivity" />
+        <activity android:name=".core.ui.common.CommonImageDetailRecyclerActivity" />
+        <activity android:name=".feature.generic.GenericImageDetailActivity" />
+        <activity android:name=".feature.generic.GenericSourceActivity" />
+        <activity android:name=".feature.meizi5.Meizi5Activity" />
+        <activity android:name=".feature.settings.AboutActivity" />
+        <activity android:name=".feature.settings.FavoriteExportActivity" />
+        <activity android:name=".feature.settings.FavoriteImportActivity" />
+        <activity android:name=".feature.settings.FavoritePythonExportActivity" />
+        <activity android:name=".feature.settings.HttpHeadersSettingsActivity" />
+        <activity android:name=".feature.settings.LabActivity" />
+        <activity android:name=".feature.settings.ManualSourceImportActivity" />
+        <activity android:name=".feature.settings.ProcessMethodsSettingsActivity" />
+        <activity android:name=".feature.taotu.TaoTuActivity" />
+        <activity android:name=".feature.trendszine.TrendszineActivity" />
 
         <activity android:name=".ui.TestActivity" />
 

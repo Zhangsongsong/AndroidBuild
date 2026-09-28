@@ -7,7 +7,7 @@ import android.os.Bundle
 import android.widget.ImageView
 import com.zasko.imageloads.R
 import com.zasko.imageloads.base.BaseActivity
-import com.zasko.imageloads.ui.meizi5.toMeizi5ImageModel
+import com.zasko.imageloads.feature.meizi5.toMeizi5ImageModel
 import com.zasko.imageloads.utils.loadImage
 
 class TestActivity : BaseActivity() {

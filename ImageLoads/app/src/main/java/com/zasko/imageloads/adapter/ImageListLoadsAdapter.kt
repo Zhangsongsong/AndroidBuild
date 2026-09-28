@@ -13,7 +13,7 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.zasko.imageloads.components.LogComponent
-import com.zasko.imageloads.data.ImageLoadsInfo
+import com.zasko.imageloads.data.model.ImageLoadsInfo
 import com.zasko.imageloads.databinding.ItemMainLoadsBinding
 import com.zasko.imageloads.fragment.LoadBaseFragment
 import com.zasko.imageloads.utils.onClick
