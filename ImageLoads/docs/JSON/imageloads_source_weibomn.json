@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "exportedAt": 1790591017000,
+  "sources": {
+    "weibomn": {
+      "key": "weibomn",
+      "type": 109273,
+      "title": "微博美女",
+      "cover": "https://www.weibomn.com/images/image/20260921/1e175a59725175d4d67c6ed7c1a22b29.jpg",
+      "baseUrl": "https://www.weibomn.com/",
+      "settings": {
+        "useLocalData": false
+      },
+      "processMethods": {
+        "parser": {
+          "name": "MJson",
+          "entry": "MJson.parse(html)",
+          "engine": "Jsoup.parse(html)",
+          "description": "Parse HTML into a Jsoup Document, then read list, pagination, and detail data with CSS selectors."
+        },
+        "list": {
+          "request": {
+            "homeUrl": "https://www.weibomn.com/list1.html"
+          },
+          "pageUrl": {
+            "firstPage": "https://www.weibomn.com/list1.html",
+            "nextPage": "https://www.weibomn.com/list{page}.html"
+          },
+          "parse": {
+            "itemSelector": "#contentContainer .photo-list",
+            "detailLinkSelector": "a[href]",
+            "coverSelector": "p[style*=background-image]",
+            "coverAttrOrder": [
+              "style.background-image"
+            ],
+            "titleSelector": ""
+          },
+          "pagination": {
+            "nextPageSelector": ".page-navigator a:containsOwn(下一页)[href]",
+            "nextPageValue": "currentPage + 1"
+          }
+        },
+        "detail": {
+          "request": {
+            "detailUrl": "list.item.href"
+          },
+          "parse": {
+            "titleSelector": "article.post .post-content > p:first-child",
+            "dateSelector": "article.post .post-content blockquote p",
+            "tagSelector": "",
+            "contentSelector": "article.post .post-content",
+            "imageLinkSelector": ".photos a[data-lightbox=img][href]",
+            "imageAttr": "href"
+          },
+          "pagination": {
+            "nextPageValue": "none"
+          }
+        }
+      }
+    }
+  }
+}
