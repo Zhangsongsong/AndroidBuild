@@ -5,7 +5,10 @@ import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
+import android.graphics.Bitmap
 import android.graphics.Path
+import android.view.Display
+import android.view.accessibility.AccessibilityWindowInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -33,6 +36,24 @@ class AutomationAccessibilityService : AccessibilityService() {
 
         @Volatile
         private var serviceInstance: AutomationAccessibilityService? = null
+
+        fun startDemon() {
+            val service = serviceInstance ?: return
+            val pkg = AppProfileStore.selectedPackage(service) ?: return
+            DemonRunner.start(service, pkg)
+        }
+
+        fun collectDemon(screen: DemonScreen) {
+            val service = serviceInstance ?: return
+            val pkg = AppProfileStore.selectedPackage(service) ?: return
+            DemonRunner.collect(service, pkg, screen)
+        }
+
+        fun inspectDemonSkills() {
+            val service = serviceInstance ?: return
+            val pkg = AppProfileStore.selectedPackage(service) ?: return
+            DemonRunner.inspectSkills(service, pkg)
+        }
 
         fun dispatchTap(
             targetPackage: String,
@@ -100,10 +121,12 @@ class AutomationAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
+        DemonRunner.stop("无障碍服务被中断")
         stateHolder.value = stateHolder.value.copy(lastActionMessage = "服务被系统中断")
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
+        DemonRunner.stop("无障碍服务已断开")
         serviceInstance = null
         stateHolder.value = AutomationServiceState(lastActionMessage = "服务已断开")
         return super.onUnbind(intent)
@@ -169,10 +192,59 @@ class AutomationAccessibilityService : AccessibilityService() {
         )
     }
 
-    private fun isTargetPackageForeground(targetPackage: String): Boolean {
-        val rootPackage = rootInActiveWindow?.packageName?.toString()
-        val observedPackage = stateHolder.value.currentPackage
-        return targetPackage == rootPackage || targetPackage == observedPackage
+    fun isTargetPackageForeground(targetPackage: String): Boolean {
+        // Event packages may be stale or belong to an overlay. Prefer the currently focused app.
+        val focused = windows.firstOrNull {
+            it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.isFocused
+        }
+        val packageName = focused?.root?.packageName?.toString()
+            ?: rootInActiveWindow?.packageName?.toString()
+        return packageName == targetPackage
+    }
+
+    fun captureScreen(targetPackage: String, callback: (Result<Bitmap>) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            callback(Result.failure(IllegalStateException("屏幕识别需要 Android 11 或以上")))
+            return
+        }
+        if (!isTargetPackageForeground(targetPackage)) {
+            callback(Result.failure(IllegalStateException("目标游戏不在前台")))
+            return
+        }
+        try {
+            takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
+                override fun onSuccess(result: ScreenshotResult) {
+                    val buffer = result.hardwareBuffer
+                    val image = runCatching {
+                        val hardware = Bitmap.wrapHardwareBuffer(buffer, result.colorSpace)
+                            ?: error("无法读取截图")
+                        try {
+                            hardware.copy(Bitmap.Config.ARGB_8888, false) ?: error("无法复制截图")
+                        } finally { hardware.recycle() }
+                    }
+                    buffer.close()
+                    callback(image)
+                }
+                override fun onFailure(errorCode: Int) {
+                    callback(Result.failure(IllegalStateException("截图失败（$errorCode），请检查截图能力或安全窗口限制")))
+                }
+            })
+        } catch (e: Exception) { callback(Result.failure(e)) }
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.N)
+    fun performFlowTap(targetPackage: String, x: Int, y: Int, completed: (Boolean) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !isTargetPackageForeground(targetPackage)) {
+            completed(false)
+            return
+        }
+        val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
+        val gesture = GestureDescription.Builder().addStroke(StrokeDescription(path, 0L, 80L)).build()
+        val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) { completed(true) }
+            override fun onCancelled(gestureDescription: GestureDescription?) { completed(false) }
+        }, mainHandler)
+        if (!accepted) completed(false)
     }
 
     private fun rejectAction(message: String): ActionOutcome {
@@ -180,6 +252,7 @@ class AutomationAccessibilityService : AccessibilityService() {
         return ActionOutcome(false, message)
     }
 
+    @android.annotation.TargetApi(Build.VERSION_CODES.N)
     private fun dispatchGestureOnMain(
         path: Path,
         durationMs: Long,

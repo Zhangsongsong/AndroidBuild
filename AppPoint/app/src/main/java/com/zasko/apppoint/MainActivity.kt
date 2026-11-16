@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
@@ -25,6 +26,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -44,6 +48,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -86,6 +91,9 @@ private fun AppPointScreen(resumeTick: Int) {
     val context = LocalContext.current
     val serviceState = AutomationAccessibilityService.state.value
     var selectedApp by remember { mutableStateOf<InstalledAppInfo?>(null) }
+    var showAppPicker by rememberSaveable { mutableStateOf(false) }
+    val homeListState = rememberLazyListState()
+    val pickerListState = rememberLazyListState()
     var profileRefreshTick by remember { mutableIntStateOf(0) }
     var selectedPackage by remember(resumeTick) {
         mutableStateOf(AppProfileStore.selectedPackage(context))
@@ -113,7 +121,34 @@ private fun AppPointScreen(resumeTick: Int) {
         }
 
     val app = selectedApp
-    if (app == null) {
+    fun selectTarget(target: InstalledAppInfo) {
+        AppProfileStore.select(context, target)
+        selectedPackage = target.packageName
+        selectedApp = target
+    }
+    fun openTarget(target: InstalledAppInfo) {
+        if (!InstalledAppRepository.launch(context, target)) {
+            Toast.makeText(context, "无法打开 ${target.appName}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    fun closeProfile() {
+        selectedApp = null
+        profileRefreshTick++
+    }
+    BackHandler(enabled = app != null || showAppPicker) {
+        if (app != null) closeProfile() else showAppPicker = false
+    }
+    if (app == null && showAppPicker) {
+        AppPickerScreen(
+            availableApps = availableApps,
+            configuredPackages = profiles.mapTo(mutableSetOf()) { it.packageName },
+            selectedPackage = selectedPackage,
+            listState = pickerListState,
+            onBack = { showAppPicker = false },
+            onSelectApp = ::selectTarget,
+            onOpenApp = ::openTarget
+        )
+    } else if (app == null) {
         HomeScreen(
             profiles = profiles,
             availableApps = availableApps,
@@ -126,6 +161,8 @@ private fun AppPointScreen(resumeTick: Int) {
                 selectedPackage = target.packageName
                 selectedApp = target
             },
+            onAddApp = { showAppPicker = true },
+            listState = homeListState,
             onOpenApp = { target ->
                 if (!InstalledAppRepository.launch(context, target)) {
                     Toast.makeText(
@@ -159,10 +196,7 @@ private fun AppPointScreen(resumeTick: Int) {
             app = app,
             permissions = permissions,
             serviceState = serviceState,
-            onBack = {
-                selectedApp = null
-                profileRefreshTick++
-            },
+            onBack = ::closeProfile,
             onOpenApp = {
                 if (!InstalledAppRepository.launch(context, app)) {
                     Toast.makeText(
@@ -186,172 +220,135 @@ private fun HomeScreen(
     permissions: PermissionSnapshot,
     serviceState: AutomationServiceState,
     onSelectApp: (InstalledAppInfo) -> Unit,
+    onAddApp: () -> Unit,
+    listState: LazyListState,
     onOpenApp: (InstalledAppInfo) -> Unit,
     onConfigureCurrentApp: (InstalledAppInfo) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onOpenOverlaySettings: () -> Unit
 ) {
-    var showAppPicker by remember { mutableStateOf(false) }
-    val configuredPackages = remember(profiles) {
-        profiles.mapTo(mutableSetOf()) { it.packageName }
-    }
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = { Text("AppPoint") },
                 actions = {
-                    Text(
-                        text = "${profiles.size} 个目标",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(end = 16.dp)
-                    )
+                    Text(profiles.size.toString() + " 个目标", style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(end = 16.dp))
                 }
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .navigationBarsPadding(),
+        // All home content shares a full-height viewport instead of squeezing the target list.
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StatusCard(
-                accessibilityEnabled = permissions.accessibilityEnabled,
-                overlayEnabled = permissions.overlayEnabled,
-                serviceConnected = serviceState.connected,
-                targetIsForeground = selectedPackage != null &&
-                    serviceState.currentPackage == selectedPackage,
-                currentPackage = serviceState.currentPackage,
-                currentAppName = serviceState.currentAppName,
-                lastActionMessage = serviceState.lastActionMessage
-            )
-
-            PermissionCard(
-                permissions = permissions,
-                onOpenAccessibilitySettings = onOpenAccessibilitySettings,
-                onOpenOverlaySettings = onOpenOverlaySettings
-            )
-
+            item(key = "status") {
+                StatusCard(
+                    accessibilityEnabled = permissions.accessibilityEnabled,
+                    overlayEnabled = permissions.overlayEnabled,
+                    serviceConnected = serviceState.connected,
+                    targetIsForeground = selectedPackage != null && serviceState.currentPackage == selectedPackage,
+                    currentPackage = serviceState.currentPackage,
+                    currentAppName = serviceState.currentAppName,
+                    lastActionMessage = serviceState.lastActionMessage
+                )
+            }
+            item(key = "permissions") {
+                PermissionCard(permissions, onOpenAccessibilitySettings, onOpenOverlaySettings)
+            }
             if (currentApp != null) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "当前无障碍应用",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = currentApp.appName,
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            text = currentApp.packageName,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Button(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { onConfigureCurrentApp(currentApp) }
-                        ) {
-                            Text("配置当前应用")
-                        }
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "已配置目标应用",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "每个目标应用的配置独立保存到应用名称目录。",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                TextButton(onClick = { showAppPicker = !showAppPicker }) {
-                    Text(if (showAppPicker) "收起应用" else "添加应用")
-                }
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (profiles.isEmpty()) {
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "还没有目标应用配置。可以配置当前无障碍应用，或点击“添加应用”。",
-                                modifier = Modifier.padding(20.dp)
-                            )
-                        }
-                    }
-                } else {
-                    items(
-                        items = profiles,
-                        key = { "profile_${it.packageName}" }
-                    ) { profile ->
-                        ProfileListItem(
-                            profile = profile,
-                            selected = profile.packageName == selectedPackage,
-                            installed = availableApps.any {
-                                it.packageName == profile.packageName
-                            },
-                            onSelect = {
-                                onSelectApp(
-                                    InstalledAppInfo(profile.appName, profile.packageName)
-                                )
-                            },
-                            onOpen = {
-                                onOpenApp(
-                                    InstalledAppInfo(profile.appName, profile.packageName)
-                                )
+                item(key = "current_app") {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("当前无障碍应用", style = MaterialTheme.typography.titleMedium)
+                            Text(currentApp.appName, style = MaterialTheme.typography.titleSmall)
+                            Text(currentApp.packageName, style = MaterialTheme.typography.bodySmall)
+                            Button(modifier = Modifier.fillMaxWidth(), onClick = { onConfigureCurrentApp(currentApp) }) {
+                                Text("配置当前应用")
                             }
-                        )
+                        }
                     }
                 }
-
-                if (showAppPicker) {
-                    item {
-                        Text(
-                            text = "选择其他可启动应用",
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+            }
+            item(key = "targets_header") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text("已配置目标应用", style = MaterialTheme.typography.titleMedium)
+                        Text("每个目标应用的配置独立保存。", style = MaterialTheme.typography.bodySmall)
                     }
-                    if (availableApps.isEmpty()) {
-                        item {
-                            Text(
-                                text = "没有找到可启动应用",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    } else {
-                        items(
-                            items = availableApps,
-                            key = { "available_${it.packageName}" }
-                        ) { app ->
-                            AppListItem(
-                                app = app,
-                                selected = app.packageName == selectedPackage,
-                                configured = app.packageName in configuredPackages,
-                                onSelect = { onSelectApp(app) },
-                                onOpen = { onOpenApp(app) }
-                            )
-                        }
+                    TextButton(onClick = onAddApp) { Text("添加应用") }
+                }
+            }
+            if (profiles.isEmpty()) {
+                item(key = "empty_targets") {
+                    Card(Modifier.fillMaxWidth()) {
+                        Text("还没有目标应用配置。可以配置当前无障碍应用，或点击“添加应用”。",
+                            modifier = Modifier.padding(20.dp))
+                    }
+                }
+            } else {
+                items(profiles, key = { "profile_" + it.packageName }) { profile ->
+                    val target = InstalledAppInfo(profile.appName, profile.packageName)
+                    ProfileListItem(
+                        profile = profile, selected = profile.packageName == selectedPackage,
+                        installed = availableApps.any { it.packageName == profile.packageName },
+                        onSelect = { onSelectApp(target) }, onOpen = { onOpenApp(target) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppPickerScreen(
+    availableApps: List<InstalledAppInfo>,
+    configuredPackages: Set<String>,
+    selectedPackage: String?,
+    listState: LazyListState,
+    onBack: () -> Unit,
+    onSelectApp: (InstalledAppInfo) -> Unit,
+    onOpenApp: (InstalledAppInfo) -> Unit
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val filteredApps = remember(availableApps, query) {
+        val keyword = query.trim()
+        availableApps.filter {
+            keyword.isEmpty() || it.appName.contains(keyword, ignoreCase = true) ||
+                it.packageName.contains(keyword, ignoreCase = true)
+        }
+    }
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(title = { Text("添加应用") }, navigationIcon = {
+                TextButton(onClick = onBack) { Text("返回") }
+            })
+        }
+    ) { innerPadding ->
+        Column(Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
+                label = { Text("搜索应用名称或包名") }, singleLine = true,
+                trailingIcon = { if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("清空") } }
+            )
+            Text(filteredApps.size.toString() + " 个应用 · 点击应用进入配置", style = MaterialTheme.typography.bodySmall)
+            LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (filteredApps.isEmpty()) {
+                    item { Text(if (availableApps.isEmpty()) "没有找到可启动应用" else "没有匹配的应用") }
+                } else {
+                    items(filteredApps, key = { it.packageName }) { app ->
+                        AppListItem(app = app, selected = app.packageName == selectedPackage,
+                            configured = app.packageName in configuredPackages,
+                            onSelect = { onSelectApp(app) }, onOpen = { onOpenApp(app) })
                     }
                 }
             }
@@ -692,6 +689,8 @@ private fun ProfileScreen(
                     Text("显示悬浮窗")
                 }
             }
+
+            DemonConfigPanel(app.packageName)
 
             HorizontalDivider()
             Text("手动测试", style = MaterialTheme.typography.titleMedium)

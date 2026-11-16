@@ -8,11 +8,17 @@ import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
+import android.os.Handler
+import android.os.Looper
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.zasko.apppoint.automation.DemonRunner
+import com.zasko.apppoint.automation.DemonScreen
+import com.zasko.apppoint.automation.DemonStore
 import com.zasko.apppoint.automation.ActionOutcome
 import com.zasko.apppoint.automation.AppProfileStore
 import com.zasko.apppoint.automation.AutomationAccessibilityService
@@ -49,7 +55,12 @@ object OverlayController {
         return true
     }
 
+    fun setCaptureHidden(hidden: Boolean) {
+        overlayView?.visibility = if (hidden) View.INVISIBLE else View.VISIBLE
+    }
+
     fun hide() {
+        DemonRunner.stop("面板已关闭")
         val view = overlayView ?: return
         runCatching { windowManager?.removeView(view) }
         overlayView = null
@@ -93,6 +104,39 @@ private class ControlOverlayView(
             setOnTouchListener { _, event -> handleDrag(event) }
         }
         addView(header, LayoutParams(dp(190), dp(34)))
+
+        addActionButton("开始封魔 / 重新开始") { AutomationAccessibilityService.startDemon() }
+        addActionButton("暂停封魔") { DemonRunner.stop(resumable = true) }
+        addActionButton("继续封魔") { DemonRunner.resume() }
+        addActionButton("只识别技能（不点击）") { AutomationAccessibilityService.inspectDemonSkills() }
+        fun captureTargets(): List<DemonScreen> = runCatching {
+            val profile = AppProfileStore.loadSelected(context) ?: return@runCatching DemonScreen.entries.toList()
+            DemonStore.load(context, profile.packageName).rules.map { it.screen }
+        }.getOrDefault(DemonScreen.entries.toList())
+        var captureScreen = captureTargets().first()
+        val selector = Button(context).apply {
+            text = "采集目标：${captureScreen.title}"
+            setOnClickListener {
+                val targets = captureTargets()
+                captureScreen = targets[(targets.indexOf(captureScreen) + 1) % targets.size]
+                text = "采集目标：${captureScreen.title}"
+            }
+        }
+        addView(selector, LayoutParams(dp(190), dp(40)))
+        addActionButton("采集当前界面模板") { AutomationAccessibilityService.collectDemon(captureScreen) }
+        val status = TextView(context).apply { setTextColor(Color.WHITE); textSize = 12f }
+        addView(status, LayoutParams(dp(190), LayoutParams.WRAP_CONTENT))
+        val handler = Handler(Looper.getMainLooper())
+        val refresh = object : Runnable {
+            override fun run() {
+                status.text = "${DemonRunner.status.value.message} · ${DemonRunner.status.value.rounds}轮"
+                if (isAttachedToWindow) handler.postDelayed(this, 500)
+            }
+        }
+        addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) { handler.post(refresh) }
+            override fun onViewDetachedFromWindow(v: View) { handler.removeCallbacks(refresh) }
+        })
 
         addActionButton("点按配置位置") {
             val profile = AppProfileStore.loadSelected(context)
@@ -143,7 +187,11 @@ private class ControlOverlayView(
             minHeight = 0
             minimumHeight = 0
             setPadding(dp(4), 0, dp(4), 0)
-            setOnClickListener { action() }
+            setOnClickListener {
+                if (DemonRunner.status.value.running && text in listOf("点按配置位置", "执行配置滑动", "采集当前界面模板", "只识别技能（不点击）")) {
+                    Toast.makeText(context, "请先暂停封魔流程", Toast.LENGTH_SHORT).show()
+                } else action()
+            }
         }
         addView(button, LayoutParams(dp(190), dp(40)).apply {
             topMargin = dp(4)
