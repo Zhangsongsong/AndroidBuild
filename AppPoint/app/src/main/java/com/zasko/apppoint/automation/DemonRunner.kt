@@ -259,12 +259,17 @@ object DemonRunner {
     )
 
     private fun recognizeDismissHint(image: Bitmap): ScreenPoint? {
-        val scaledWidth = minOf(image.width, 720)
+        // Keep the small white instruction legible instead of shrinking the entire display.
+        val top = (image.height * .65).toInt()
+        val bottom = (image.height * .98).toInt()
+        val crop = Bitmap.createBitmap(image, 0, top, image.width, bottom - top)
+        val scaledWidth = minOf(image.width, 1080)
         val scaled = Bitmap.createScaledBitmap(
-            image, scaledWidth, (image.height * scaledWidth.toDouble() / image.width).toInt(), true
+            crop, scaledWidth, (crop.height * scaledWidth.toDouble() / crop.width).toInt(), true
         )
+        if (crop !== scaled && crop !== image) crop.recycle()
         val scaleX = image.width.toDouble() / scaled.width
-        val scaleY = image.height.toDouble() / scaled.height
+        val scaleY = (bottom - top).toDouble() / scaled.height
         var submitted = false
         try {
             val task = textRecognizer.process(InputImage.fromBitmap(scaled, 0))
@@ -275,12 +280,14 @@ object DemonRunner {
                 val box = line.boundingBox ?: return@mapNotNull null
                 ScreenText(line.text, ScreenRegion(
                     box.left * scaleX / image.width,
-                    box.top * scaleY / image.height,
+                    (top + box.top * scaleY) / image.height,
                     box.right * scaleX / image.width,
-                    box.bottom * scaleY / image.height
+                    (top + box.bottom * scaleY) / image.height
                 ))
             }
-            return DismissHintLocator.find(lines)
+            val point = DismissHintLocator.find(lines)
+            trace("dismiss point=$point lines=$lines")
+            return point
         } finally {
             if (!submitted) scaled.recycle()
         }

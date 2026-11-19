@@ -55,6 +55,38 @@ class DemonFlowTest {
         assertEquals(0, flow.completedRounds)
     }
 
+    @Test fun dismissesRouletteWhenStartingOnItsScreen() {
+        val flow = DemonFlow(DemonConfig(), now)
+        val point = ScreenPoint(.50, .855)
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = point))
+        assertEquals(FlowDecision.Tap(point, "关闭提示界面"),
+            flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = point))
+        assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.DISMISS_OVERLAY))
+        assertEquals(0, flow.completedRounds)
+    }
+
+    @Test fun dismissesRouletteImmediatelyAfterSkillSelectionWithoutABattleFrame() {
+        val flow = DemonFlow(DemonConfig(skillPriority = listOf("雷电")), now)
+        assertTrue(stable(flow, DemonScreen.SKILLS) is FlowDecision.Tap)
+        val point = ScreenPoint(.50, .855)
+        flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = point)
+        assertEquals(FlowDecision.Tap(point, "关闭提示界面"),
+            flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = point))
+        assertEquals(listOf("雷电"), flow.confirmedSkills)
+        assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.DISMISS_OVERLAY))
+        stable(flow, DemonScreen.BATTLE)
+        assertTrue(stable(flow, DemonScreen.SKILLS) is FlowDecision.Tap)
+    }
+
+    @Test fun dismissesRouletteAfterEntranceWithoutABattleFrame() {
+        val flow = DemonFlow(DemonConfig(), now)
+        assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Tap)
+        val point = ScreenPoint(.50, .855)
+        flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = point)
+        assertEquals(FlowDecision.Tap(point, "关闭提示界面"),
+            flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = point))
+    }
+
     @Test fun confirmsTheSameEntranceAcrossOneMissAndUsesItsDetectedButton() {
         val flow = DemonFlow(DemonConfig(), now)
         val point = ScreenPoint(.494, .584)

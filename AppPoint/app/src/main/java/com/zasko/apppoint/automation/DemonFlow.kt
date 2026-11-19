@@ -118,7 +118,8 @@ sealed class FlowDecision {
 class DemonFlow(private val config: DemonConfig, startedAt: Long, private val random: kotlin.random.Random = kotlin.random.Random.Default) {
     var completedRounds = 0
         private set
-    private var allowed = setOf(DemonScreen.HOME, DemonScreen.CHALLENGE, DemonScreen.ENTRANCE, DemonScreen.BATTLE, DemonScreen.SKILLS)
+    private var allowed = setOf(DemonScreen.HOME, DemonScreen.CHALLENGE, DemonScreen.ENTRANCE,
+        DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.DISMISS_OVERLAY)
     private var latched: DemonScreen? = null
     private var candidate: DemonScreen? = null
     private var stableCount = 0
@@ -224,7 +225,7 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
                 pendingSkill = null
                 battleDeadline = now + config.battleTimeoutMs
                 deadline = battleDeadline!!
-                click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT),
+                click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT, DemonScreen.DISMISS_OVERLAY),
                     entrancePoint ?: config.rules.first { it.screen == screen }.tap!!)
             }
             DemonScreen.BATTLE -> {
@@ -244,7 +245,7 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
                     return FlowDecision.Halt("未匹配可选优先级技能，已暂停：${recognizedSkills.joinToString(" / ")}", resumable = true)
                 }
                 pendingSkill = recognizedSkills[card - 1]
-                val decision = click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SETTLEMENT), config.skillPoints[card - 1])
+                val decision = click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SETTLEMENT, DemonScreen.DISMISS_OVERLAY), config.skillPoints[card - 1])
                 (decision as FlowDecision.Tap).copy(label =
                     "${if (preferred == null) (if (config.skillFallback == SkillFallback.RANDOM) "未匹配优先级，随机选第 $card 张" else "未匹配优先级，选左卡") else "优先选择第 $card 张"}：${recognizedSkills[card - 1]}")
             }
