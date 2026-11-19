@@ -13,7 +13,8 @@ data class ScreenRegion(val left: Double, val top: Double, val right: Double, va
 
 enum class DemonScreen(val title: String) {
     HOME("游戏首页"), CHALLENGE("挑战列表"), ENTRANCE("封魔之地入口"),
-    BATTLE("自动战斗"), SKILLS("三选一技能"), SETTLEMENT("胜利结算"), STOP("失败或次数不足")
+    BATTLE("自动战斗"), SKILLS("三选一技能"), SETTLEMENT("胜利结算"),
+    DISMISS_OVERLAY("关闭提示界面"), STOP("失败或次数不足")
 }
 
 data class ScreenRule(
@@ -74,7 +75,7 @@ data class DemonConfig(
         require(skillCardRegions.size == 3) { "必须配置三个技能卡识别区域" }
         skillCardRegions.forEach { it.validate() }
         SkillSelector.validatePriority(skillPriority)
-        require(skillBuild in setOf(SkillBuilds.CUSTOM, SkillBuilds.HURRICANE)) { "未知流派" }
+        require(skillBuild.isNotBlank() && skillBuild.length <= 80) { "流派标识无效" }
         referenceAspectRatio?.let { require(it.isFinite() && it > 0) { "参考屏幕比例无效" } }
         require(rules.map { it.screen }.toSet().size == rules.size) { "每个界面只能配置一条规则" }
         require(rules.map { it.screen }.containsAll(listOf(DemonScreen.ENTRANCE, DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT))) { "缺少入口、战斗、选卡或结算规则" }
@@ -93,7 +94,9 @@ data class DemonConfig(
 
     companion object {
         // Calibration placeholders, not coordinates verified against a particular game version.
-        fun defaults() = DemonScreen.entries.map { screen ->
+        fun defaults() = DemonScreen.entries.filter {
+            it != DemonScreen.DISMISS_OVERLAY && it != DemonScreen.STOP
+        }.map { screen ->
             ScreenRule(screen, ScreenRegion(.1, .1, .9, .3), tap = when (screen) {
                 DemonScreen.HOME -> ScreenPoint(.5, .9)
                 DemonScreen.CHALLENGE -> ScreenPoint(.5, .5)
@@ -119,6 +122,9 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
     private var latched: DemonScreen? = null
     private var candidate: DemonScreen? = null
     private var stableCount = 0
+    private var entranceCandidate: ScreenPoint? = null
+    private var entranceSeenAt = 0L
+    private var entranceMisses = 0
     private var deadline = startedAt + config.timeoutMs
     private var battleDeadline: Long? = null
     private var skillCandidate: List<String>? = null
@@ -136,15 +142,45 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
         }
         candidate = null
         stableCount = 0
+        entranceCandidate = null
+        entranceMisses = 0
         skillCandidate = null
         skillStableCount = 0
     }
 
-    fun observe(screen: DemonScreen?, now: Long, recognizedSkills: List<String> = emptyList()): FlowDecision {
+    fun observe(
+        screen: DemonScreen?,
+        now: Long,
+        recognizedSkills: List<String> = emptyList(),
+        dismissPoint: ScreenPoint? = null,
+        entrancePoint: ScreenPoint? = null,
+        entrancePixelConfirmed: Boolean = false
+    ): FlowDecision {
         if (config.rounds > 0 && completedRounds >= config.rounds) return FlowDecision.Halt("已完成 $completedRounds 轮")
         if (screen == DemonScreen.STOP) return FlowDecision.Halt("识别到失败或次数不足，请检查游戏")
         if (now >= deadline) return FlowDecision.Halt("等待界面超时，已停止")
         if (battleDeadline?.let { now >= it } == true) return FlowDecision.Halt("战斗超时，已停止")
+        val recentEntrance = screen == DemonScreen.ENTRANCE && entrancePoint != null &&
+            entranceCandidate?.let { previous ->
+                entranceMisses <= 1 && now - entranceSeenAt <= config.pollMs * 3 + 2000 &&
+                    kotlin.math.abs(previous.x - entrancePoint.x) <= .03 &&
+                    kotlin.math.abs(previous.y - entrancePoint.y) <= .015
+            } == true
+        when {
+            screen == DemonScreen.ENTRANCE -> {
+                entranceCandidate = entrancePoint
+                entranceSeenAt = now
+                entranceMisses = 0
+            }
+            screen == null -> {
+                entranceMisses++
+                if (entranceMisses > 1) entranceCandidate = null
+            }
+            else -> {
+                entranceCandidate = null
+                entranceMisses = 0
+            }
+        }
         if (screen == candidate && screen != null) stableCount++ else {
             candidate = screen
             stableCount = if (screen == null) 0 else 1
@@ -157,11 +193,13 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
             skillCandidate = null
             skillStableCount = 0
         }
-        if (stableCount < 2 || screen == null) return FlowDecision.Wait
+        // A pixel-located button with the title and energy icon is strong enough for one-frame action.
+        val confirmedEntrance = screen == DemonScreen.ENTRANCE && entrancePoint != null && entrancePixelConfirmed
+        if ((stableCount < 2 && !recentEntrance && !confirmedEntrance) || screen == null) return FlowDecision.Wait
         if (latched == screen) return FlowDecision.Wait
         // Unknown frames do not release the latch: a fading/animated dialog must not be clicked twice.
         if (screen !in allowed) return FlowDecision.Wait
-        if (screen == DemonScreen.BATTLE || screen == DemonScreen.SETTLEMENT) {
+        if (screen == DemonScreen.BATTLE || screen == DemonScreen.SETTLEMENT || screen == DemonScreen.DISMISS_OVERLAY) {
             pendingSkill?.let { selectedSkills.add(it) }
             pendingSkill = null
         }
@@ -186,12 +224,16 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
                 pendingSkill = null
                 battleDeadline = now + config.battleTimeoutMs
                 deadline = battleDeadline!!
-                click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT), config.rules.first { it.screen == screen }.tap!!)
+                click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT),
+                    entrancePoint ?: config.rules.first { it.screen == screen }.tap!!)
             }
             DemonScreen.BATTLE -> {
-                allowed = setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT)
+                allowed = setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT, DemonScreen.DISMISS_OVERLAY)
                 FlowDecision.Wait
             }
+            DemonScreen.DISMISS_OVERLAY -> click(screen,
+                setOf(DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT),
+                dismissPoint ?: ScreenPoint(.5, .84))
             DemonScreen.SKILLS -> {
                 if (skillStableCount < 2) return FlowDecision.Wait
                 if (recognizedSkills.size != 3 || recognizedSkills.any { SkillSelector.normalize(it).isEmpty() }) {

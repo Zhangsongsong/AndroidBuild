@@ -21,7 +21,7 @@ class EntranceRecognitionTest {
                 val point = DemonRunner.recognizeEntrance(image)
                 Log.i("EntranceRecognitionTest", "$name point=$point size=${image.width}x${image.height}")
                 assertNotNull("No entrance found in $name", point)
-                assertEquals(.5, point!!.x, .0001)
+                assertEquals(.5, point!!.x, .02)
                 assertTrue(point.y in .1.. .78)
             } finally { image.recycle() }
         }

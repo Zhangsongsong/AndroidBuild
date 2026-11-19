@@ -7,7 +7,8 @@ object SkillCatalog {
     private val builtIns get() = listOf(
         SkillGroup("hurricane", "飓风系", SkillBuilds.hurricaneSkills),
         SkillGroup("tornado", "龙卷风系", SkillBuilds.tornadoSkills),
-        SkillGroup("frost_nova", "冰霜新星系", SkillBuilds.frostNovaSkills)
+        SkillGroup("frost_nova", "冰霜新星系", SkillBuilds.frostNovaSkills),
+        SkillGroup("fireball", "火球系", SkillBuilds.fireballSkills)
     )
 
     private fun names(entry: String) = entry.split('|').map(SkillSelector::normalize).filter { it.isNotBlank() }.toSet()

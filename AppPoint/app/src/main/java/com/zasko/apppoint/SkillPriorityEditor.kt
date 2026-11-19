@@ -21,7 +21,12 @@ import kotlinx.coroutines.launch
 
 /** Selected order and catalog scroll independently. Only Save persists edits. */
 @Composable
-fun SkillPriorityEditor(initial: List<String>, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
+fun SkillPriorityEditor(
+    initial: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit,
+    saveButtonText: String = "保存到本地 JSON"
+) {
     var entries by rememberSaveable { mutableStateOf(initial.toList()) }
     var catalogExtras by rememberSaveable { mutableStateOf(initial.toList()) }
     var focusedEntry by rememberSaveable { mutableStateOf<String?>(null) }
@@ -148,7 +153,7 @@ fun SkillPriorityEditor(initial: List<String>, onDismiss: () -> Unit, onSave: (L
                     TextButton(onClick = onDismiss) { Text("取消") }
                     Button(enabled = entries.isNotEmpty(), onClick = {
                         runCatching { onSave(entries.toList()) }.onFailure { error = it.message ?: "保存失败" }
-                    }) { Text("保存到本地 JSON") }
+                    }) { Text(saveButtonText) }
                 }
             }
         }

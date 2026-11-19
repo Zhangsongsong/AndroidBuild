@@ -179,7 +179,14 @@ object DemonRunner {
                     if (token != generation) { bitmap.recycle(); captureBusy = false; return@fold }
                     worker.execute {
                         val match = runCatching {
-                            val detection = recognize(bitmap, config, samples)
+                            val screenDetection = recognize(bitmap, config, samples)
+                            val dismissHint = if (screenDetection?.screen in setOf(
+                                    DemonScreen.BATTLE, DemonScreen.SKILLS
+                                ) || screenDetection == null
+                            ) recognizeDismissHint(bitmap) else null
+                            val detection = dismissHint?.let {
+                                Detection(DemonScreen.DISMISS_OVERLAY, 1.0, it)
+                            } ?: screenDetection
                             val screen = detection?.screen
                             val skills = if (screen == DemonScreen.SKILLS) recognizeSkills(bitmap, config) else emptyList()
                             detection to skills
@@ -193,7 +200,14 @@ object DemonRunner {
                             match.fold(onSuccess = { (detection, recognizedSkills) ->
                                 val screen = detection?.screen
                                 if (!service.isTargetPackageForeground(pkg)) { stop("目标游戏不在前台，已暂停", resumable = true); return@fold }
-                                val decision = flow!!.observe(screen, SystemClock.elapsedRealtime(), recognizedSkills)
+                                val decision = flow!!.observe(
+                                    screen,
+                                    SystemClock.elapsedRealtime(),
+                                    recognizedSkills,
+                                    dismissPoint = detection?.takeIf { screen == DemonScreen.DISMISS_OVERLAY }?.tap,
+                                    entrancePoint = detection?.takeIf { screen == DemonScreen.ENTRANCE }?.tap,
+                                    entrancePixelConfirmed = detection?.entrancePixelConfirmed == true
+                                )
                                 val statusText = if (screen == DemonScreen.SKILLS) {
                                     "技能识别：${recognizedSkills.joinToString(" / ").ifBlank { "无文字" }}"
                                 } else screen?.title ?: "未识别，等待画面稳定"
@@ -209,7 +223,8 @@ object DemonRunner {
                                             if (token == generation) stop("点击回调超时，已停止")
                                         }
                                         handler.postDelayed(gestureWatchdog, 3000)
-                                        val point = if (screen == DemonScreen.ENTRANCE) detection.tap ?: decision.point else decision.point
+                                        val point = decision.point
+                                        trace("tap screen=$screen point=$point image=${width}x$height")
                                         service.performFlowTap(pkg,
                                             (point.x * (width - 1)).toInt(),
                                             (point.y * (height - 1)).toInt()
@@ -236,7 +251,40 @@ object DemonRunner {
         handler.postDelayed({ poll(token, service, pkg, config, samples) }, config.pollMs)
     }
 
-    private data class Detection(val screen: DemonScreen, val score: Double, val tap: ScreenPoint?)
+    private data class Detection(
+        val screen: DemonScreen,
+        val score: Double,
+        val tap: ScreenPoint?,
+        val entrancePixelConfirmed: Boolean = false
+    )
+
+    private fun recognizeDismissHint(image: Bitmap): ScreenPoint? {
+        val scaledWidth = minOf(image.width, 720)
+        val scaled = Bitmap.createScaledBitmap(
+            image, scaledWidth, (image.height * scaledWidth.toDouble() / image.width).toInt(), true
+        )
+        val scaleX = image.width.toDouble() / scaled.width
+        val scaleY = image.height.toDouble() / scaled.height
+        var submitted = false
+        try {
+            val task = textRecognizer.process(InputImage.fromBitmap(scaled, 0))
+            task.addOnCompleteListener(worker) { scaled.recycle() }
+            submitted = true
+            val result = Tasks.await(task, 3, TimeUnit.SECONDS)
+            val lines = result.textBlocks.flatMap { it.lines }.mapNotNull { line ->
+                val box = line.boundingBox ?: return@mapNotNull null
+                ScreenText(line.text, ScreenRegion(
+                    box.left * scaleX / image.width,
+                    box.top * scaleY / image.height,
+                    box.right * scaleX / image.width,
+                    box.bottom * scaleY / image.height
+                ))
+            }
+            return DismissHintLocator.find(lines)
+        } finally {
+            if (!submitted) scaled.recycle()
+        }
+    }
 
     private fun recognize(image: Bitmap, config: DemonConfig, samples: Map<DemonScreen, ScreenTemplate>): Detection? {
         require(config.matchesDisplay(image.width, image.height)) { "屏幕比例与录像布局不符，请校准后再运行" }
@@ -263,11 +311,25 @@ object DemonRunner {
         // Ambiguous classification is not sufficient evidence to inject a touch.
         if (matches.size > 1 && matches[0].score - matches[1].score < .025) return null
         return matches.firstOrNull() ?: if (config.rules.any { !it.requiresTemplate }) {
-            recognizeEntrance(image)?.let { Detection(DemonScreen.ENTRANCE, 1.0, it) }
+            recognizeEntranceDetection(image)
         } else null
     }
 
-    internal fun recognizeEntrance(image: Bitmap): ScreenPoint? {
+    internal fun recognizeEntrance(image: Bitmap): ScreenPoint? = recognizeEntranceDetection(image)?.tap
+
+    private fun recognizeEntranceDetection(image: Bitmap): Detection? {
+        val previewWidth = minOf(image.width, 360)
+        val preview = Bitmap.createScaledBitmap(image, previewWidth,
+            (image.height * previewWidth.toDouble() / image.width).toInt(), true)
+        val button = try {
+            val pixels = IntArray(preview.width * preview.height)
+            preview.getPixels(pixels, 0, preview.width, 0, 0, preview.width, preview.height)
+            EntranceButtonLocator.find(pixels, preview.width, preview.height)
+        } finally { if (preview !== image) preview.recycle() }
+        if (button != null) {
+            trace("entrance method=button proportionalTap=$button")
+            return Detection(DemonScreen.ENTRANCE, 1.0, button, entrancePixelConfirmed = true)
+        }
         val top = (image.height * .10).toInt()
         val crop = Bitmap.createBitmap(image, 0, top, image.width, (image.height * .69).toInt())
         val scaled = Bitmap.createScaledBitmap(crop, 720, (crop.height * 720.0 / crop.width).toInt(), true)
@@ -285,9 +347,10 @@ object DemonRunner {
                     box.left * scale / image.width, (top + box.top * scale) / image.height,
                     box.right * scale / image.width, (top + box.bottom * scale) / image.height))
             }
-            return EntranceLocator.find(labels, image.width, image.height)?.takeIf { hasEntranceButton(image, it) }.also {
-                if (it != null) trace("entrance proportionalTap=$it")
-            }
+            val candidate = EntranceLocator.find(labels, image.width, image.height)
+            val accepted = candidate?.takeIf { hasEntranceButton(image, it) }
+            trace("entrance method=ocr candidate=$candidate accepted=${accepted != null} titles=${labels.joinToString { label -> label.text }}")
+            return accepted?.let { Detection(DemonScreen.ENTRANCE, 1.0, it) }
         } finally {
             if (!submitted) scaled.recycle()
         }

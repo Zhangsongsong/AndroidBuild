@@ -53,6 +53,14 @@ object DemonStore {
         save(context, pkg, updated)
         check(load(context, pkg) == updated) { "配置保存校验失败，请重新保存" }
     }
+
+    fun applySkillBuild(context: Context, pkg: String, build: SkillBuild): DemonConfig {
+        require(build.priority.isNotEmpty()) { "${build.title}至少需要一个优先技能" }
+        SkillSelector.validatePriority(build.priority)
+        val updated = load(context, pkg).copy(skillBuild = build.id, skillPriority = build.priority.toList())
+        save(context, pkg, updated)
+        return load(context, pkg).also { check(it == updated) { "流派应用失败，请重新选择" } }
+    }
     fun save(context: Context, pkg: String, config: DemonConfig) {
         config.validate()
         val contents = encode(config).toByteArray(Charsets.UTF_8)

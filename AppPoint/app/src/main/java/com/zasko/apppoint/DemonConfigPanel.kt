@@ -2,6 +2,7 @@ package com.zasko.apppoint
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -33,12 +36,20 @@ fun DemonConfigPanel(packageName: String) {
     androidx.compose.runtime.key(packageName, calibrationVersion) {
         val loaded = remember(packageName, calibrationVersion) { runCatching { DemonStore.load(context, packageName) } }
         val initial = loaded.getOrDefault(DemonConfig())
+        val initialBuilds = remember(packageName) {
+            val presets = runCatching { SkillBuildStore.load(context) }.getOrDefault(SkillBuilds.builtIns)
+            if (presets.any { it.id == initial.skillBuild }) presets
+            else presets + SkillBuild(initial.skillBuild, "自定义配置", initial.skillPriority)
+        }
         var rounds by remember(packageName) { mutableStateOf(if (initial.rounds == 0) "" else initial.rounds.toString()) }
         var skillPriority by remember(packageName) { mutableStateOf(initial.skillPriority.toList()) }
         var showPriorityEditor by remember(packageName) { mutableStateOf(false) }
         var showSavedJson by remember(packageName) { mutableStateOf(false) }
         var savedJson by remember(packageName) { mutableStateOf("") }
         var skillBuild by remember(packageName) { mutableStateOf(initial.skillBuild) }
+        var buildPresets by remember(packageName) { mutableStateOf(initialBuilds) }
+        var selectedBuildId by remember(packageName) { mutableStateOf(initial.skillBuild) }
+        var buildMenuExpanded by remember(packageName) { mutableStateOf(false) }
         var skillFallback by remember(packageName) { mutableStateOf(initial.skillFallback) }
         var savedSkillSettings by remember(packageName) { mutableStateOf(Triple(initial.skillPriority, initial.skillBuild, initial.skillFallback)) }
         var interval by remember(packageName) { mutableStateOf(initial.pollMs.toString()) }
@@ -62,6 +73,17 @@ fun DemonConfigPanel(packageName: String) {
             savedSkillSettings = Triple(priority.toList(), skillBuild, skillFallback)
             DemonRunner.stop("技能优先级已保存，请重新开始以加载 JSON")
             message = "技能优先级已保存到 flow.json；下次开始从该文件加载"
+        }
+        fun applyBuild(build: SkillBuild) {
+            runCatching { DemonStore.applySkillBuild(context, packageName, build) }
+                .onSuccess { config ->
+                    skillBuild = config.skillBuild
+                    skillPriority = config.skillPriority.toList()
+                    selectedBuildId = config.skillBuild
+                    savedSkillSettings = Triple(config.skillPriority, config.skillBuild, config.skillFallback)
+                    message = "已应用${build.title}，其他流程配置保持不变"
+                }
+                .onFailure { message = "应用流派失败：${it.message}" }
         }
         if (showPriorityEditor) {
             SkillPriorityEditor(initial = skillPriority, onDismiss = { showPriorityEditor = false }, onSave = { priority ->
@@ -94,16 +116,25 @@ fun DemonConfigPanel(packageName: String) {
                     placeholder = { Text("无限") },
                     supportingText = { Text("默认无限：留空或填 0；填 1~10000 可指定轮数") },
                     modifier = Modifier.fillMaxWidth())
-                Text("流派：${if (skillBuild == SkillBuilds.HURRICANE) "飓风流" else "自定义"}")
+                val selectedBuild = buildPresets.firstOrNull { it.id == selectedBuildId }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = !status.running, onClick = {
-                        skillBuild = SkillBuilds.HURRICANE
-                        skillPriority = SkillBuilds.hurricane.priority.toList()
-                        skillFallback = SkillFallback.RANDOM
-                    }) { Text("应用飓风流预设") }
-                    Button(enabled = !status.running, onClick = { skillBuild = SkillBuilds.CUSTOM }) { Text("自定义") }
+                    Box(Modifier.weight(1f)) {
+                        Button(enabled = !status.running, onClick = { buildMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text(selectedBuild?.title ?: "选择流派")
+                        }
+                        DropdownMenu(expanded = buildMenuExpanded, onDismissRequest = { buildMenuExpanded = false }) {
+                            buildPresets.forEach { build ->
+                                DropdownMenuItem(text = { Text(build.title) }, onClick = {
+                                    selectedBuildId = build.id
+                                    buildMenuExpanded = false
+                                })
+                            }
+                        }
+                    }
+                    Button(enabled = !status.running && selectedBuild != null,
+                        onClick = { selectedBuild?.let(::applyBuild) }) { Text("应用流派") }
                 }
-                Text("默认使用飓风系 → 龙卷风系 → 冰霜新星系，首次自动保存；可在列表自由调整，重启继续使用已保存的 JSON。")
+                Text("选择并应用流派后，当前配置只更新流派和技能优先级；坐标、模板及运行参数保留。")
                 Text("已配置 ${skillPriority.size} 项技能。前 5 项：${skillPriority.take(5).joinToString(" → ") { it.substringBefore('|') }}")
                 val skillsDirty = Triple(skillPriority, skillBuild, skillFallback) != savedSkillSettings
                 Text(if (skillsDirty) "有未保存的技能配置；运行仍使用上次保存的 JSON" else "技能列表与本地配置一致",

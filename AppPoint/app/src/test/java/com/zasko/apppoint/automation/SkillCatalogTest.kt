@@ -6,8 +6,8 @@ import org.junit.Test
 class SkillCatalogTest {
     @Test fun catalogGroupsAllConfiguredFamiliesWithoutChangingOrder() {
         val groups = SkillCatalog.groups(emptyList())
-        assertEquals(listOf("飓风系", "龙卷风系", "冰霜新星系"), groups.map { it.title })
-        assertEquals(SkillBuilds.hurricane.priority, groups.flatMap { it.skills })
+        assertEquals(listOf("飓风系", "龙卷风系", "冰霜新星系", "火球系"), groups.map { it.title })
+        assertEquals(SkillBuilds.hurricane.priority + SkillBuilds.fireball.priority, groups.flatMap { it.skills })
     }
 
     @Test fun selectingAppendsAndRemovingRenumbersWithoutChangingRemainingPriorities() {
@@ -25,6 +25,14 @@ class SkillCatalogTest {
         assertEquals("飓风术", SkillCatalog.title(learn))
     }
 
+    @Test fun fireballPresetPrioritizesTheFireballUpgrade() {
+        assertEquals(2, SkillSelector.select(
+            listOf("学习冰霜新星", "学习火球术", "风暴聚集"),
+            SkillBuilds.fireball.priority,
+            SkillBuilds.FIREBALL
+        ))
+    }
+
     @Test fun removedCustomSkillsRemainAvailableDuringEditing() {
         val custom = "自定技能|自定义别名"
         val groups = SkillCatalog.groups(listOf(custom, custom))
@@ -40,6 +48,6 @@ class SkillCatalogTest {
         val catalogEntry = groups.first().skills.first { SkillCatalog.selectedIndex(listOf(it), "乱流") >= 0 }
         assertEquals(edited, catalogEntry)
         assertEquals(listOf(edited), SkillCatalog.toggle(emptyList(), catalogEntry))
-        assertEquals(3, groups.size)
+        assertEquals(4, groups.size)
     }
 }

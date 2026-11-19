@@ -63,6 +63,8 @@ import com.zasko.apppoint.automation.AutomationDefaults
 import com.zasko.apppoint.automation.AutomationServiceState
 import com.zasko.apppoint.automation.InstalledAppInfo
 import com.zasko.apppoint.automation.InstalledAppRepository
+import com.zasko.apppoint.automation.SkillBuildStore
+import com.zasko.apppoint.automation.SkillBuilds
 import com.zasko.apppoint.overlay.OverlayController
 import com.zasko.apppoint.ui.theme.AppPointTheme
 
@@ -92,6 +94,7 @@ private fun AppPointScreen(resumeTick: Int) {
     val serviceState = AutomationAccessibilityService.state.value
     var selectedApp by remember { mutableStateOf<InstalledAppInfo?>(null) }
     var showAppPicker by rememberSaveable { mutableStateOf(false) }
+    var showBuildManager by rememberSaveable { mutableStateOf(false) }
     val homeListState = rememberLazyListState()
     val pickerListState = rememberLazyListState()
     var profileRefreshTick by remember { mutableIntStateOf(0) }
@@ -135,8 +138,22 @@ private fun AppPointScreen(resumeTick: Int) {
         selectedApp = null
         profileRefreshTick++
     }
-    BackHandler(enabled = app != null || showAppPicker) {
-        if (app != null) closeProfile() else showAppPicker = false
+    BackHandler(enabled = app != null || showAppPicker || showBuildManager) {
+        when {
+            showBuildManager -> showBuildManager = false
+            app != null -> closeProfile()
+            else -> showAppPicker = false
+        }
+    }
+    if (showBuildManager) {
+        val presets = remember(context) {
+            runCatching { SkillBuildStore.load(context) }.getOrDefault(SkillBuilds.builtIns)
+        }
+        SkillBuildManager(initial = presets, onDismiss = { showBuildManager = false }, onSave = { builds ->
+            SkillBuildStore.save(context, builds)
+            showBuildManager = false
+            Toast.makeText(context, "流派预设已保存", Toast.LENGTH_SHORT).show()
+        })
     }
     if (app == null && showAppPicker) {
         AppPickerScreen(
@@ -189,7 +206,8 @@ private fun AppPointScreen(resumeTick: Int) {
                         )
                     )
                 }
-            }
+            },
+            onManageBuilds = { showBuildManager = true }
         )
     } else {
         ProfileScreen(
@@ -225,7 +243,8 @@ private fun HomeScreen(
     onOpenApp: (InstalledAppInfo) -> Unit,
     onConfigureCurrentApp: (InstalledAppInfo) -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
-    onOpenOverlaySettings: () -> Unit
+    onOpenOverlaySettings: () -> Unit,
+    onManageBuilds: () -> Unit
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -259,6 +278,18 @@ private fun HomeScreen(
             }
             item(key = "permissions") {
                 PermissionCard(permissions, onOpenAccessibilitySettings, onOpenOverlaySettings)
+            }
+            item(key = "skill_builds") {
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("流派预设", style = MaterialTheme.typography.titleMedium)
+                            Text("编辑技能优先级，配置目标时直接应用。", style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = onManageBuilds) { Text("管理") }
+                    }
+                }
             }
             if (currentApp != null) {
                 item(key = "current_app") {

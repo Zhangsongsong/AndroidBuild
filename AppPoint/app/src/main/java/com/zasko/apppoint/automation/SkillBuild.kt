@@ -9,6 +9,7 @@ enum class SkillFallback { RANDOM, LEFTMOST, PAUSE }
 object SkillBuilds {
     const val CUSTOM = "custom"
     const val HURRICANE = "hurricane"
+    const val FIREBALL = "fireball"
 
     // Transcribed from the user's skill graph. This is an editable example, not an optimal-build claim.
     val hurricaneSkills = listOf(
@@ -26,8 +27,14 @@ object SkillBuilds {
     )
     // User-requested order: every hurricane card before tornado, then frost nova.
     // Within each family this example order remains editable in the UI.
-    val hurricane = SkillBuild(HURRICANE, "飓风 → 龙卷风 → 冰霜新星",
+    val hurricane = SkillBuild(HURRICANE, "飓风流",
         hurricaneSkills + tornadoSkills + frostNovaSkills)
+    val fireballSkills = listOf(
+        "学习火球术|学习火球|解锁火球术|火球术", "火球术爆发|火球爆发", "爆破", "炎爆术", "渗透",
+        "爆燃", "猛烈燃烧", "传火", "火球冲击", "烈焰火球", "冲击", "火花", "连发"
+    )
+    val fireball = SkillBuild(FIREBALL, "火球流", fireballSkills)
+    val builtIns = listOf(hurricane, fireball)
 
     // Only explicit exclusions in the supplied hurricane/tornado charts are enforced here.
     // Upgrade availability/prerequisites are controlled by the game, not guessed from OCR.

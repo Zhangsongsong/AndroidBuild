@@ -35,11 +35,66 @@ class DemonFlowTest {
         assertTrue(stable(flow, DemonScreen.SKILLS) is FlowDecision.Tap)
     }
 
+    @Test fun dismissesEliteRewardOverlayWithoutChoosingASkillAndReturnsToBattle() {
+        val flow = DemonFlow(DemonConfig(), now)
+        stable(flow, DemonScreen.ENTRANCE)
+        stable(flow, DemonScreen.BATTLE)
+        val blankPoint = ScreenPoint(.5, .84)
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = blankPoint))
+        assertEquals(FlowDecision.Tap(blankPoint, "关闭提示界面"),
+            flow.observe(DemonScreen.DISMISS_OVERLAY, ++now, dismissPoint = blankPoint))
+        assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.DISMISS_OVERLAY))
+        assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.BATTLE))
+        assertEquals(0, flow.completedRounds)
+    }
+
     @Test fun rejectsSingleFrameAndOutOfOrderSettlement() {
         val flow = DemonFlow(DemonConfig(skillPriority = listOf("雷电")), now)
         assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, ++now))
         assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.SETTLEMENT))
         assertEquals(0, flow.completedRounds)
+    }
+
+    @Test fun confirmsTheSameEntranceAcrossOneMissAndUsesItsDetectedButton() {
+        val flow = DemonFlow(DemonConfig(), now)
+        val point = ScreenPoint(.494, .584)
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, now + 1, entrancePoint = point))
+        assertEquals(FlowDecision.Wait, flow.observe(null, now + 2001))
+        assertEquals(FlowDecision.Tap(point, "封魔之地入口"),
+            flow.observe(DemonScreen.ENTRANCE, now + 4001, entrancePoint = point))
+        assertEquals(FlowDecision.Wait, flow.observe(null, now + 6001))
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, now + 8001, entrancePoint = point))
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, now + 10001, entrancePoint = point))
+    }
+
+    @Test fun clicksPixelLocatedEntranceOnItsFirstScreenshotWithoutRepeating() {
+        val flow = DemonFlow(DemonConfig(), now)
+        val point = ScreenPoint(.494, .584)
+        assertEquals(FlowDecision.Tap(point, "封魔之地入口"),
+            flow.observe(DemonScreen.ENTRANCE, now + 1, entrancePoint = point, entrancePixelConfirmed = true))
+        assertEquals(FlowDecision.Wait,
+            flow.observe(DemonScreen.ENTRANCE, now + 2001, entrancePoint = point, entrancePixelConfirmed = true))
+        assertEquals(FlowDecision.Wait, flow.observe(null, now + 4001))
+        assertEquals(FlowDecision.Wait,
+            flow.observe(DemonScreen.ENTRANCE, now + 6001, entrancePoint = point, entrancePixelConfirmed = true))
+    }
+
+    @Test fun rejectsStaleOrMovedEntranceEvidenceAndMultipleMisses() {
+        val point = ScreenPoint(.494, .584)
+        val moved = point.copy(y = .4)
+        val flow = DemonFlow(DemonConfig(), now)
+        flow.observe(DemonScreen.ENTRANCE, now + 1, entrancePoint = point)
+        flow.observe(null, now + 2001)
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, now + 4001, entrancePoint = moved))
+        val stale = DemonFlow(DemonConfig(), now)
+        stale.observe(DemonScreen.ENTRANCE, now + 1, entrancePoint = point)
+        stale.observe(null, now + 2001)
+        assertEquals(FlowDecision.Wait, stale.observe(DemonScreen.ENTRANCE, now + 20001, entrancePoint = point))
+        val missed = DemonFlow(DemonConfig(), now)
+        missed.observe(DemonScreen.ENTRANCE, now + 1, entrancePoint = point)
+        missed.observe(null, now + 2001)
+        missed.observe(null, now + 4001)
+        assertEquals(FlowDecision.Wait, missed.observe(DemonScreen.ENTRANCE, now + 6001, entrancePoint = point))
     }
 
     @Test fun timeoutStopsUnknownScreensAndStuckDialogs() {
@@ -105,6 +160,7 @@ class DemonFlowTest {
         DemonConfig(rounds = 10000).validate()
         assertEquals(2000L, DemonConfig().pollMs)
         assertEquals(2000L, DemonVideoPreset.config().pollMs)
+        assertFalse(DemonConfig.defaults().any { it.screen == DemonScreen.DISMISS_OVERLAY })
         DemonConfig(pollMs = 2000).validate()
         assertThrows(IllegalArgumentException::class.java) { DemonConfig(pollMs = 1999).validate() }
         assertThrows(IllegalArgumentException::class.java) { DemonConfig(rounds = -1).validate() }
