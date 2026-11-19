@@ -6,6 +6,49 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SkillPriorityStoreTest {
+    @Test fun firstLoadPersistsHurricaneAndRestartKeepsEditedOrder() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val pkg = "com.zasko.apppoint.test.defaults"
+        val file = DemonStore.configFile(context, pkg)
+        val previous = file.takeIf { it.exists() }?.readBytes()
+        try {
+            file.delete()
+            val initial = DemonStore.load(context, pkg)
+            assertTrue(file.isFile)
+            assertEquals(SkillBuilds.HURRICANE, initial.skillBuild)
+            assertEquals(SkillBuilds.hurricane.priority, initial.skillPriority)
+            val edited = listOf("乱流", "飓风增幅")
+            DemonStore.saveSkillPriority(context, pkg, edited, SkillBuilds.HURRICANE, SkillFallback.LEFTMOST)
+            assertEquals(edited, DemonStore.load(context, pkg).skillPriority)
+            assertEquals(SkillFallback.LEFTMOST, DemonStore.load(context, pkg).skillFallback)
+            val empty = org.json.JSONObject(DemonStore.encode(initial)).put("skillPriority", org.json.JSONArray())
+            file.writeText(empty.toString())
+            assertEquals(SkillBuilds.hurricane.priority, DemonStore.load(context, pkg).skillPriority)
+            assertTrue(org.json.JSONObject(file.readText()).getJSONArray("skillPriority").length() > 0)
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
+    @Test fun migratesExistingFastPollIntervalToTwoSeconds() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val pkg = "com.zasko.apppoint.test.poll.interval"
+        val file = DemonStore.configFile(context, pkg)
+        val previous = file.takeIf { it.exists() }?.readBytes()
+        try {
+            DemonStore.save(context, pkg, DemonVideoPreset.config())
+            val legacy = DemonVideoPreset.config().copy(pollMs = 500L)
+            file.writeText(DemonStore.encode(legacy))
+
+            val loaded = DemonStore.load(context, pkg)
+
+            assertEquals(2000L, loaded.pollMs)
+            assertEquals(2000L, DemonStore.decode(file.readText()).pollMs)
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
     @Test fun savesReloadsAndRunsExactlyTheJsonOrderWithoutChangingCalibration() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val pkg = "com.zasko.apppoint.test.priorities"

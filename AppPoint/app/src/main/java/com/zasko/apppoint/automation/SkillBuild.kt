@@ -43,8 +43,17 @@ object SkillBuilds {
 }
 
 object SkillSelector {
-    fun normalize(value: String): String = Normalizer.normalize(value, Normalizer.Form.NFKC)
-        .lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
+    /** Normalize ML Kit's common Traditional/shape confusions before matching a saved name. */
+    fun normalize(value: String): String {
+        val compact = Normalizer.normalize(value, Normalizer.Form.NFKC)
+            .lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
+            .replace('巻', '卷')
+        return when {
+            compact == "学习臭术飞弹" || compact == "解锁臭术飞弹" -> compact.replace("臭术", "奥术")
+            compact.contains("龙卷") && compact.contains("打张") -> compact.replace("打张", "扩张")
+            else -> compact
+        }
+    }
 
     fun validatePriority(priority: List<String>) {
         val groups = priority.map { entry ->

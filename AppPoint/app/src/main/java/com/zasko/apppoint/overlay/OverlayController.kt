@@ -6,6 +6,7 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.provider.Settings
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -85,6 +86,9 @@ private class ControlOverlayView(
     private var windowParams: WindowManager.LayoutParams? = null
     private var lastRawX = 0f
     private var lastRawY = 0f
+    private val controls = LinearLayout(context).apply {
+        orientation = VERTICAL
+    }
 
     init {
         orientation = VERTICAL
@@ -96,14 +100,48 @@ private class ControlOverlayView(
 
         val selectedProfile = AppProfileStore.loadSelected(context)
         val title = selectedProfile?.appName ?: "未选择应用"
-        val header = TextView(context).apply {
+        val headerTitle = TextView(context).apply {
             text = "AppPoint · $title"
             setTextColor(Color.WHITE)
             textSize = 13f
-            setPadding(dp(4), dp(2), dp(4), dp(8))
+            gravity = Gravity.CENTER_VERTICAL
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            contentDescription = "AppPoint · $title，拖动可移动悬浮窗"
+            setPadding(dp(4), dp(2), dp(4), dp(2))
             setOnTouchListener { _, event -> handleDrag(event) }
         }
-        addView(header, LayoutParams(dp(190), dp(34)))
+        val header = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(headerTitle, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+        }
+        var expanded = true
+        val toggleButton = Button(context).apply {
+            text = "收起"
+            contentDescription = "收起悬浮窗"
+            isAllCaps = false
+            textSize = 12f
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = 0
+            minimumHeight = 0
+            setPadding(dp(4), 0, dp(4), 0)
+            setOnClickListener {
+                expanded = !expanded
+                controls.visibility = if (expanded) View.VISIBLE else View.GONE
+                headerTitle.text = if (expanded) "AppPoint · $title" else "AppPoint"
+                text = if (expanded) "收起" else "展开"
+                contentDescription = if (expanded) "收起悬浮窗" else "展开悬浮窗"
+                header.layoutParams = header.layoutParams.apply {
+                    width = dp(if (expanded) 190 else 140)
+                }
+                windowParams?.let { windowManager?.updateViewLayout(this@ControlOverlayView, it) }
+            }
+        }
+        header.addView(toggleButton, LayoutParams(dp(56), LayoutParams.MATCH_PARENT))
+        addView(header, LayoutParams(dp(190), dp(40)))
+        addView(controls, LayoutParams(dp(190), LayoutParams.WRAP_CONTENT))
 
         addActionButton("开始封魔 / 重新开始") { AutomationAccessibilityService.startDemon() }
         addActionButton("暂停封魔") { DemonRunner.stop(resumable = true) }
@@ -111,7 +149,7 @@ private class ControlOverlayView(
         addActionButton("只识别技能（不点击）") { AutomationAccessibilityService.inspectDemonSkills() }
         fun captureTargets(): List<DemonScreen> = runCatching {
             val profile = AppProfileStore.loadSelected(context) ?: return@runCatching DemonScreen.entries.toList()
-            DemonStore.load(context, profile.packageName).rules.map { it.screen }
+            DemonStore.load(context, profile.packageName).rules.filter { it.requiresTemplate }.map { it.screen }
         }.getOrDefault(DemonScreen.entries.toList())
         var captureScreen = captureTargets().first()
         val selector = Button(context).apply {
@@ -122,10 +160,10 @@ private class ControlOverlayView(
                 text = "采集目标：${captureScreen.title}"
             }
         }
-        addView(selector, LayoutParams(dp(190), dp(40)))
+        controls.addView(selector, LayoutParams(dp(190), dp(40)))
         addActionButton("采集当前界面模板") { AutomationAccessibilityService.collectDemon(captureScreen) }
         val status = TextView(context).apply { setTextColor(Color.WHITE); textSize = 12f }
-        addView(status, LayoutParams(dp(190), LayoutParams.WRAP_CONTENT))
+        controls.addView(status, LayoutParams(dp(190), LayoutParams.WRAP_CONTENT))
         val handler = Handler(Looper.getMainLooper())
         val refresh = object : Runnable {
             override fun run() {
@@ -193,7 +231,7 @@ private class ControlOverlayView(
                 } else action()
             }
         }
-        addView(button, LayoutParams(dp(190), dp(40)).apply {
+        controls.addView(button, LayoutParams(dp(190), dp(40)).apply {
             topMargin = dp(4)
         })
     }

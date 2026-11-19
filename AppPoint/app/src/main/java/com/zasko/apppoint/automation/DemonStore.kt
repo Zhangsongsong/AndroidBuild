@@ -19,8 +19,31 @@ object DemonStore {
         val file = configFile(context, pkg)
         val atomic = AtomicFile(file)
         return if (file.exists() || File(file.path + ".bak").exists()) {
-            decode(atomic.readFully().toString(Charsets.UTF_8))
-        } else DemonConfig()
+            val text = atomic.readFully().toString(Charsets.UTF_8)
+            val storedPollMs = JSONObject(text).optLong("pollMs", 2000L)
+            val decoded = decode(text)
+            val home = DemonVideoPreset.config().rules.first { it.screen == DemonScreen.HOME }
+            val addHome = pkg == DemonVideoPreset.TARGET_PACKAGE &&
+                decoded.rules.any { it.screen == DemonScreen.ENTRANCE && it.verticalSearch } &&
+                decoded.rules.none { it.screen == DemonScreen.HOME }
+            val updatePollInterval = storedPollMs < 2000L
+            val config = decoded.copy(
+                pollMs = decoded.pollMs.coerceAtLeast(2000L),
+                rules = if (addHome) listOf(home) + decoded.rules else decoded.rules
+            )
+            if (addHome) DemonVideoPreset.installTemplates(context, pkg, config.copy(rules = listOf(home)))
+            // Persist the migration once, preserving calibration and non-empty saved priorities.
+            if (addHome || updatePollInterval || (JSONObject(text).optJSONArray("skillPriority")?.length() ?: 0) == 0) {
+                save(context, pkg, config)
+            }
+            config
+        } else {
+            val config = if (pkg == DemonVideoPreset.TARGET_PACKAGE) {
+                DemonVideoPreset.config().also { DemonVideoPreset.installTemplates(context, pkg, it) }
+            } else DemonConfig()
+            save(context, pkg, config)
+            config
+        }
     }
     fun configFile(context: Context, pkg: String) = File(folder(context, pkg), "flow.json")
 
@@ -78,6 +101,7 @@ object DemonStore {
             try { return sample(image) } finally { image.recycle() }
         }
         rules.forEach { rule ->
+            if (!rule.requiresTemplate) return@forEach
             val file = templateFile(context, pkg, rule.screen)
             val guard = guardFile(context, pkg, rule.screen)
             if (file.exists() && (rule.guardRegion == null || guard.exists())) {
@@ -102,6 +126,7 @@ object DemonStore {
             put("screen", r.screen.name)
             put("region", JSONArray(listOf(r.region.left, r.region.top, r.region.right, r.region.bottom)))
             put("threshold", r.threshold)
+            put("verticalSearch", r.verticalSearch)
             r.guardRegion?.let { g ->
                 put("guardRegion", JSONArray(listOf(g.left, g.top, g.right, g.bottom)))
                 put("guardThreshold", r.guardThreshold)
@@ -114,17 +139,18 @@ object DemonStore {
         val points = o.getJSONArray("skillPoints")
         val cardRegions = o.optJSONArray("skillCardRegions")
         val priorities = o.optJSONArray("skillPriority")
+        val hasSavedSkills = priorities != null && priorities.length() > 0
         val rules = o.getJSONArray("rules")
         return DemonConfig(
-            rounds = o.getInt("rounds"), pollMs = o.getLong("pollMs"),
+            rounds = o.getInt("rounds"), pollMs = o.getLong("pollMs").coerceAtLeast(2000L),
             timeoutMs = o.getLong("timeoutMs"), battleTimeoutMs = o.getLong("battleTimeoutMs"),
             skillPoints = List(points.length()) { readPoint(points.getJSONArray(it)) },
             skillCardRegions = cardRegions?.let { array -> List(array.length()) { i ->
                 val r = array.getJSONArray(i)
                 ScreenRegion(r.getDouble(0), r.getDouble(1), r.getDouble(2), r.getDouble(3))
             } } ?: DemonConfig().skillCardRegions,
-            skillPriority = priorities?.let { array -> List(array.length()) { array.getString(it) } } ?: emptyList(),
-            skillBuild = o.optString("skillBuild", SkillBuilds.CUSTOM),
+            skillPriority = if (hasSavedSkills) List(priorities!!.length()) { priorities.getString(it) } else SkillBuilds.hurricane.priority,
+            skillBuild = if (hasSavedSkills) o.optString("skillBuild", SkillBuilds.CUSTOM) else SkillBuilds.HURRICANE,
             skillFallback = SkillFallback.valueOf(o.optString("skillFallback", SkillFallback.RANDOM.name)),
             referenceAspectRatio = if (o.has("referenceAspectRatio")) o.getDouble("referenceAspectRatio") else null,
             rules = List(rules.length()) { index ->
@@ -134,7 +160,7 @@ object DemonStore {
                     ScreenRegion(a.getDouble(0), a.getDouble(1), a.getDouble(2), a.getDouble(3)),
                     r.getDouble("threshold"), r.optJSONArray("tap")?.let(::readPoint),
                     r.optJSONArray("guardRegion")?.let { g -> ScreenRegion(g.getDouble(0), g.getDouble(1), g.getDouble(2), g.getDouble(3)) },
-                    r.optDouble("guardThreshold", .94))
+                    r.optDouble("guardThreshold", .94), r.optBoolean("verticalSearch", false))
             }
         ).also { it.validate() }
     }

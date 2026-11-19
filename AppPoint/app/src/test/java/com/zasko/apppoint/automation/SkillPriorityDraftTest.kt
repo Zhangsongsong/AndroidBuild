@@ -25,7 +25,7 @@ class SkillPriorityDraftTest {
     }
 
     @Test fun savingSkillSettingsPreservesCoordinatesTemplatesAndTiming() {
-        val initial = DemonVideoPreset.config().copy(rounds = 17, pollMs = 800, timeoutMs = 80000)
+        val initial = DemonVideoPreset.config().copy(rounds = 17, pollMs = 2000, timeoutMs = 80000)
         val reordered = SkillPriorityDraft.move(initial.skillPriority, 3, 0)
         val saved = initial.withSkillPriority(reordered, SkillBuilds.HURRICANE, SkillFallback.RANDOM)
         assertEquals(reordered, saved.skillPriority)

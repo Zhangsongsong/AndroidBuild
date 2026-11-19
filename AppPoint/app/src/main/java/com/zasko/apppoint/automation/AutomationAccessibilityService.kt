@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityWindowInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +88,7 @@ class AutomationAccessibilityService : AccessibilityService() {
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var lastScreenshotAt = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -203,6 +205,14 @@ class AutomationAccessibilityService : AccessibilityService() {
     }
 
     fun captureScreen(targetPackage: String, callback: (Result<Bitmap>) -> Unit) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { captureScreen(targetPackage, callback) }
+            return
+        }
+        captureScreenAttempt(targetPackage, 0, callback)
+    }
+
+    private fun captureScreenAttempt(targetPackage: String, retry: Int, callback: (Result<Bitmap>) -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             callback(Result.failure(IllegalStateException("屏幕识别需要 Android 11 或以上")))
             return
@@ -211,6 +221,14 @@ class AutomationAccessibilityService : AccessibilityService() {
             callback(Result.failure(IllegalStateException("目标游戏不在前台")))
             return
         }
+        // Android 11 devices can enforce a one-second screenshot interval. Apply this
+        // across calibration, OCR inspection and flow polling, not just within a run.
+        val delay = 1100L - (SystemClock.elapsedRealtime() - lastScreenshotAt)
+        if (delay > 0) {
+            mainHandler.postDelayed({ captureScreenAttempt(targetPackage, retry, callback) }, delay)
+            return
+        }
+        lastScreenshotAt = SystemClock.elapsedRealtime()
         try {
             takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
                 override fun onSuccess(result: ScreenshotResult) {
@@ -226,7 +244,17 @@ class AutomationAccessibilityService : AccessibilityService() {
                     callback(image)
                 }
                 override fun onFailure(errorCode: Int) {
-                    callback(Result.failure(IllegalStateException("截图失败（$errorCode），请检查截图能力或安全窗口限制")))
+                    if (errorCode == ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT && retry < 2) {
+                        mainHandler.postDelayed({ captureScreenAttempt(targetPackage, retry + 1, callback) }, 1100L)
+                    } else {
+                        val reason = when (errorCode) {
+                            ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT -> "截图间隔过短，请稍后重试"
+                            ERROR_TAKE_SCREENSHOT_NO_ACCESSIBILITY_ACCESS -> "截图权限不可用，请重新启用无障碍服务"
+                            ERROR_TAKE_SCREENSHOT_INVALID_DISPLAY -> "截图显示器不可用"
+                            else -> "请检查截图能力或安全窗口限制"
+                        }
+                        callback(Result.failure(IllegalStateException("截图失败（$errorCode）：$reason")))
+                    }
                 }
             })
         } catch (e: Exception) { callback(Result.failure(e)) }

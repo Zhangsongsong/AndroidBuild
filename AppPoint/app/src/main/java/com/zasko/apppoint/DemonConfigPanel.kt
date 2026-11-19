@@ -33,7 +33,7 @@ fun DemonConfigPanel(packageName: String) {
     androidx.compose.runtime.key(packageName, calibrationVersion) {
         val loaded = remember(packageName, calibrationVersion) { runCatching { DemonStore.load(context, packageName) } }
         val initial = loaded.getOrDefault(DemonConfig())
-        var rounds by remember(packageName) { mutableStateOf(initial.rounds.toString()) }
+        var rounds by remember(packageName) { mutableStateOf(if (initial.rounds == 0) "" else initial.rounds.toString()) }
         var skillPriority by remember(packageName) { mutableStateOf(initial.skillPriority.toList()) }
         var showPriorityEditor by remember(packageName) { mutableStateOf(false) }
         var showSavedJson by remember(packageName) { mutableStateOf(false) }
@@ -53,7 +53,7 @@ fun DemonConfigPanel(packageName: String) {
             mutableStateOf(rule.guardRegion?.let { "${it.left},${it.top},${it.right},${it.bottom}" }.orEmpty())
         } }
         val guardThresholdFields = remember(packageName) { initial.rules.map { mutableStateOf(it.guardThreshold.toString()) } }
-        var message by remember(packageName) { mutableStateOf(loaded.exceptionOrNull()?.let { "配置读取失败：${it.message}" } ?: "首次使用需配置并采集模板") }
+        var message by remember(packageName) { mutableStateOf(loaded.exceptionOrNull()?.let { "配置读取失败：${it.message}" } ?: "已加载本地配置；新配置默认使用飓风流") }
         val status = DemonRunner.status.value
         fun savePriorities(priority: List<String>) {
             check(!DemonRunner.status.value.running) { "请先暂停自动流程再保存" }
@@ -86,11 +86,14 @@ fun DemonConfigPanel(packageName: String) {
                         .onSuccess { calibrationVersion++ }
                         .onFailure { Toast.makeText(context, "加载失败：${it.message}", Toast.LENGTH_LONG).show() }
                 }) { Text("加载你提供录像的布局与模板") }
-                Text("录像布局：544×1200，从挑战列表的封魔卡片直接进入。加载名称区域、点击位置和模板，重置为一轮；保留已保存的技能顺序。其他布局请校准，首次仍需真机试跑。")
+                Text("录像布局：544×1200，从挑战列表的封魔卡片直接进入。加载名称区域、点击位置和模板，轮数重置为无限；保留已保存的技能顺序。其他布局请校准，首次仍需真机试跑。")
                 Text("Android 11+。流程：挑战 → 封魔入口 → 战斗 / 选技能 → 胜利结算 → 返回入口。")
-                Text("先保存配置，再打开悬浮窗，到游戏对应界面采集模板。默认坐标仅为占位，必须按手机画面校准。")
+                Text("封魔入口按卡片比例自动定位“进入游戏”，无需采集入口模板。其他界面请先保存配置，再从悬浮窗采集模板。")
                 Text("坐标按屏幕比例填写：左上角 0,0，右下角 1,1。区域格式：左,上,右,下；位置格式：X,Y。")
-                OutlinedTextField(rounds, { rounds = it }, label = { Text("运行轮数") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(rounds, { rounds = it }, label = { Text("运行轮数") },
+                    placeholder = { Text("无限") },
+                    supportingText = { Text("默认无限：留空或填 0；填 1~10000 可指定轮数") },
+                    modifier = Modifier.fillMaxWidth())
                 Text("流派：${if (skillBuild == SkillBuilds.HURRICANE) "飓风流" else "自定义"}")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !status.running, onClick = {
@@ -100,7 +103,7 @@ fun DemonConfigPanel(packageName: String) {
                     }) { Text("应用飓风流预设") }
                     Button(enabled = !status.running, onClick = { skillBuild = SkillBuilds.CUSTOM }) { Text("自定义") }
                 }
-                Text("预设为飓风系 → 龙卷风系 → 冰霜新星系；可在列表自由调整。实际运行只按保存的 JSON 顺序，不会强制恢复预设。")
+                Text("默认使用飓风系 → 龙卷风系 → 冰霜新星系，首次自动保存；可在列表自由调整，重启继续使用已保存的 JSON。")
                 Text("已配置 ${skillPriority.size} 项技能。前 5 项：${skillPriority.take(5).joinToString(" → ") { it.substringBefore('|') }}")
                 val skillsDirty = Triple(skillPriority, skillBuild, skillFallback) != savedSkillSettings
                 Text(if (skillsDirty) "有未保存的技能配置；运行仍使用上次保存的 JSON" else "技能列表与本地配置一致",
@@ -139,12 +142,16 @@ fun DemonConfigPanel(packageName: String) {
                     OutlinedTextField(field.value, { field.value = it }, label = { Text("技能卡 ${i + 1} 点击位置") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(cardRegionFields[i].value, { cardRegionFields[i].value = it }, label = { Text("技能卡 ${i + 1} 名称OCR区域：左,上,右,下") }, modifier = Modifier.fillMaxWidth())
                 }
-                OutlinedTextField(interval, { interval = it }, label = { Text("识别间隔（毫秒，至少 500）") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(interval, { interval = it }, label = { Text("识别间隔（毫秒，至少 2000）") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(timeout, { timeout = it }, label = { Text("普通界面超时（秒）") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(battleTimeout, { battleTimeout = it }, label = { Text("单轮战斗超时（秒）") }, modifier = Modifier.fillMaxWidth())
                 Text("每个区域选该界面独有且固定的标志。技能页选固定标题/边框，避开随机卡面；结算页只采集胜利画面。失败/不足模板可选。修改区域后需重新采集。")
                 initial.rules.forEachIndexed { i, rule ->
                     Text(rule.screen.title, style = MaterialTheme.typography.titleSmall)
+                    if (!rule.requiresTemplate) {
+                        Text("根据封魔之地卡片位置计算按钮：卡片横向 50%、纵向 83%，随列表滚动，无需模板。")
+                        return@forEachIndexed
+                    }
                     OutlinedTextField(regionFields[i].value, { regionFields[i].value = it }, label = { Text("识别区域：左,上,右,下") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(thresholdFields[i].value, { thresholdFields[i].value = it }, label = { Text("相似度阈值（0.8~1）") }, modifier = Modifier.fillMaxWidth())
                     if (rule.guardRegion != null) {
@@ -158,7 +165,7 @@ fun DemonConfigPanel(packageName: String) {
                         fun numbers(s: String, n: Int): List<Double> = s.split(',').map { it.trim().toDouble() }.also { require(it.size == n) { "坐标数量不正确" } }
                         fun point(s: String) = numbers(s, 2).let { ScreenPoint(it[0], it[1]) }
                         val config = DemonConfig(
-                            rounds = rounds.toInt(), pollMs = interval.toLong(), timeoutMs = timeout.toLong() * 1000,
+                            rounds = rounds.trim().ifEmpty { "0" }.toInt(), pollMs = interval.toLong(), timeoutMs = timeout.toLong() * 1000,
                             battleTimeoutMs = battleTimeout.toLong() * 1000,
                             skillPoints = pointFields.map { point(it.value) },
                             skillCardRegions = cardRegionFields.map { field -> numbers(field.value, 4).let { ScreenRegion(it[0], it[1], it[2], it[3]) } },

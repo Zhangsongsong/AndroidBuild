@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.google.mlkit.vision.text.TextRecognition
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import com.zasko.apppoint.overlay.OverlayController
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.io.File
 
 object DemonRunner {
     data class Status(val running: Boolean = false, val message: String = "未开始", val rounds: Int = 0)
@@ -28,6 +30,15 @@ object DemonRunner {
     private var canResume = false
     private val textRecognizer by lazy { TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()) }
 
+    private fun trace(message: String) {
+        Log.i("DemonRunner", message)
+        service?.let { context -> runCatching {
+            val log = File(context.filesDir, "demon-debug.log")
+            if (log.length() > 256 * 1024) log.writeText("")
+            log.appendText("${System.currentTimeMillis()} $message\n")
+        } }
+    }
+
     fun start(service: AutomationAccessibilityService, pkg: String) {
         if (status.value.running || captureBusy) return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) { stop("屏幕识别需要 Android 11 或以上"); return }
@@ -36,7 +47,7 @@ object DemonRunner {
         if (config.skillPriority.isEmpty()) { stop("请先选择流派或填写技能名称优先级"); return }
         val samples = runCatching { DemonStore.loadSamples(service, pkg, config.rules) }
             .getOrElse { stop(it.message ?: "模板读取失败"); return }
-        val missing = config.rules.filter { it.screen != DemonScreen.STOP && it.screen !in samples }
+        val missing = config.rules.filter { it.requiresTemplate && it.screen != DemonScreen.STOP && it.screen !in samples }
         if (missing.isNotEmpty()) { stop("请先采集模板：${missing.joinToString { it.screen.title }}"); return }
         if (!service.isTargetPackageForeground(pkg)) { stop("请先打开目标游戏，再从悬浮窗开始"); return }
         generation++
@@ -46,6 +57,7 @@ object DemonRunner {
         activeConfig = config
         flow = DemonFlow(config, SystemClock.elapsedRealtime())
         status.value = Status(true, "开始识别界面")
+        trace("start package=$pkg priority=${config.skillPriority} fallback=${config.skillFallback}")
         poll(generation, service, pkg, config, samples)
     }
 
@@ -53,6 +65,7 @@ object DemonRunner {
         canResume = resumable && flow != null
         generation++
         status.value = status.value.copy(running = false, message = message)
+        trace("stop rounds=${status.value.rounds} reason=$message")
         OverlayController.setCaptureHidden(false)
     }
 
@@ -118,6 +131,10 @@ object DemonRunner {
         if (status.value.running || captureBusy) { status.value = status.value.copy(message = "请先暂停，等待当前截图结束"); return }
         val rule = runCatching { DemonStore.load(service, pkg).rules.first { it.screen == screen } }
             .getOrElse { stop(it.message ?: "配置无效"); return }
+        if (!rule.requiresTemplate) {
+            status.value = status.value.copy(message = "封魔入口按卡片比例定位，无需采集模板")
+            return
+        }
         canResume = false
         captureBusy = true
         val token = ++generation
@@ -162,9 +179,10 @@ object DemonRunner {
                     if (token != generation) { bitmap.recycle(); captureBusy = false; return@fold }
                     worker.execute {
                         val match = runCatching {
-                            val screen = recognize(bitmap, config, samples)
+                            val detection = recognize(bitmap, config, samples)
+                            val screen = detection?.screen
                             val skills = if (screen == DemonScreen.SKILLS) recognizeSkills(bitmap, config) else emptyList()
-                            screen to skills
+                            detection to skills
                         }
                         val width = bitmap.width
                         val height = bitmap.height
@@ -172,13 +190,17 @@ object DemonRunner {
                         handler.post {
                             captureBusy = false
                             if (token != generation) return@post
-                            match.fold(onSuccess = { (screen, recognizedSkills) ->
+                            match.fold(onSuccess = { (detection, recognizedSkills) ->
+                                val screen = detection?.screen
                                 if (!service.isTargetPackageForeground(pkg)) { stop("目标游戏不在前台，已暂停", resumable = true); return@fold }
                                 val decision = flow!!.observe(screen, SystemClock.elapsedRealtime(), recognizedSkills)
                                 val statusText = if (screen == DemonScreen.SKILLS) {
                                     "技能识别：${recognizedSkills.joinToString(" / ").ifBlank { "无文字" }}"
                                 } else screen?.title ?: "未识别，等待画面稳定"
                                 val displayed = if (decision is FlowDecision.Tap) decision.label else statusText
+                                if (decision != FlowDecision.Wait || status.value.message != displayed) {
+                                    trace("screen=$screen skills=$recognizedSkills normalized=${recognizedSkills.map(SkillSelector::normalize)} decision=$decision rounds=${flow!!.completedRounds}")
+                                }
                                 status.value = Status(true, displayed, flow!!.completedRounds)
                                 when (decision) {
                                     is FlowDecision.Halt -> stop(decision.message, decision.resumable)
@@ -187,9 +209,10 @@ object DemonRunner {
                                             if (token == generation) stop("点击回调超时，已停止")
                                         }
                                         handler.postDelayed(gestureWatchdog, 3000)
+                                        val point = if (screen == DemonScreen.ENTRANCE) detection.tap ?: decision.point else decision.point
                                         service.performFlowTap(pkg,
-                                            (decision.point.x * (width - 1)).toInt(),
-                                            (decision.point.y * (height - 1)).toInt()
+                                            (point.x * (width - 1)).toInt(),
+                                            (point.y * (height - 1)).toInt()
                                         ) { success ->
                                             handler.removeCallbacks(gestureWatchdog)
                                             if (token == generation) {
@@ -213,25 +236,76 @@ object DemonRunner {
         handler.postDelayed({ poll(token, service, pkg, config, samples) }, config.pollMs)
     }
 
-    private fun recognize(image: Bitmap, config: DemonConfig, samples: Map<DemonScreen, ScreenTemplate>): DemonScreen? {
+    private data class Detection(val screen: DemonScreen, val score: Double, val tap: ScreenPoint?)
+
+    private fun recognize(image: Bitmap, config: DemonConfig, samples: Map<DemonScreen, ScreenTemplate>): Detection? {
         require(config.matchesDisplay(image.width, image.height)) { "屏幕比例与录像布局不符，请校准后再运行" }
-        val matches = config.rules.mapNotNull { rule ->
+        val matches = config.rules.filter { it.requiresTemplate }.mapNotNull { rule ->
             val template = samples[rule.screen] ?: return@mapNotNull null
-            val crop = DemonStore.crop(image, rule.region)
-            val score = try { TemplateScore.similarity(DemonStore.sample(crop), template.primary) } finally {
+            fun score(region: ScreenRegion, expected: IntArray): Double {
+                val crop = DemonStore.crop(image, region)
+                return try { TemplateScore.similarity(DemonStore.sample(crop), expected) } finally {
                 if (crop !== image) crop.recycle()
+                }
             }
-            val guardMatches = rule.guardRegion?.let { region ->
-                val expected = template.guard ?: return@mapNotNull null
-                val guard = DemonStore.crop(image, region)
-                try { TemplateScore.similarity(DemonStore.sample(guard), expected) >= rule.guardThreshold }
-                finally { if (guard !== image) guard.recycle() }
-            } ?: true
-            if (score >= rule.threshold && guardMatches) rule.screen to score else null
-        }.sortedByDescending { it.second }
+            val offsets = if (rule.verticalSearch) (-75..75).map { it * .004 } else listOf(0.0)
+            offsets.mapNotNull { offset ->
+                val shifted = rule.shifted(offset) ?: return@mapNotNull null
+                val primaryScore = score(shifted.region, template.primary)
+                if (primaryScore < rule.threshold) return@mapNotNull null
+                val guardScore = shifted.guardRegion?.let { region ->
+                    score(region, template.guard ?: return@mapNotNull null)
+                }
+                if (guardScore != null && guardScore < rule.guardThreshold) return@mapNotNull null
+                Detection(rule.screen, minOf(primaryScore, guardScore ?: primaryScore), shifted.tap)
+            }.maxByOrNull { it.score }
+        }.sortedByDescending { it.score }
         // Ambiguous classification is not sufficient evidence to inject a touch.
-        if (matches.size > 1 && matches[0].second - matches[1].second < .025) return null
-        return matches.firstOrNull()?.first
+        if (matches.size > 1 && matches[0].score - matches[1].score < .025) return null
+        return matches.firstOrNull() ?: if (config.rules.any { !it.requiresTemplate }) {
+            recognizeEntrance(image)?.let { Detection(DemonScreen.ENTRANCE, 1.0, it) }
+        } else null
+    }
+
+    internal fun recognizeEntrance(image: Bitmap): ScreenPoint? {
+        val top = (image.height * .10).toInt()
+        val crop = Bitmap.createBitmap(image, 0, top, image.width, (image.height * .69).toInt())
+        val scaled = Bitmap.createScaledBitmap(crop, 720, (crop.height * 720.0 / crop.width).toInt(), true)
+        if (crop !== scaled) crop.recycle()
+        val scale = image.width.toDouble() / scaled.width
+        var submitted = false
+        try {
+            val task = textRecognizer.process(InputImage.fromBitmap(scaled, 0))
+            task.addOnCompleteListener(worker) { scaled.recycle() }
+            submitted = true
+            val result = Tasks.await(task, 3, TimeUnit.SECONDS)
+            val labels = result.textBlocks.flatMap { it.lines }.mapNotNull { line ->
+                val box = line.boundingBox ?: return@mapNotNull null
+                ScreenText(line.text, ScreenRegion(
+                    box.left * scale / image.width, (top + box.top * scale) / image.height,
+                    box.right * scale / image.width, (top + box.bottom * scale) / image.height))
+            }
+            return EntranceLocator.find(labels, image.width, image.height)?.takeIf { hasEntranceButton(image, it) }.also {
+                if (it != null) trace("entrance proportionalTap=$it")
+            }
+        } finally {
+            if (!submitted) scaled.recycle()
+        }
+    }
+
+    /** Verify the calculated position is inside the card's gold button, without storing a template. */
+    private fun hasEntranceButton(image: Bitmap, point: ScreenPoint): Boolean {
+        var gold = 0
+        for (row in -3..3) for (column in -5..5) {
+            val x = ((point.x + column * .02) * image.width).toInt().coerceIn(0, image.width - 1)
+            val y = ((point.y + row * .005) * image.height).toInt().coerceIn(0, image.height - 1)
+            val color = image.getPixel(x, y)
+            val r = (color shr 16) and 255
+            val g = (color shr 8) and 255
+            val b = color and 255
+            if (r >= 190 && g >= 160 && b >= 100 && r >= g && g - b >= 15) gold++
+        }
+        return gold >= 40
     }
 
     private fun recognizeSkills(image: Bitmap, config: DemonConfig): List<String> =

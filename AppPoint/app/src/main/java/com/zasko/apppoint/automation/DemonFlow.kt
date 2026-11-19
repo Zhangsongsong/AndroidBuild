@@ -22,20 +22,34 @@ data class ScreenRule(
     val threshold: Double = 0.94,
     val tap: ScreenPoint? = null,
     val guardRegion: ScreenRegion? = null,
-    val guardThreshold: Double = 0.94
-)
+    val guardThreshold: Double = 0.94,
+    val verticalSearch: Boolean = false
+) {
+    val requiresTemplate: Boolean get() = !(screen == DemonScreen.ENTRANCE && verticalSearch)
+
+    fun shifted(offset: Double): ScreenRule? {
+        fun move(r: ScreenRegion) = r.copy(top = r.top + offset, bottom = r.bottom + offset)
+        val result = copy(region = move(region), guardRegion = guardRegion?.let(::move),
+            tap = tap?.let { it.copy(y = it.y + offset) })
+        return result.takeIf {
+            it.region.top >= 0 && it.region.bottom <= 1 &&
+                (it.guardRegion?.top ?: 0.0) >= 0 && (it.guardRegion?.bottom ?: 1.0) <= 1 &&
+                (it.tap?.y ?: 0.5) in 0.0..1.0
+        }
+    }
+}
 
 data class DemonConfig(
-    val rounds: Int = 1,
-    val pollMs: Long = 1000,
+    val rounds: Int = 0, // 0 means unlimited rounds.
+    val pollMs: Long = 2000,
     val timeoutMs: Long = 120_000,
     val battleTimeoutMs: Long = 600_000,
     val skillPoints: List<ScreenPoint> = listOf(ScreenPoint(.25, .55), ScreenPoint(.5, .55), ScreenPoint(.75, .55)),
     val skillCardRegions: List<ScreenRegion> = listOf(
         ScreenRegion(.05, .35, .34, .72), ScreenRegion(.355, .35, .645, .72), ScreenRegion(.66, .35, .95, .72)
     ),
-    val skillPriority: List<String> = emptyList(),
-    val skillBuild: String = SkillBuilds.CUSTOM,
+    val skillPriority: List<String> = SkillBuilds.hurricane.priority,
+    val skillBuild: String = SkillBuilds.HURRICANE,
     val skillFallback: SkillFallback = SkillFallback.RANDOM,
     val referenceAspectRatio: Double? = null,
     val rules: List<ScreenRule> = defaults()
@@ -52,8 +66,8 @@ data class DemonConfig(
     }
 
     fun validate() {
-        require(rounds in 1..10000) { "运行次数必须在 1~10000" }
-        require(pollMs in 500..10000) { "识别间隔必须在 500~10000 毫秒" }
+        require(rounds in 0..10000) { "运行轮数必须在 0~10000，0 表示无限" }
+        require(pollMs in 2000..10000) { "识别间隔必须在 2000~10000 毫秒" }
         require(timeoutMs in 10000..600000 && battleTimeoutMs in 10000..3600000) { "界面超时 10~600 秒，战斗超时 10~3600 秒" }
         require(skillPoints.size == 3) { "必须配置三个技能卡点击位置" }
         skillPoints.forEach { it.validate() }
@@ -65,6 +79,7 @@ data class DemonConfig(
         require(rules.map { it.screen }.toSet().size == rules.size) { "每个界面只能配置一条规则" }
         require(rules.map { it.screen }.containsAll(listOf(DemonScreen.ENTRANCE, DemonScreen.BATTLE, DemonScreen.SKILLS, DemonScreen.SETTLEMENT))) { "缺少入口、战斗、选卡或结算规则" }
         rules.forEach {
+            require(!it.verticalSearch || it.screen == DemonScreen.ENTRANCE) { "仅入口支持随卡片纵向定位" }
             it.region.validate()
             it.guardRegion?.validate()
             require(it.guardThreshold in .8..1.0) { "辅助识别阈值必须在 0.8~1" }
@@ -126,7 +141,7 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
     }
 
     fun observe(screen: DemonScreen?, now: Long, recognizedSkills: List<String> = emptyList()): FlowDecision {
-        if (completedRounds >= config.rounds) return FlowDecision.Halt("已完成 $completedRounds 轮")
+        if (config.rounds > 0 && completedRounds >= config.rounds) return FlowDecision.Halt("已完成 $completedRounds 轮")
         if (screen == DemonScreen.STOP) return FlowDecision.Halt("识别到失败或次数不足，请检查游戏")
         if (now >= deadline) return FlowDecision.Halt("等待界面超时，已停止")
         if (battleDeadline?.let { now >= it } == true) return FlowDecision.Halt("战斗超时，已停止")
@@ -155,14 +170,16 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
             awaitingReturn = false
             completedRounds++
             battleDeadline = null
-            if (completedRounds >= config.rounds) return FlowDecision.Halt("已完成 $completedRounds 轮")
+            if (config.rounds > 0 && completedRounds >= config.rounds) return FlowDecision.Halt("已完成 $completedRounds 轮")
         }
         if (screen == DemonScreen.BATTLE || screen == DemonScreen.SKILLS) {
             if (battleDeadline == null) battleDeadline = now + config.battleTimeoutMs
             deadline = battleDeadline!!
         } else deadline = now + config.timeoutMs
         return when (screen) {
-            DemonScreen.HOME -> click(screen, setOf(DemonScreen.CHALLENGE), config.rules.first { it.screen == screen }.tap!!)
+            DemonScreen.HOME -> click(screen,
+                if (config.rules.any { it.screen == DemonScreen.CHALLENGE }) setOf(DemonScreen.CHALLENGE, DemonScreen.ENTRANCE)
+                else setOf(DemonScreen.ENTRANCE), config.rules.first { it.screen == screen }.tap!!)
             DemonScreen.CHALLENGE -> click(screen, setOf(DemonScreen.ENTRANCE), config.rules.first { it.screen == screen }.tap!!)
             DemonScreen.ENTRANCE -> {
                 selectedSkills.clear()
@@ -193,7 +210,7 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
                 awaitingReturn = true
                 battleDeadline = null
                 deadline = now + config.timeoutMs
-                click(screen, setOf(DemonScreen.ENTRANCE), config.rules.first { it.screen == screen }.tap!!)
+                click(screen, setOf(DemonScreen.HOME, DemonScreen.ENTRANCE), config.rules.first { it.screen == screen }.tap!!)
             }
             DemonScreen.STOP -> FlowDecision.Halt("已停止")
         }

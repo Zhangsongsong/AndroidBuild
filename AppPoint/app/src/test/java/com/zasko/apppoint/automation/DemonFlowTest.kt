@@ -11,7 +11,7 @@ class DemonFlowTest {
     }
 
     @Test fun completesOnlyAfterConfirmedReturnAndSelectsConfiguredCards() {
-        val config = DemonConfig(skillPriority = listOf("冰锥", "雷电"))
+        val config = DemonConfig(rounds = 1, skillPriority = listOf("冰锥", "雷电"))
         val flow = DemonFlow(config, now)
         assertTrue(stable(flow, DemonScreen.HOME) is FlowDecision.Tap)
         assertTrue(stable(flow, DemonScreen.CHALLENGE) is FlowDecision.Tap)
@@ -74,6 +74,23 @@ class DemonFlowTest {
         assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Halt)
     }
 
+    @Test fun defaultConfigsRunBeyondFiniteRoundLimitWithoutStopping() {
+        listOf(DemonConfig(), DemonVideoPreset.config()).forEach { config ->
+            config.validate()
+            assertEquals(0, config.rounds)
+            val flow = DemonFlow(config, now)
+            assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Tap)
+            repeat(10001) { round ->
+                stable(flow, DemonScreen.BATTLE)
+                assertTrue(stable(flow, DemonScreen.SETTLEMENT) is FlowDecision.Tap)
+                assertEquals(round, flow.completedRounds)
+                assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Tap)
+                assertEquals(round + 1, flow.completedRounds)
+                assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, ++now))
+            }
+        }
+    }
+
     @Test fun resumeKeepsLatchButExtendsTimeout() {
         val flow = DemonFlow(DemonConfig(skillPriority = listOf("雷电")), now)
         stable(flow, DemonScreen.ENTRANCE)
@@ -84,7 +101,14 @@ class DemonFlowTest {
     }
 
     @Test fun validatesInputAndComparesTemplates() {
-        assertThrows(IllegalArgumentException::class.java) { DemonConfig(rounds = 0).validate() }
+        DemonConfig(rounds = 0).validate()
+        DemonConfig(rounds = 10000).validate()
+        assertEquals(2000L, DemonConfig().pollMs)
+        assertEquals(2000L, DemonVideoPreset.config().pollMs)
+        DemonConfig(pollMs = 2000).validate()
+        assertThrows(IllegalArgumentException::class.java) { DemonConfig(pollMs = 1999).validate() }
+        assertThrows(IllegalArgumentException::class.java) { DemonConfig(rounds = -1).validate() }
+        assertThrows(IllegalArgumentException::class.java) { DemonConfig(rounds = 10001).validate() }
         assertThrows(IllegalArgumentException::class.java) { DemonConfig(skillPriority = listOf("|")).validate() }
         assertThrows(IllegalArgumentException::class.java) { ScreenRegion(0.5, 0.0, 0.2, 1.0).validate() }
         assertThrows(IllegalArgumentException::class.java) { ScreenPoint(Double.NaN, .5).validate() }
@@ -203,12 +227,13 @@ class DemonFlowTest {
     }
 
     @Test fun videoPresetStartsDirectlyOnChallengeListAndFinishesAtSameEntrance() {
-        val config = DemonVideoPreset.config()
+        val config = DemonVideoPreset.config().copy(rounds = 1)
         config.validate()
-        assertFalse(config.rules.any { it.screen == DemonScreen.HOME || it.screen == DemonScreen.CHALLENGE })
+        assertTrue(config.rules.any { it.screen == DemonScreen.HOME })
+        assertFalse(config.rules.any { it.screen == DemonScreen.CHALLENGE })
         val flow = DemonFlow(config, now)
         val enter = stable(flow, DemonScreen.ENTRANCE) as FlowDecision.Tap
-        assertEquals(ScreenPoint(.50, .594), enter.point)
+        assertEquals(ScreenPoint(.50, .482), enter.point)
         stable(flow, DemonScreen.BATTLE)
         assertTrue(stable(flow, DemonScreen.SETTLEMENT) is FlowDecision.Tap)
         assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Halt)
@@ -217,6 +242,17 @@ class DemonFlowTest {
         assertTrue(config.matchesDisplay(1088, 2400))
         assertFalse(config.matchesDisplay(1200, 544))
         assertFalse(config.matchesDisplay(1080, 1920))
+    }
+
+    @Test fun entranceScrollMovesTitleEnergyGuardAndTapTogether() {
+        val rule = DemonVideoPreset.config().rules.first { it.screen == DemonScreen.ENTRANCE }
+        assertTrue(rule.verticalSearch)
+        val shifted = rule.shifted(.08)!!
+        assertEquals(rule.region.top + .08, shifted.region.top, .000001)
+        assertEquals(rule.guardRegion!!.top + .08, shifted.guardRegion!!.top, .000001)
+        assertEquals(rule.tap!!.y + .08, shifted.tap!!.y, .000001)
+        assertNull(rule.shifted(.7))
+        assertNull(rule.shifted(-.5))
     }
 
     @Test fun replayRecordedChoicesWithRequestedFamilyPriorities() {
@@ -248,5 +284,33 @@ class DemonFlowTest {
         val names = listOf("学习飓风", "学习龙卷风", "学习冰霜新星")
         assertEquals(1, SkillSelector.select(names, SkillBuilds.hurricane.priority, SkillBuilds.HURRICANE))
         assertEquals(2, SkillSelector.select(listOf("学习火球术", "学习龙卷风", "学习冰霜新星"), SkillBuilds.hurricane.priority))
+    }
+
+    @Test fun normalizesCommonOcrConfusionsBeforePriorityMatching() {
+        val priority = listOf("龙卷扩张")
+        assertEquals(2, SkillSelector.select(listOf("学习臭术飞弹", "龙巻打张", "学习闪电链"), priority))
+        assertEquals("龙卷扩张", SkillSelector.normalize("龙巻打张"))
+        assertEquals("学习奥术飞弹", SkillSelector.normalize("学习臭术飞弹"))
+    }
+
+    @Test fun newConfigUsesHurricanePriorityWithoutSetup() {
+        val config = DemonConfig()
+        assertEquals(SkillBuilds.HURRICANE, config.skillBuild)
+        assertEquals(SkillBuilds.hurricane.priority, config.skillPriority)
+        assertEquals(2, SkillSelector.select(listOf("新星伤害增幅", "飓风增幅", "龙卷扩张"), config.skillPriority))
+    }
+
+    @Test fun settlementReturnsThroughChallengeTabWithoutStartingExtraRound() {
+        val config = DemonVideoPreset.config().copy(rounds = 1)
+        val flow = DemonFlow(config, now)
+        val home = stable(flow, DemonScreen.HOME) as FlowDecision.Tap
+        assertEquals(ScreenPoint(.9, .965), home.point)
+        assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Tap)
+        stable(flow, DemonScreen.BATTLE)
+        stable(flow, DemonScreen.SETTLEMENT)
+        assertTrue(stable(flow, DemonScreen.HOME) is FlowDecision.Tap)
+        assertEquals(0, flow.completedRounds)
+        assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Halt)
+        assertEquals(1, flow.completedRounds)
     }
 }
