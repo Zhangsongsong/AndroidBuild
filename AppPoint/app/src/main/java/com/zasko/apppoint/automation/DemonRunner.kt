@@ -180,17 +180,17 @@ object DemonRunner {
                     worker.execute {
                         val match = runCatching {
                             val screenDetection = recognize(bitmap, config, samples)
-                            val failureSettlement = if (screenDetection?.screen in setOf(
+                            val dismissHint = if (screenDetection?.screen in setOf(
+                                    DemonScreen.BATTLE, DemonScreen.SKILLS
+                                ) || screenDetection == null
+                            ) recognizeDismissHint(bitmap) else null
+                            val failureSettlement = if (dismissHint == null && screenDetection?.screen in setOf(
                                     DemonScreen.BATTLE, null
                                 ) && config.rules.any { it.screen == DemonScreen.SETTLEMENT }
                             ) recognizeFailureSettlement(bitmap) else null
                             val settledDetection = failureSettlement?.let {
                                 Detection(DemonScreen.SETTLEMENT, 1.0, it)
                             } ?: screenDetection
-                            val dismissHint = if (settledDetection?.screen in setOf(
-                                    DemonScreen.BATTLE, DemonScreen.SKILLS
-                                ) || settledDetection == null
-                            ) recognizeDismissHint(bitmap) else null
                             val detection = dismissHint?.let {
                                 Detection(DemonScreen.DISMISS_OVERLAY, 1.0, it)
                             } ?: settledDetection

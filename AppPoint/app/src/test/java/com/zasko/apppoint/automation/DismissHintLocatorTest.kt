@@ -95,4 +95,23 @@ class DismissHintLocatorTest {
         }
         assertNull(DismissHintLocator.find(listOf(prompt, prompt.copy(region = ScreenRegion(.3, .90, .7, .925)))))
     }
+
+    @Test fun locatesTheNewOcrVariantAndLeadingCounterNoiseFromTheRepeatTimeout() {
+        val firstOcrPass = ScreenText("5a点去堂自处关间界面、",
+            ScreenRegion(.0083333333, .8408333333, .7037037037, .87))
+        val secondOcrPass = ScreenText("点去室自处关闭界面。",
+            ScreenRegion(.0981481481, .8408333333, .7018518519, .86875))
+        assertEquals(.3560185185, DismissHintLocator.find(listOf(firstOcrPass))!!.x, .000001)
+        assertEquals(.4, DismissHintLocator.find(listOf(secondOcrPass))!!.x, .000001)
+    }
+
+    @Test fun damagedPromptRequiresExactlyNineChineseCharacters() {
+        val region = ScreenRegion(.3, .84, .7, .865)
+        listOf("点去室自处关间界面。", "5a点去堂自处关间界面、").forEach { text ->
+            assertNotNull(text, DismissHintLocator.find(listOf(ScreenText(text, region))))
+        }
+        listOf("点去室自处关间界面额", "点去室处关间界面").forEach { text ->
+            assertNull(text, DismissHintLocator.find(listOf(ScreenText(text, region))))
+        }
+    }
 }

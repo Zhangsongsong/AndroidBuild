@@ -43,19 +43,14 @@ object DismissHintLocator {
     private fun normalize(text: String) = text.filter(Char::isLetterOrDigit)
 
     private fun matchesDamagedPrompt(line: ScreenText): Boolean {
-        val text = normalize(line.text)
-        val withoutCounter = text.dropLastWhile(Char::isDigit)
-        val suffix = "关闭界面"
-        val suffixStart = withoutCounter.lastIndexOf(suffix)
-        if (suffixStart < 0 || withoutCounter.length - suffixStart != suffix.length) return false
-
-        val prefix = withoutCounter.substring(0, suffixStart)
+        val text = line.text.filter { it in '\u4e00'..'\u9fff' }
+        if (text.length != hint.length || text[4] != '处' ||
+            editDistance(text.substring(5), "关闭界面") > 1
+        ) return false
         val centerX = (line.region.left + line.region.right) / 2
         val centerY = (line.region.top + line.region.bottom) / 2
         val width = line.region.right - line.region.left
-        return prefix.length in 4..7 && prefix.endsWith("处") &&
-            text.length - withoutCounter.length <= 6 &&
-            centerX in .3.. .7 && centerY in .75.. .93 && width in .2.. .6
+        return centerX in .25.. .75 && centerY in .75.. .93 && width in .2.. .85
     }
 
     private fun matchesSingleOcrError(line: ScreenText): Boolean {
