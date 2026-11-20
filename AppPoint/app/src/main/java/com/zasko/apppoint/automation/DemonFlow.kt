@@ -155,7 +155,8 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
         recognizedSkills: List<String> = emptyList(),
         dismissPoint: ScreenPoint? = null,
         entrancePoint: ScreenPoint? = null,
-        entrancePixelConfirmed: Boolean = false
+        entrancePixelConfirmed: Boolean = false,
+        settlementPoint: ScreenPoint? = null
     ): FlowDecision {
         if (config.rounds > 0 && completedRounds >= config.rounds) return FlowDecision.Halt("已完成 $completedRounds 轮")
         if (screen == DemonScreen.STOP) return FlowDecision.Halt("识别到失败或次数不足，请检查游戏")
@@ -253,7 +254,8 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
                 awaitingReturn = true
                 battleDeadline = null
                 deadline = now + config.timeoutMs
-                click(screen, setOf(DemonScreen.HOME, DemonScreen.ENTRANCE), config.rules.first { it.screen == screen }.tap!!)
+                click(screen, setOf(DemonScreen.HOME, DemonScreen.ENTRANCE),
+                    settlementPoint ?: config.rules.first { it.screen == screen }.tap!!)
             }
             DemonScreen.STOP -> FlowDecision.Halt("已停止")
         }

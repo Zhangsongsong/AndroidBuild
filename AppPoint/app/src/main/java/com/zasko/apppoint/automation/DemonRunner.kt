@@ -180,13 +180,20 @@ object DemonRunner {
                     worker.execute {
                         val match = runCatching {
                             val screenDetection = recognize(bitmap, config, samples)
-                            val dismissHint = if (screenDetection?.screen in setOf(
+                            val failureSettlement = if (screenDetection?.screen in setOf(
+                                    DemonScreen.BATTLE, null
+                                ) && config.rules.any { it.screen == DemonScreen.SETTLEMENT }
+                            ) recognizeFailureSettlement(bitmap) else null
+                            val settledDetection = failureSettlement?.let {
+                                Detection(DemonScreen.SETTLEMENT, 1.0, it)
+                            } ?: screenDetection
+                            val dismissHint = if (settledDetection?.screen in setOf(
                                     DemonScreen.BATTLE, DemonScreen.SKILLS
-                                ) || screenDetection == null
+                                ) || settledDetection == null
                             ) recognizeDismissHint(bitmap) else null
                             val detection = dismissHint?.let {
                                 Detection(DemonScreen.DISMISS_OVERLAY, 1.0, it)
-                            } ?: screenDetection
+                            } ?: settledDetection
                             val screen = detection?.screen
                             val skills = if (screen == DemonScreen.SKILLS) recognizeSkills(bitmap, config) else emptyList()
                             detection to skills
@@ -206,7 +213,8 @@ object DemonRunner {
                                     recognizedSkills,
                                     dismissPoint = detection?.takeIf { screen == DemonScreen.DISMISS_OVERLAY }?.tap,
                                     entrancePoint = detection?.takeIf { screen == DemonScreen.ENTRANCE }?.tap,
-                                    entrancePixelConfirmed = detection?.entrancePixelConfirmed == true
+                                    entrancePixelConfirmed = detection?.entrancePixelConfirmed == true,
+                                    settlementPoint = detection?.takeIf { screen == DemonScreen.SETTLEMENT }?.tap
                                 )
                                 val statusText = if (screen == DemonScreen.SKILLS) {
                                     "技能识别：${recognizedSkills.joinToString(" / ").ifBlank { "无文字" }}"
@@ -287,6 +295,40 @@ object DemonRunner {
             }
             val point = DismissHintLocator.find(lines)
             trace("dismiss point=$point lines=$lines")
+            return point
+        } finally {
+            if (!submitted) scaled.recycle()
+        }
+    }
+
+    private fun recognizeFailureSettlement(image: Bitmap): ScreenPoint? {
+        val top = (image.height * .12).toInt()
+        val bottom = (image.height * .96).toInt()
+        val crop = Bitmap.createBitmap(image, 0, top, image.width, bottom - top)
+        val scaledWidth = minOf(image.width, 1080)
+        val scaled = Bitmap.createScaledBitmap(
+            crop, scaledWidth, (crop.height * scaledWidth.toDouble() / crop.width).toInt(), true
+        )
+        if (crop !== scaled && crop !== image) crop.recycle()
+        val scaleX = image.width.toDouble() / scaled.width
+        val scaleY = (bottom - top).toDouble() / scaled.height
+        var submitted = false
+        try {
+            val task = textRecognizer.process(InputImage.fromBitmap(scaled, 0))
+            task.addOnCompleteListener(worker) { scaled.recycle() }
+            submitted = true
+            val result = Tasks.await(task, 3, TimeUnit.SECONDS)
+            val lines = result.textBlocks.flatMap { it.lines }.mapNotNull { line ->
+                val box = line.boundingBox ?: return@mapNotNull null
+                ScreenText(line.text, ScreenRegion(
+                    box.left * scaleX / image.width,
+                    (top + box.top * scaleY) / image.height,
+                    box.right * scaleX / image.width,
+                    (top + box.bottom * scaleY) / image.height
+                ))
+            }
+            val point = FailureSettlementLocator.find(lines)
+            trace("failure settlement point=$point lines=$lines")
             return point
         } finally {
             if (!submitted) scaled.recycle()

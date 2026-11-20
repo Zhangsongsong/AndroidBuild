@@ -74,6 +74,22 @@ class DemonFlowTest {
         assertEquals(0, flow.completedRounds)
     }
 
+    @Test fun failureSettlementUsesDetectedConfirmPositionAndCountsOnReturn() {
+        val flow = DemonFlow(DemonConfig(rounds = 1), now)
+        stable(flow, DemonScreen.ENTRANCE)
+        stable(flow, DemonScreen.BATTLE)
+        val point = checkNotNull(FailureSettlementLocator.find(listOf(
+            ScreenText("失败", ScreenRegion(.39, .20, .61, .26)),
+            ScreenText("确定", ScreenRegion(.43, .78, .57, .82))
+        )))
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.SETTLEMENT, ++now, settlementPoint = point))
+        assertEquals(FlowDecision.Tap(point, "胜利结算"),
+            flow.observe(DemonScreen.SETTLEMENT, ++now, settlementPoint = point))
+        assertEquals(0, flow.completedRounds)
+        assertTrue(stable(flow, DemonScreen.ENTRANCE) is FlowDecision.Halt)
+        assertEquals(1, flow.completedRounds)
+    }
+
     @Test fun dismissesRouletteWhenStartingOnItsScreen() {
         val flow = DemonFlow(DemonConfig(), now)
         val point = ScreenPoint(.50, .855)
