@@ -71,4 +71,28 @@ class DismissHintLocatorTest {
         assertNull(DismissHintLocator.find(listOf(left,
             ScreenText("关闭界面", ScreenRegion(.70, .845, .86, .865)))))
     }
+
+    @Test fun locatesTheDamagedRouletteInstructionFromTheXiaomiTimeoutLog() {
+        val region = ScreenRegion(.30185185185185187, .8420833333333333,
+            .7064814814814815, .86375)
+        val counter = ScreenText("621", ScreenRegion(.7138888888888889, .8616666666666667,
+            .7703703703703704, .8754166666666666))
+        listOf("点太堂自处关闭界面3", "点太堂自处关闭界面3621", "点击空白处关闭界面3").forEach { text ->
+            val point = DismissHintLocator.find(listOf(ScreenText(text, region), counter))
+            assertNotNull(text, point)
+            assertEquals(.5041666667, point!!.x, .000001)
+            assertEquals(.8529166667, point.y, .000001)
+        }
+    }
+
+    @Test fun damagedWordingNeedsTheLowerCenteredInstructionLayoutAndUniqueMatch() {
+        val prompt = ScreenText("点太堂自处关闭界面3", ScreenRegion(.3, .84, .7, .865))
+        assertNull(DismissHintLocator.find(listOf(prompt.copy(region = ScreenRegion(.3, .3, .7, .325)))))
+        assertNull(DismissHintLocator.find(listOf(prompt.copy(region = ScreenRegion(.04, .84, .3, .865)))))
+        assertNull(DismissHintLocator.find(listOf(prompt.copy(region = ScreenRegion(.48, .84, .52, .865)))))
+        listOf("关闭界面", "点太堂自处开启界面3", "点击按钮关闭界面", "领取奖励关闭界面").forEach { text ->
+            assertNull(text, DismissHintLocator.find(listOf(prompt.copy(text = text))))
+        }
+        assertNull(DismissHintLocator.find(listOf(prompt, prompt.copy(region = ScreenRegion(.3, .90, .7, .925)))))
+    }
 }

@@ -31,7 +31,8 @@ object SkillBuilds {
         hurricaneSkills + tornadoSkills + frostNovaSkills)
     val fireballSkills = listOf(
         "学习火球术|学习火球|解锁火球术|火球术", "火球术爆发|火球爆发", "爆破", "炎爆术", "渗透",
-        "爆燃", "猛烈燃烧", "传火", "火球冲击", "烈焰火球", "冲击", "火花", "连发"
+        "爆燃", "猛烈燃烧", "传火", "火球冲击", "烈焰火球", "冲击", "火花", "连发",
+        "学习连珠火球|解锁连珠火球|连珠火球"
     )
     val fireball = SkillBuild(FIREBALL, "火球流", fireballSkills)
     val builtIns = listOf(hurricane, fireball)
@@ -57,6 +58,7 @@ object SkillSelector {
             .replace('巻', '卷')
         return when {
             compact == "学习臭术飞弹" || compact == "解锁臭术飞弹" -> compact.replace("臭术", "奥术")
+            compact == "炎燥术" || compact == "学习炎燥术" || compact == "解锁炎燥术" -> compact.replace("燥", "爆")
             compact.contains("龙卷") && compact.contains("打张") -> compact.replace("打张", "扩张")
             else -> compact
         }

@@ -48,6 +48,25 @@ class DemonFlowTest {
         assertEquals(0, flow.completedRounds)
     }
 
+    @Test fun xiaomiRouletteLogClosesAfterTwoChecksInsteadOfTimingOutAsBattle() {
+        val flow = DemonFlow(DemonConfig(), now)
+        stable(flow, DemonScreen.ENTRANCE)
+        stable(flow, DemonScreen.BATTLE)
+        val point = DismissHintLocator.find(listOf(ScreenText("点太堂自处关闭界面3",
+            ScreenRegion(.30185185185185187, .8420833333333333, .7064814814814815, .86375))))
+        assertNotNull(point)
+        now += 2000
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.DISMISS_OVERLAY, now, dismissPoint = point))
+        now += 2000
+        assertEquals(FlowDecision.Tap(point!!, "关闭提示界面"),
+            flow.observe(DemonScreen.DISMISS_OVERLAY, now, dismissPoint = point))
+        now += 2000
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.DISMISS_OVERLAY, now, dismissPoint = point))
+        assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.BATTLE))
+        assertEquals(0, flow.completedRounds)
+        assertTrue(flow.confirmedSkills.isEmpty())
+    }
+
     @Test fun rejectsSingleFrameAndOutOfOrderSettlement() {
         val flow = DemonFlow(DemonConfig(skillPriority = listOf("雷电")), now)
         assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.ENTRANCE, ++now))

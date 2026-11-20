@@ -31,6 +31,19 @@ class SkillCatalogTest {
             SkillBuilds.fireball.priority,
             SkillBuilds.FIREBALL
         ))
+        assertTrue(SkillCatalog.groups(emptyList()).last().skills.contains("学习连珠火球|解锁连珠火球|连珠火球"))
+        assertEquals(1, SkillSelector.select(
+            listOf("学习连珠火球", "学习冰霜新星", "风暴聚集"),
+            SkillBuilds.fireball.priority,
+            SkillBuilds.FIREBALL
+        ))
+    }
+
+    @Test fun fireballPriorityMatchesTheObservedOcrConfusionForFlameBurst() {
+        val priority = listOf("炎爆术", "连珠火球")
+        assertEquals("炎爆术", SkillSelector.normalize("炎燥术"))
+        assertEquals(1, SkillSelector.select(listOf("炎燥术", "连珠火球", "稳定光线"), priority))
+        assertEquals(2, SkillSelector.select(listOf("稳定光线", "炎燥术", "连珠火球"), priority))
     }
 
     @Test fun removedCustomSkillsRemainAvailableDuringEditing() {

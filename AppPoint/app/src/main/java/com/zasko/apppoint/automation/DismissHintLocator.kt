@@ -31,11 +31,7 @@ object DismissHintLocator {
         }
         val exact = candidates.filter { normalize(it.text).contains(hint) }
         val matches = if (exact.isNotEmpty()) exact else candidates.filter { line ->
-            val text = normalize(line.text)
-            // Permit one OCR substitution/omission, but retain two independent wording anchors.
-            ((text.contains("点击") && text.contains("关闭")) ||
-                (text.contains("空白") && text.contains("界面"))) &&
-                text.length in hint.length - 1..hint.length + 1 && editDistance(text, hint) <= 1
+            matchesDamagedPrompt(line) || matchesSingleOcrError(line)
         }
         val line = matches.singleOrNull() ?: return null
         val centerX = (line.region.left + line.region.right) / 2
@@ -45,6 +41,31 @@ object DismissHintLocator {
     }
 
     private fun normalize(text: String) = text.filter(Char::isLetterOrDigit)
+
+    private fun matchesDamagedPrompt(line: ScreenText): Boolean {
+        val text = normalize(line.text)
+        val withoutCounter = text.dropLastWhile(Char::isDigit)
+        val suffix = "关闭界面"
+        val suffixStart = withoutCounter.lastIndexOf(suffix)
+        if (suffixStart < 0 || withoutCounter.length - suffixStart != suffix.length) return false
+
+        val prefix = withoutCounter.substring(0, suffixStart)
+        val centerX = (line.region.left + line.region.right) / 2
+        val centerY = (line.region.top + line.region.bottom) / 2
+        val width = line.region.right - line.region.left
+        return prefix.length in 4..7 && prefix.endsWith("处") &&
+            text.length - withoutCounter.length <= 6 &&
+            centerX in .3.. .7 && centerY in .75.. .93 && width in .2.. .6
+    }
+
+    private fun matchesSingleOcrError(line: ScreenText): Boolean {
+        val text = normalize(line.text).dropLastWhile(Char::isDigit)
+        if (((text.contains("点击") && text.contains("关闭")) ||
+                (text.contains("空白") && text.contains("界面"))) &&
+            text.length in hint.length - 1..hint.length + 1 && editDistance(text, hint) <= 1
+        ) return true
+        return false
+    }
 
     private fun editDistance(left: String, right: String): Int {
         var previous = IntArray(right.length + 1) { it }
