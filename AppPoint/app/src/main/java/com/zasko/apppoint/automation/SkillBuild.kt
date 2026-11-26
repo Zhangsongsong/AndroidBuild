@@ -56,6 +56,7 @@ object SkillSelector {
         val compact = Normalizer.normalize(value, Normalizer.Form.NFKC)
             .lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
             .replace('巻', '卷')
+            .replace('増', '增')
         return when {
             compact == "学习臭术飞弹" || compact == "解锁臭术飞弹" -> compact.replace("臭术", "奥术")
             compact == "炎燥术" || compact == "学习炎燥术" || compact == "解锁炎燥术" -> compact.replace("燥", "爆")

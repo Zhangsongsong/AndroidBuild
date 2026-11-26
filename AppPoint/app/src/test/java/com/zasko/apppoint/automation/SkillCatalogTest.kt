@@ -46,6 +46,12 @@ class SkillCatalogTest {
         assertEquals(2, SkillSelector.select(listOf("稳定光线", "炎燥术", "连珠火球"), priority))
     }
 
+    @Test fun hurricanePriorityMatchesJapaneseVariantCharacterInHurricaneAmplification() {
+        val cards = listOf("强袭龙卷", "飓风増幅", "龙卷风延续")
+        assertEquals("飓风增幅", SkillSelector.normalize("飓风増幅"))
+        assertEquals(2, SkillSelector.select(cards, SkillBuilds.hurricane.priority, SkillBuilds.HURRICANE))
+    }
+
     @Test fun removedCustomSkillsRemainAvailableDuringEditing() {
         val custom = "自定技能|自定义别名"
         val groups = SkillCatalog.groups(listOf(custom, custom))
