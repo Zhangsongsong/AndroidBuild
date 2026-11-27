@@ -90,13 +90,18 @@ object SkillSelector {
         }
     }
 
+    internal fun isLearningSkill(name: String): Boolean = normalize(name).contains("学习")
+
     fun fallback(names: List<String>, build: String, selected: List<String>, mode: SkillFallback,
         random: kotlin.random.Random = kotlin.random.Random.Default): Int? {
         if (names.size != 3 || names.any { normalize(it).isEmpty() }) return null
         val valid = names.indices.filter { !SkillBuilds.excludes(build, names[it], selected) }
+        // Prefer stacking an existing skill when none of the configured priorities matched.
+        val upgrades = valid.filterNot { isLearningSkill(names[it]) }
+        val candidates = upgrades.ifEmpty { valid }
         return when (mode) {
-            SkillFallback.RANDOM -> valid.takeIf { it.isNotEmpty() }?.random(random)?.plus(1)
-            SkillFallback.LEFTMOST -> if (0 in valid) 1 else null
+            SkillFallback.RANDOM -> candidates.takeIf { it.isNotEmpty() }?.random(random)?.plus(1)
+            SkillFallback.LEFTMOST -> candidates.firstOrNull()?.plus(1)
             SkillFallback.PAUSE -> null
         }
     }

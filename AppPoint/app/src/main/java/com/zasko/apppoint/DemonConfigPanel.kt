@@ -143,8 +143,8 @@ fun DemonConfigPanel(packageName: String) {
                 Text("上方显示已选顺序，点选后可上移、下移、置顶或编辑；下方按技能类型展示卡片，点击加入或移除。改完保存到本地 JSON，取消不保存。")
                 Button(enabled = !status.running, onClick = {
                     skillFallback = SkillFallback.entries[(skillFallback.ordinal + 1) % SkillFallback.entries.size]
-                }) { Text("无匹配技能：${when (skillFallback) { SkillFallback.RANDOM -> "随机一张"; SkillFallback.LEFTMOST -> "选左边第一张"; SkillFallback.PAUSE -> "暂停" }}（点此切换）") }
-                Text("文字为空或识别不稳定时不会触发随机兜底。")
+                }) { Text("无匹配技能：${when (skillFallback) { SkillFallback.RANDOM -> "随机一张"; SkillFallback.LEFTMOST -> "选最靠左的候选"; SkillFallback.PAUSE -> "暂停" }}（点此切换）") }
+                Text("无匹配且自动兜底时，先选不带“学习”的升级卡；全部是新技能时再从中选择。暂停模式、空白或不稳定识别均不自动选卡。")
                 Button(enabled = !status.running && skillPriority.isNotEmpty(), onClick = {
                     runCatching { savePriorities(skillPriority) }
                         .onFailure { message = "保存失败：${it.message}" }

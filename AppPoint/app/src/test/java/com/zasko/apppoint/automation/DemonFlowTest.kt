@@ -319,7 +319,7 @@ class DemonFlowTest {
         val flow = DemonFlow(config, now)
         val tap = stable(flow, DemonScreen.SKILLS, listOf("火球术", "冰锥术", "雷击术")) as FlowDecision.Tap
         assertEquals(config.skillPoints[0], tap.point)
-        assertTrue(tap.label.contains("左卡"))
+        assertTrue(tap.label.contains("最靠左候选第 1 张"))
         val unreadable = DemonFlow(config, now)
         assertTrue(stable(unreadable, DemonScreen.SKILLS, listOf("", "飓风术", "雷击术")) is FlowDecision.Halt)
     }
@@ -329,6 +329,27 @@ class DemonFlowTest {
         assertEquals(3, SkillSelector.select(listOf("冰霜新星", "龙卷风", "飓风增幅"), priority, SkillBuilds.HURRICANE))
         assertEquals(2, SkillSelector.select(listOf("绝对零度", "强力龙卷", "火球术"), priority, SkillBuilds.HURRICANE))
         assertEquals(1, SkillSelector.select(listOf("连环霜爆", "雷击术", "火球术"), priority, SkillBuilds.HURRICANE))
+    }
+
+    @Test fun sixthLoggedChoiceStacksAnUpgradeAfterStableOcrInsteadOfLearningANewSkill() {
+        val config = DemonVideoPreset.config()
+        val flow = DemonFlow(config, now, kotlin.random.Random(5))
+        val cards = listOf("连环霸爆燥", "学习雪击", "学习飞轮鋸")
+        assertEquals(FlowDecision.Wait, flow.observe(DemonScreen.SKILLS, ++now, cards))
+        val tap = flow.observe(DemonScreen.SKILLS, ++now, cards) as FlowDecision.Tap
+        assertEquals(config.skillPoints[0], tap.point)
+        assertTrue(tap.label.contains("优先升级已学技能"))
+        assertTrue(tap.label.endsWith("连环霸爆燥"))
+        assertEquals(FlowDecision.Wait, stable(flow, DemonScreen.SKILLS, cards))
+    }
+
+    @Test fun explicitLearningPriorityStillTakesPrecedenceOverTheUpgradeFallback() {
+        val config = DemonConfig(skillPriority = listOf("学习飓风术"))
+        val flow = DemonFlow(config, now)
+        val tap = stable(flow, DemonScreen.SKILLS,
+            listOf("陨石连击", "学习飓风术", "激光延续")) as FlowDecision.Tap
+        assertEquals(config.skillPoints[1], tap.point)
+        assertTrue(tap.label.startsWith("优先选择第 2 张"))
     }
 
     @Test fun randomFallbackCanChooseAnyCardAndNeverConflictingCards() {

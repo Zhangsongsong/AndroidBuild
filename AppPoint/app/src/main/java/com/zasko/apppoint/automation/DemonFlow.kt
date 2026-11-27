@@ -247,8 +247,14 @@ class DemonFlow(private val config: DemonConfig, startedAt: Long, private val ra
                 }
                 pendingSkill = recognizedSkills[card - 1]
                 val decision = click(screen, setOf(DemonScreen.BATTLE, DemonScreen.SETTLEMENT, DemonScreen.DISMISS_OVERLAY), config.skillPoints[card - 1])
-                (decision as FlowDecision.Tap).copy(label =
-                    "${if (preferred == null) (if (config.skillFallback == SkillFallback.RANDOM) "未匹配优先级，随机选第 $card 张" else "未匹配优先级，选左卡") else "优先选择第 $card 张"}：${recognizedSkills[card - 1]}")
+                val reason = if (preferred != null) "优先选择第 $card 张" else {
+                    val pool = if (SkillSelector.isLearningSkill(recognizedSkills[card - 1]))
+                        "可选项均为新技能" else "优先升级已学技能"
+                    val action = if (config.skillFallback == SkillFallback.RANDOM)
+                        "随机选第 $card 张" else "选最靠左候选第 $card 张"
+                    "未匹配优先级，$pool，$action"
+                }
+                (decision as FlowDecision.Tap).copy(label = "$reason：${recognizedSkills[card - 1]}")
             }
             DemonScreen.SETTLEMENT -> {
                 awaitingReturn = true
